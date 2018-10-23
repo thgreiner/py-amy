@@ -3,6 +3,10 @@ from py_amy.engine.constants import *
 INITIAL_POSITON = 'RNBQKBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbqkbnr w KQkq -'
 
 class Board:
+    """
+    Represents a chess board.
+    """
+
     def __init__(self, epd = INITIAL_POSITON):
         self.pieces = [
             Piece.KING, None, Piece.KING, None, None, None, None, None,
