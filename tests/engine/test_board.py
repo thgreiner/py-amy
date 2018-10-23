@@ -10,5 +10,15 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(Piece.PAWN, piece)
         self.assertEqual(Color.WHITE, color)
 
+    def testFromEPD(self):
+        board = Board("K1k5/8/8/8/8/8/8/8/8 w - -")
+        piece, color = board.get(0)
+        self.assertEqual(Piece.KING, piece)
+        self.assertEqual(Color.WHITE, color)
+        piece, color = board.get(2)
+        self.assertEqual(Piece.KING, piece)
+        self.assertEqual(Color.BLACK, color)
+
+
 if __name__ == '__main__':
     unittest.main()
