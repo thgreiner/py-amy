@@ -10,6 +10,5 @@ setup(
     author='Thorsten Greiner',
     author_email='thorsten.greiner@posteo.de',
     url='https://github.com/thgreiner/py-amy',
-    packages=find_packages(package_path),
-    package_dir={'': package_path},
+    packages=[ 'py_amy.engine' ]
 )
