@@ -32,21 +32,23 @@ COLOR_BY_NAME = {
     'K': Color.WHITE,
 }
 
-def piecesFor(c):
-    for s in c:
+def iterateSingleRow(row, d):
+    column_count = 0
+    for s in row:
         if s >= '1' and s <= '8':
             for i in range(int(s)):
+                column_count += 1
                 yield None
         else:
-            yield PIECE_BY_NAME[s]
+            column_count += 1
+            yield d[s]
+    while column_count < 8:
+        column_count += 1
+        yield None
 
-def colorsFor(c):
-    for s in c:
-        if s >= '1' and s <= '8':
-            for i in range(int(s)):
-                yield None
-        else:
-            yield COLOR_BY_NAME[s]
+def iterateRows(rows, d):
+    for row in rows:
+        yield from iterateSingleRow(row, d)
 
 class Board:
     """
@@ -56,9 +58,11 @@ class Board:
     def __init__(self, epd = INITIAL_POSITON):
         t = epd.split(' ')
         pcs = t[0].split('/')
+        while len(pcs) < 8:
+            pcs.append('8')
         pcs.reverse()
-        self.pieces = list(piecesFor("".join(pcs)))
-        self.colors = list(colorsFor("".join(pcs)))
+        self.pieces = list(iterateRows(pcs, PIECE_BY_NAME))
+        self.colors = list(iterateRows(pcs, COLOR_BY_NAME))
 
     def get(self, idx):
         return (self.pieces[idx], self.colors[idx])

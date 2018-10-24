@@ -59,6 +59,31 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(Piece.KING, piece)
         self.assertEqual(Color.BLACK, color)
 
+    def testFromBrokenEPD(self):
+        board = Board("1/2/3/4/5/6/7/K1k w - -")
+        piece, color = board.get(0)
+        self.assertEqual(Piece.KING, piece)
+        self.assertEqual(Color.WHITE, color)
+        piece, color = board.get(2)
+        self.assertEqual(Piece.KING, piece)
+        self.assertEqual(Color.BLACK, color)
+        for i in range(3, 64):
+            piece, color = board.get(i)
+            self.assertIsNone(piece)
+            self.assertIsNone(color)
+
+    def testFromBrokenEPD(self):
+        board = Board("2/3/4/5/6/7/K1k w - -")
+        piece, color = board.get(8)
+        self.assertEqual(Piece.KING, piece)
+        self.assertEqual(Color.WHITE, color)
+        piece, color = board.get(10)
+        self.assertEqual(Piece.KING, piece)
+        self.assertEqual(Color.BLACK, color)
+        for i in range(11, 64):
+            piece, color = board.get(i)
+            self.assertIsNone(piece)
+            self.assertIsNone(color)
 
 if __name__ == '__main__':
     unittest.main()
