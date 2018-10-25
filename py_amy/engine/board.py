@@ -50,6 +50,10 @@ def iterateRows(rows, d):
     for row in rows:
         yield from iterateSingleRow(row, d)
 
+class InvalidEpdpError(Exception):
+    def __init__(self, message):
+        self.message = message
+
 class Board:
     """
     Represents a chess board.
@@ -63,6 +67,15 @@ class Board:
         pcs.reverse()
         self.pieces = list(iterateRows(pcs, PIECE_BY_NAME))
         self.colors = list(iterateRows(pcs, COLOR_BY_NAME))
+        if t[1] == 'w':
+            self.sideToMove = Color.WHITE
+        elif t[1] == 'b':
+            self.sideToMove = Color.BLACK
+        else:
+            raise InvalidEpdpError("Side to move must be 'w' or 'b'.")
 
     def get(self, idx):
         return (self.pieces[idx], self.colors[idx])
+
+    def getSideToMove(self):
+        return self.sideToMove

@@ -1,6 +1,6 @@
 import unittest
 
-from py_amy.engine.board import Board
+from py_amy.engine.board import Board, InvalidEpdpError
 from py_amy.engine.constants import *
 
 class BoardTests(unittest.TestCase):
@@ -84,6 +84,15 @@ class BoardTests(unittest.TestCase):
             piece, color = board.get(i)
             self.assertIsNone(piece)
             self.assertIsNone(color)
+
+    def testSideToMove(self):
+        board = Board()
+        self.assertEqual(Color.WHITE, board.getSideToMove())
+        board = Board("8/8/8/8/8/8/8/8/K1k5 b - -")
+        self.assertEqual(Color.BLACK, board.getSideToMove())
+        with self.assertRaises(InvalidEpdpError):
+            board = Board("8/8/8/8/8/8/8/8/K1k5 x - -")
+
 
 if __name__ == '__main__':
     unittest.main()
