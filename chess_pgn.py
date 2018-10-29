@@ -4,7 +4,7 @@ import numpy as np
 import chess.pgn
 import time
 
-POSITIONS_TO_LEARN_APRIORI = 900000
+POSITIONS_TO_LEARN_APRIORI = 300000
 
 SIZE_PER_COLOR = 49 + 5 * 65
 SIZE = 2 * SIZE_PER_COLOR + 3
@@ -26,11 +26,14 @@ model1 = keras.Sequential([
 ])
 
 model2 = keras.Sequential([
-    keras.layers.Dense(1048, activation=tf.nn.relu, input_shape=(SIZE, )),
+    keras.layers.Dense(512, input_shape=(SIZE, )),
+    keras.layers.LeakyReLU(),
     keras.layers.Dropout(0.2),
-    keras.layers.Dense(500, activation=tf.nn.relu),
+    keras.layers.Dense(128),
+    keras.layers.LeakyReLU(),
     keras.layers.Dropout(0.2),
-    keras.layers.Dense(50, activation=tf.nn.relu),
+    keras.layers.Dense(32),
+    keras.layers.LeakyReLU(),
     keras.layers.Dense(1)
 ])
 
