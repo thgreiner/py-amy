@@ -26,11 +26,11 @@ model1 = keras.Sequential([
 ])
 
 model2 = keras.Sequential([
-    keras.layers.Dense(100, input_shape=(SIZE, )),
+    keras.layers.Dense(1048, activation=tf.nn.relu, input_shape=(SIZE, )),
     keras.layers.Dropout(0.2),
-    keras.layers.Dense(70),
-    keras.layers.Dropout(0.1),
-    keras.layers.Dense(30),
+    keras.layers.Dense(500, activation=tf.nn.relu),
+    keras.layers.Dropout(0.2),
+    keras.layers.Dense(50, activation=tf.nn.relu),
     keras.layers.Dense(1)
 ])
 
@@ -38,12 +38,12 @@ opt1 = tf.train.AdamOptimizer()
 opt2 = tf.train.RMSPropOptimizer(0.001)
 
 model1.compile(optimizer=opt1,
-              loss='mean_squared_error',
-              metrics=['mae'])
+               loss='mean_squared_error',
+               metrics=['mae'])
 
-model2.compile(optimizer=opt2,
-              loss='mean_squared_error',
-              metrics=['mae'])
+model2.compile(optimizer=opt1,
+               loss='mean_squared_error',
+               metrics=['mae'])
 
 
 def label_for_result(result):
@@ -53,8 +53,10 @@ def label_for_result(result):
         return -1
     return 0
 
+
 def phasing(label, moves_in_game, current_move):
     return label / (1.0 + min(20, moves_in_game - current_move))
+
 
 def get_offset(square, piece_type):
     if piece_type == 1:
@@ -62,7 +64,9 @@ def get_offset(square, piece_type):
     else:
         return 49 + (piece_type - 2) * 65 + square
 
+
 eval_buf = np.ndarray((SIZE,))
+
 
 def board_to_array(b):
     global eval_buf
@@ -89,6 +93,7 @@ def board_to_array(b):
     eval_buf[SIZE - 3] = total_pieces
     return eval_buf
 
+
 def evaluate(board, model):
     input = board_to_array(board)
     score = model.predict([input.reshape(1, SIZE)])[0][0]
@@ -96,7 +101,9 @@ def evaluate(board, model):
         score = -score
     return score
 
+
 nodes = 0
+
 
 def qsearch(b, alpha, beta, model, ply = 0):
     global nodes
@@ -127,11 +134,13 @@ def qsearch(b, alpha, beta, model, ply = 0):
 
     return score
 
+
 def move_score(move, board, model):
     board.push(move)
     score = evaluate(board, model)
     board.pop()
     return score
+
 
 def search(b, alpha, beta, model, ply):
     if ply == 0:
@@ -148,7 +157,7 @@ def search(b, alpha, beta, model, ply):
             return -999
 
     l.sort(key = lambda m: move_score(m, b, model))
-    max = -1000
+    max_score = -1000
     for move in l:
         b.push(move)
         if b.is_fivefold_repetition():
@@ -156,13 +165,14 @@ def search(b, alpha, beta, model, ply):
         else:
             score = -search(b, -beta, -alpha, model, ply-1)
         b.pop()
-        if score > max:
-            max = score
-        if max >= beta:
-            return max
-        if max > alpha:
-            alpha = max
-    return max
+        if score > max_score:
+            max_score = score
+        if max_score >= beta:
+            return max_score
+        if max_score > alpha:
+            alpha = max_score
+    return max_score
+
 
 def select_move(b, model):
     global nodes
@@ -240,8 +250,8 @@ print(i)
 offset = npos
 while True:
 
-    model1.fit(train_data, train_labels, epochs=5)
-    model2.fit(train_data, train_labels, epochs=5)
+    model1.fit(train_data, train_labels, batch_size=128, epochs=3)
+    model2.fit(train_data, train_labels, batch_size=128, epochs=3)
 
     b = Board()
     while not b.is_game_over():
