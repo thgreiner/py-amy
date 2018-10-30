@@ -3,7 +3,7 @@ from chess import Board, Move, Piece
 import random
 import numpy as np
 import chess.pgn
-import time
+from searcher import Searcher
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
 POSITIONS_TO_LEARN_APRIORI = 562
@@ -12,8 +12,6 @@ SIZE_PER_COLOR = 49 + 5 * 65
 SIZE = 2 * SIZE_PER_COLOR + 3
 
 OPENING = -1
-
-TIME_LIMIT = 1
 
 # TensorFlow and tf.keras
 import tensorflow as tf
@@ -111,119 +109,6 @@ def evaluate(board, model):
 nodes = 0
 
 
-def qsearch(b, alpha, beta, model, ply = 0):
-    global nodes
-    nodes += 1
-
-    if b.is_checkmate():
-        return -999
-    if b.is_stalemate() or b.is_insufficient_material():
-        return 0
-
-    # print("{} qsearch({}, {})".format("  " * ply, alpha, beta))
-    score = evaluate(b, model)
-
-    if score >= beta or ply > 1:
-        return score
-    if score > alpha:
-        alpha = score
-    for move in b.generate_legal_captures():
-        b.push(move)
-        t = -qsearch(b, -beta, -alpha, model, ply + 1)
-        b.pop()
-        if (t > score):
-            score = t
-            if score >= beta:
-                return score
-            if score > alpha:
-                alpha = score
-
-    return score
-
-
-def move_score(move, board, model):
-    board.push(move)
-    score = evaluate(board, model)
-    board.pop()
-    return score
-
-
-def search(b, alpha, beta, model, ply):
-    if ply == 0:
-        return qsearch(b, alpha, beta, model)
-
-    global nodes
-    nodes += 1
-
-    if b.is_insufficient_material():
-        return 0
-
-    l = list(b.generate_legal_moves())
-    if len(l) == 0:
-        if b.is_stalemate():
-            return 0
-        if b.is_checkmate():
-            return -999
-
-    l.sort(key = lambda m: move_score(m, b, model))
-    max_score = -1000
-    for move in l:
-        b.push(move)
-        if b.is_fivefold_repetition():
-            score = 0
-        else:
-            score = -search(b, -beta, -alpha, model, ply-1)
-        b.pop()
-        if score > max_score:
-            max_score = score
-        if max_score >= beta:
-            return max_score
-        if max_score > alpha:
-            alpha = max_score
-    return max_score
-
-
-def select_move(b, model):
-    global nodes
-    l = list(b.generate_legal_moves())
-    if len(l) == 1:
-        return l[0]
-    l.sort(key = lambda m: move_score(m, b, model))
-    it_start_time = time.perf_counter()
-    for depth in range(1, 10):
-        max = -1000
-        best_move = None
-        for move in l:
-            nodes = 0
-            start_time = time.perf_counter()
-            b.push(move)
-            if b.is_fivefold_repetition():
-                score = 0
-            else:
-                score = -search(b, -1000, -max, model, depth-1)
-            b.pop()
-            end_time = time.perf_counter()
-
-            if best_move is None or score > max:
-                max = score
-                best_move = move
-                l.remove(move)
-                l.insert(0, move)
-            print("{}: [{}] {} with score {:.4f} nodes: {}, {} nodes/sec".format(
-                depth,
-                b.san(best_move), b.san(move), score, nodes, int(nodes / (end_time - start_time))),
-                end = '\r')
-            it_end_time = time.perf_counter()
-            if (it_end_time - it_start_time) >= TIME_LIMIT:
-                break
-        print("{}: {} in {:.1f} secs                       ".format(
-            depth, b.san(best_move), it_end_time - it_start_time))
-        if (it_end_time - it_start_time) >= TIME_LIMIT:
-            break
-
-    print("==> {} with score {}                  ".format(b.san(best_move), max))
-    return best_move
-
 def gen_kqk():
     while True:
         pos = random.sample(list(range(64)), 3)
@@ -232,10 +117,10 @@ def gen_kqk():
         b.set_piece_at(pos[0], Piece.from_symbol('K'))
         b.set_piece_at(pos[1], Piece.from_symbol(random.choice(['Q', 'q'])))
         b.set_piece_at(pos[2], Piece.from_symbol('k'))
-        
+
         if b.status() == chess.STATUS_VALID:
             return b
-        
+
 pgn = open("mate.pgn")
 
 npos = POSITIONS_TO_LEARN_APRIORI
@@ -269,6 +154,8 @@ while True:
 print(i)
 
 offset = npos
+searcher = Searcher(lambda board: evaluate(board, model2))
+
 while True:
 
     model1.fit(train_data, train_labels, batch_size=128, epochs=30)
@@ -279,9 +166,9 @@ while True:
     while not b.is_game_over() and len(b.move_stack) < 30:
         if len(b.move_stack) > OPENING:
             if b.turn:
-                move = select_move(b, model2)
+                move = searcher.select_move(b)
             else:
-                move = select_move(b, model2)
+                move = searcher.select_move(b)
         else:
             move = random.choice(list(b.generate_legal_moves()))
 
