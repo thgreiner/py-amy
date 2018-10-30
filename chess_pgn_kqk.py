@@ -3,7 +3,7 @@ from chess import Board, Move, Piece
 import random
 import numpy as np
 import chess.pgn
-from searcher import Searcher
+from searcher import Searcher, AmySearcher
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
 POSITIONS_TO_LEARN_APRIORI = 562
@@ -16,6 +16,7 @@ OPENING = -1
 # TensorFlow and tf.keras
 import tensorflow as tf
 from tensorflow import keras
+from tensorflow.keras.models import load_model
 
 model1 = keras.Sequential([
     keras.layers.Dense(200, input_shape=(SIZE, )),
@@ -25,17 +26,21 @@ model1 = keras.Sequential([
     keras.layers.Dense(1)
 ])
 
-model2 = keras.Sequential([
-    keras.layers.Dense(512, input_shape=(SIZE, )),
-    keras.layers.LeakyReLU(),
-    keras.layers.Dropout(0.1),
-    keras.layers.Dense(128),
-    keras.layers.LeakyReLU(),
-    keras.layers.Dropout(0.1),
-    keras.layers.Dense(32),
-    keras.layers.LeakyReLU(),
-    keras.layers.Dense(1)
-])
+if False:
+    model2 = keras.Sequential([
+        keras.layers.Dense(512, input_shape=(SIZE, )),
+        keras.layers.LeakyReLU(),
+        keras.layers.Dropout(0.1),
+        keras.layers.Dense(128),
+        keras.layers.LeakyReLU(),
+        keras.layers.Dropout(0.1),
+        keras.layers.Dense(32),
+        keras.layers.LeakyReLU(),
+        keras.layers.Dense(1)
+    ])
+else:
+    model2 = load_model("model2.h5")
+
 
 opt1 = tf.train.AdamOptimizer()
 opt2 = tf.train.RMSPropOptimizer(0.001)
@@ -48,7 +53,6 @@ model2.compile(optimizer=opt1,
                loss='mean_squared_error',
                metrics=['mae'])
 
-
 def label_for_result(result):
     if result == '1-0':
         return 1
@@ -58,7 +62,7 @@ def label_for_result(result):
 
 
 def phasing(label, moves_in_game, current_move):
-    return label / (1.0 + min(30, moves_in_game - current_move))
+    return label / (1.0 + min(40, moves_in_game - current_move))
 
 
 def get_offset(square, piece_type):
@@ -115,7 +119,7 @@ def gen_kqk():
         b = Board()
         b.clear()
         b.set_piece_at(pos[0], Piece.from_symbol('K'))
-        b.set_piece_at(pos[1], Piece.from_symbol(random.choice(['Q', 'q'])))
+        b.set_piece_at(pos[1], Piece.from_symbol(random.choice(['Q', 'R'])))
         b.set_piece_at(pos[2], Piece.from_symbol('k'))
 
         if b.status() == chess.STATUS_VALID:
@@ -155,18 +159,21 @@ print(i)
 
 offset = npos
 searcher = Searcher(lambda board: evaluate(board, model2))
+amy_searcher = AmySearcher()
 
 while True:
 
     model1.fit(train_data, train_labels, batch_size=128, epochs=30)
     model2.fit(train_data, train_labels, batch_size=128, epochs=30)
 
+    model2.save("model2.h5")
+
     # b = Board()
     b = gen_kqk()
-    while not b.is_game_over() and len(b.move_stack) < 30:
+    while not b.is_game_over() and len(b.move_stack) < 40:
         if len(b.move_stack) > OPENING:
             if b.turn:
-                move = searcher.select_move(b)
+                move = amy_searcher.select_move(b)
             else:
                 move = searcher.select_move(b)
         else:

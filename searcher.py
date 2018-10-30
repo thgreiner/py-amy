@@ -1,4 +1,7 @@
 import time
+import subprocess
+from subprocess import PIPE
+import re
 
 nodes = 0
 
@@ -82,6 +85,7 @@ class Searcher:
 
     def select_move(self, b):
         global nodes
+        nodes = 0
         l = list(b.generate_legal_moves())
         if len(l) == 1:
             return l[0]
@@ -91,8 +95,6 @@ class Searcher:
             max = -1000
             best_move = None
             for move in l:
-                nodes = 0
-                start_time = time.perf_counter()
                 b.push(move)
                 if b.is_fivefold_repetition():
                     score = 0
@@ -108,7 +110,7 @@ class Searcher:
                     l.insert(0, move)
                 print("{}: [{}] {} with score {:.4f} nodes: {}, {} nodes/sec".format(
                     depth,
-                    b.san(best_move), b.san(move), score, nodes, int(nodes / (end_time - start_time))),
+                    b.san(best_move), b.san(move), score, nodes, int(nodes / (end_time - it_start_time))),
                     end = '\r')
                 it_end_time = time.perf_counter()
                 if (it_end_time - it_start_time) >= TIME_LIMIT:
@@ -120,3 +122,15 @@ class Searcher:
 
         print("==> {} with score {}                  ".format(b.san(best_move), max))
         return best_move
+
+
+class AmySearcher:
+
+    def select_move(self, b):
+        p = subprocess.Popen('Amy', stdin=PIPE, stdout=PIPE)
+        fen = b.fen()
+        commands = "easy\nlevel fixed/2\nepd {}\nxboard\ngo\n".format(fen)
+        out, err = p.communicate(bytes(commands, 'ASCII'))
+        reply = out.decode('ASCII')
+        m = re.search('move ([a-h][1-8][a-h][1-8][QRNB]?)', out.decode('ASCII'))
+        return b.parse_uci(m[1].lower())
