@@ -26,7 +26,7 @@ model1 = keras.Sequential([
     keras.layers.Dense(1)
 ])
 
-if False:
+if True:
     model2 = keras.Sequential([
         keras.layers.Dense(512, input_shape=(SIZE, )),
         keras.layers.LeakyReLU(),
@@ -62,7 +62,7 @@ def label_for_result(result):
 
 
 def phasing(label, moves_in_game, current_move):
-    return label / (1.0 + min(40, moves_in_game - current_move))
+    return 10 * label * (1.0 + moves_in_game - current_move) ** -0.8
 
 
 def get_offset(square, piece_type):
@@ -163,56 +163,61 @@ amy_searcher = AmySearcher()
 
 while True:
 
-    model1.fit(train_data, train_labels, batch_size=128, epochs=30)
+    # model1.fit(train_data, train_labels, batch_size=128, epochs=30)
     model2.fit(train_data, train_labels, batch_size=128, epochs=30)
 
     model2.save("model2.h5")
 
     # b = Board()
-    b = gen_kqk()
-    while not b.is_game_over() and len(b.move_stack) < 40:
-        if len(b.move_stack) > OPENING:
-            if b.turn:
-                move = amy_searcher.select_move(b)
+    start_pos = gen_kqk().fen()
+    
+    for white_searcher in [searcher, amy_searcher]:
+        b = Board()
+        b.set_fen(start_pos)
+
+        while not b.is_game_over() and len(b.move_stack) < 30:
+            if len(b.move_stack) > OPENING:
+                if b.turn:
+                    move = white_searcher.select_move(b)
+                else:
+                    move = searcher.select_move(b)
             else:
-                move = searcher.select_move(b)
+                move = random.choice(list(b.generate_legal_moves()))
+
+            print(b.san(move))
+            b.push(move)
+            print(b)
+            print(b.fen())
+
+        print("{} after {} moves.".format(b.result(), b.fullmove_number))
+
+        result = label_for_result(b.result())
+        print(result)
+
+        n = 2 * (len(b.move_stack) - OPENING)
+
+        if offset == 0:
+            train_data = np.zeros((n, SIZE))
+            train_labels = np.zeros((n))
         else:
-            move = random.choice(list(b.generate_legal_moves()))
+            new_train_data = np.zeros((n + offset, SIZE))
+            new_train_labels = np.zeros((n + offset))
+            new_train_data[0:offset] = train_data
+            new_train_labels[0:offset] = train_labels
+            train_data = new_train_data
+            train_labels = new_train_labels
 
-        print(b.san(move))
-        b.push(move)
-        print(b)
-        print(b.fen())
+        moves_in_game = len(b.move_stack)
+        while len(b.move_stack) > OPENING:
+            try:
+                m = b.pop()
+                i = 2 * (len(b.move_stack) - OPENING)
+                train_data[offset + i] = board_to_array(b)
+                train_labels[offset + i] = phasing(result, moves_in_game, len(b.move_stack))
+                i += 1
+                train_data[offset + i] = board_to_array(b.mirror())
+                train_labels[offset + i] = -phasing(result, moves_in_game, len(b.move_stack))
+            except:
+                break
 
-    print("{} after {} moves.".format(b.result(), b.fullmove_number))
-
-    result = label_for_result(b.result())
-    print(result)
-
-    n = 2 * (len(b.move_stack) - OPENING)
-
-    if offset == 0:
-        train_data = np.zeros((n, SIZE))
-        train_labels = np.zeros((n))
-    else:
-        new_train_data = np.zeros((n + offset, SIZE))
-        new_train_labels = np.zeros((n + offset))
-        new_train_data[0:offset] = train_data
-        new_train_labels[0:offset] = train_labels
-        train_data = new_train_data
-        train_labels = new_train_labels
-
-    moves_in_game = len(b.move_stack)
-    while len(b.move_stack) > OPENING:
-        try:
-            m = b.pop()
-            i = 2 * (len(b.move_stack) - OPENING)
-            train_data[offset + i] = board_to_array(b)
-            train_labels[offset + i] = phasing(result, moves_in_game, len(b.move_stack))
-            i += 1
-            train_data[offset + i] = board_to_array(b.mirror())
-            train_labels[offset + i] = -phasing(result, moves_in_game, len(b.move_stack))
-        except:
-            break
-
-    offset += n
+        offset += n
