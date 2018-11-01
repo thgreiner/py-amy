@@ -5,7 +5,7 @@ import re
 
 nodes = 0
 
-TIME_LIMIT = 1
+TIME_LIMIT = 3
 
 class Searcher:
     def __init__(self, evaluator):
@@ -110,19 +110,30 @@ class Searcher:
                     best_move = move
                     l.remove(move)
                     l.insert(0, move)
-                print("{}: [{}] {} with score {:.3f} nodes: {}, {} nodes/sec".format(
+                print("{}: [{}] {} with score {:.3f}, {} nodes/sec".format(
                     depth,
-                    b.san(best_move), b.san(move), score, nodes, int(nodes / (end_time - it_start_time))),
+                    b.san(best_move),
+                    b.san(move),
+                    score,
+                    nodes,
+                    int(nodes / (end_time - it_start_time))),
                     end = '\r')
                 it_end_time = time.perf_counter()
                 if (it_end_time - it_start_time) >= TIME_LIMIT:
                     break
-            print("{}: {} in {:.1f} secs {:.3f}                      ".format(
-                depth, b.san(best_move), it_end_time - it_start_time, max_score))
+            print("{}: {} in {:.1f} secs {:.3f}, {} nodes/sec                    ".format(
+                depth,
+                b.san(best_move),
+                it_end_time - it_start_time,
+                max_score,
+                int(nodes / (end_time - it_start_time))))
             if (it_end_time - it_start_time) >= TIME_LIMIT:
                 break
 
-        print("==> {} with score {:.3f}                  ".format(b.san(best_move), max_score))
+        print("==> {} with score {:.3f}, {}, nodes/sec                ".format(
+            b.san(best_move),
+            max_score,
+            int(nodes / (end_time - it_start_time))))
         return best_move
 
 
