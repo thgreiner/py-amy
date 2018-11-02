@@ -10,6 +10,7 @@ TIME_LIMIT = 3
 class Searcher:
     def __init__(self, evaluator):
         self.evaluator = evaluator
+        self.name = "Tensorflow"
 
     def qsearch(self, b, alpha, beta, ply = 0):
         global nodes
@@ -139,6 +140,9 @@ class Searcher:
 
 class AmySearcher:
 
+    def __init__(self):
+        self.name = "Amy"
+        
     def select_move(self, b):
         p = subprocess.Popen('Amy', stdin=PIPE, stdout=PIPE)
         fen = b.fen()

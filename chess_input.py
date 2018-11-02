@@ -4,7 +4,7 @@ class Repr1:
 
     def __init__(self):
         self.SIZE_PER_COLOR = 48 + 5 * 64
-        self.SIZE = 2 * self.SIZE_PER_COLOR
+        self.SIZE = 2 * self.SIZE_PER_COLOR + 5
         self.eval_buf = np.ndarray((self.SIZE,))
 
 
@@ -22,12 +22,17 @@ class Repr1:
             b = b.mirror()
 
         for piece_type in range(1, 7):
+            balance = 0
             squares = b.pieces(piece_type, True)
             for sq in squares:
                 self.eval_buf[self.get_offset(sq, piece_type)] = 1
+                balance += 1
             squares = b.pieces(piece_type, False)
             for sq in squares:
                 self.eval_buf[self.get_offset(sq, piece_type) + self.SIZE_PER_COLOR] = 1
+                balance -= 1
+            if piece_type < 6:
+                self.eval_buf[self.SIZE - piece_type] = balance
 
         return self.eval_buf
 
