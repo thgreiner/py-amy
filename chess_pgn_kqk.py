@@ -6,7 +6,7 @@ import chess.pgn
 from searcher import Searcher, AmySearcher
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
-POSITIONS_TO_LEARN_APRIORI = 562
+POSITIONS_TO_LEARN_APRIORI = 900000
 
 SIZE_PER_COLOR = 49 + 5 * 65
 SIZE = 2 * SIZE_PER_COLOR + 3
@@ -26,7 +26,7 @@ model1 = keras.Sequential([
     keras.layers.Dense(1)
 ])
 
-if True:
+if False:
     model2 = keras.Sequential([
         keras.layers.Dense(512, input_shape=(SIZE, )),
         keras.layers.LeakyReLU(),
@@ -125,7 +125,7 @@ def gen_kqk():
         if b.status() == chess.STATUS_VALID:
             return b
 
-pgn = open("mate.pgn")
+pgn = open("ClassicGames.pgn")
 
 npos = POSITIONS_TO_LEARN_APRIORI
 train_data = np.zeros((npos, SIZE))
@@ -153,7 +153,7 @@ while True:
             break
     if i >= npos:
         break
-    print(i, end='\n')
+    print(i, end='\r')
 
 print(i)
 
@@ -164,13 +164,13 @@ amy_searcher = AmySearcher()
 while True:
 
     # model1.fit(train_data, train_labels, batch_size=128, epochs=30)
-    model2.fit(train_data, train_labels, batch_size=128, epochs=30)
+    model2.fit(train_data, train_labels, batch_size=128, epochs=10)
 
     model2.save("model2.h5")
 
     # b = Board()
     start_pos = gen_kqk().fen()
-    
+
     for white_searcher in [searcher, amy_searcher]:
         b = Board()
         b.set_fen(start_pos)

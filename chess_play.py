@@ -5,7 +5,7 @@ import numpy as np
 import chess.pgn
 from searcher import Searcher, AmySearcher
 from chess_input import Repr1, Repr2
-
+import piece_square_eval
 
 repr = Repr1()
 
@@ -42,18 +42,17 @@ def evaluate(board, model):
     else:
         input = repr.board_to_array(board.mirror())
 
-    score = model.predict([input.reshape(1, repr.SIZE)])[0][0]
-    # score += random.uniform(-0.005, 0.005)
-    return score
-
+    prediction = model.predict([input.reshape(1, repr.SIZE)]).flatten()
+    return prediction[0] # - prediction[1]
 
 
 offset = 0
 white_searcher = Searcher(lambda board: evaluate(board, model2))
-black_searcher = AmySearcher()
+black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board))
 
 while True:
 
+    # white_searcher, black_searcher = black_searcher, white_searcher
     b = Board()
     # b.set_fen(start_pos)
 
@@ -63,18 +62,22 @@ while True:
     game.headers["Black"] = black_searcher.name
     node = game
 
-    opening = [ Move.from_uci("d2d4"), Move.from_uci("d7d5") ]
-    while not b.is_game_over():
-        if len(b.move_stack) > OPENING:
-            if b.turn:
-                move = white_searcher.select_move(b)
-            else:
-                move = black_searcher.select_move(b)
-        else:
-            # move = random.choice(list(b.generate_legal_moves()))
-            move = opening[len(b.move_stack)]
+    opening = [
+        Move.from_uci("e2e4"),
+        Move.from_uci("c7c5"),
+        Move.from_uci("g1f3"),
+        Move.from_uci("b8c6")
+    ]
+    for move in opening:
+        b.push(move)
 
-        node = node.add_variation(move)  
+    while not b.is_game_over():
+        if b.turn:
+            move = white_searcher.select_move(b)
+        else:
+            move = black_searcher.select_move(b)
+
+        node = node.add_variation(move)
         print(b.san(move))
         b.push(move)
         print(b)
@@ -116,9 +119,7 @@ while True:
         except:
             break
 
-    history = model2.fit(train_data, train_labels, batch_size=1024, epochs=50)
-    print(history.history)
+    # history = model2.fit(train_data, train_labels, batch_size=1024, epochs=50)
+    # print(history.history)
 
     offset += n
-    white_searcher, black_searcher = black_searcher, white_searcher
-

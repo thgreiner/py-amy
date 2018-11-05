@@ -5,26 +5,26 @@ import numpy as np
 import chess.pgn
 from searcher import Searcher, AmySearcher
 from chess_input import Repr1, Repr2
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
-def plot_history(history):
-    plt.figure()
-    plt.xlabel('Epoch')
-    plt.ylabel('Mean Abs Error')
-    plt.plot(history.epoch, np.array(history.history['loss']),
-             label='Train Loss')
-    plt.plot(history.epoch, np.array(history.history['mean_absolute_error']),
-             label = 'Val loss')
-    plt.legend()
-    plt.ylim([0, 1.5])
-    plt.show()
+#def plot_history(history):
+#    plt.figure()
+#    plt.xlabel('Epoch')
+#    plt.ylabel('Mean Abs Error')
+#    plt.plot(history.epoch, np.array(history.history['loss']),
+#             label='Train Loss')
+#    plt.plot(history.epoch, np.array(history.history['mean_absolute_error']),
+#             label = 'Val loss')
+#    plt.legend()
+#    plt.ylim([0, 1.5])
+#    plt.show()
 
 repr = Repr1()
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
-POSITIONS_TO_LEARN_APRIORI = 450000
+POSITIONS_TO_LEARN_APRIORI = 9000000
 
-OPENING = 1
+OPENING = 5
 
 # TensorFlow and tf.keras
 import tensorflow as tf
@@ -82,7 +82,7 @@ def evaluate(board, model):
     return score
 
 
-pgn = open("input.pgn")
+pgn = open("TWIC.pgn")
 
 npos = POSITIONS_TO_LEARN_APRIORI
 train_data = np.zeros((npos, repr.SIZE))
@@ -90,10 +90,15 @@ train_labels = np.zeros((npos))
 
 i = 0
 while True:
-    game = chess.pgn.read_game(pgn)
+    try:
+        game = chess.pgn.read_game(pgn)
+    except UnicodeDecodeError or ValueError:
+        pass
     if game is None:
         break
     label = label_for_result(game.headers["Result"])
+    if label == 0:
+        continue
     b = game.board()
     nmoves = 0
     moves_in_game = len(list(game.main_line()))
@@ -121,6 +126,6 @@ train_data = np.resize(train_data, (npos, repr.SIZE))
 train_labels = np.resize(train_labels, (npos, ))
 
 history = model2.fit(train_data, train_labels, batch_size=1024, epochs=10)
-plot_history(history)
+# plot_history(history)
 
 model2.save("model2.h5")
