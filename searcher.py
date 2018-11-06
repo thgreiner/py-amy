@@ -144,6 +144,17 @@ class Searcher:
         return max_score
 
 
+    def pv(self, b, move):
+        line = b.san(move)
+        b.push(move)
+        key = self.pos_key(b)
+        hash_move = None
+        if key in self.move_cache:
+            hash_move = self.move_cache[key]
+            line += " " + self.pv(b, hash_move)
+        b.pop()
+        return line
+
     def select_move(self, b):
         global nodes
         nodes = 0
@@ -186,7 +197,7 @@ class Searcher:
                     break
             print("{}: {} in {:.1f} secs {:.3f}, {} nodes/sec                    ".format(
                 depth,
-                b.san(best_move),
+                self.pv(b, best_move),
                 now - start_time,
                 max_score,
                 int(nodes / (now - start_time))))

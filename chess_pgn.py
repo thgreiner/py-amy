@@ -22,7 +22,7 @@ from chess_input import Repr1, Repr2
 repr = Repr1()
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
-POSITIONS_TO_LEARN_APRIORI = 9000000
+POSITIONS_TO_LEARN_APRIORI = 900_000
 
 OPENING = 5
 
@@ -35,16 +35,16 @@ if False:
     model2 = keras.Sequential([
         keras.layers.Dense(512, input_shape=(repr.SIZE, )),
         keras.layers.LeakyReLU(),
-        keras.layers.Dropout(0.1),
-        keras.layers.Dense(256),
-        keras.layers.LeakyReLU(),
-        keras.layers.Dropout(0.1),
+        # keras.layers.Dropout(0.1),
         keras.layers.Dense(128),
         keras.layers.LeakyReLU(),
-        keras.layers.Dropout(0.1),
-        keras.layers.Dense(64),
+        # keras.layers.Dropout(0.1),
+        keras.layers.Dense(128),
         keras.layers.LeakyReLU(),
-        keras.layers.Dropout(0.1),
+        # keras.layers.Dropout(0.1),
+        keras.layers.Dense(128),
+        keras.layers.LeakyReLU(),
+        # keras.layers.Dropout(0.1),
         keras.layers.Dense(1)
     ])
 else:
@@ -82,7 +82,7 @@ def evaluate(board, model):
     return score
 
 
-pgn = open("TWIC.pgn")
+pgn = open("input.pgn")
 
 npos = POSITIONS_TO_LEARN_APRIORI
 train_data = np.zeros((npos, repr.SIZE))
@@ -97,8 +97,8 @@ while True:
     if game is None:
         break
     label = label_for_result(game.headers["Result"])
-    if label == 0:
-        continue
+    # if label == 0:
+    #     continue
     b = game.board()
     nmoves = 0
     moves_in_game = len(list(game.main_line()))

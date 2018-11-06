@@ -5,7 +5,7 @@ import numpy as np
 import chess.pgn
 from searcher import Searcher, AmySearcher
 from chess_input import Repr1, Repr2
-import piece_square_eval
+# import piece_square_eval
 
 repr = Repr1()
 
@@ -48,7 +48,8 @@ def evaluate(board, model):
 
 offset = 0
 white_searcher = Searcher(lambda board: evaluate(board, model2))
-black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board))
+# black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board))
+black_searcher = white_searcher
 
 while True:
 
