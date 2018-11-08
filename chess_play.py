@@ -52,7 +52,6 @@ black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board))
 
 while True:
 
-    # white_searcher, black_searcher = black_searcher, white_searcher
     b = Board()
     # b.set_fen(start_pos)
 
@@ -62,16 +61,16 @@ while True:
     game.headers["Black"] = black_searcher.name
     node = game
 
-    opening = [
-        Move.from_uci("e2e4"),
-        Move.from_uci("c7c5"),
-        Move.from_uci("g1f3"),
-        Move.from_uci("b8c6")
-    ]
-    for move in opening:
-        b.push(move)
+    opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
+    for move in opening.split(" "):
+        m = b.parse_san(move)
+        node = node.add_variation(m)
+        b.push(m)
 
     while not b.is_game_over():
+        print(b)
+        print(b.fen())
+
         if b.turn:
             move = white_searcher.select_move(b)
         else:
@@ -80,8 +79,6 @@ while True:
         node = node.add_variation(move)
         print(b.san(move))
         b.push(move)
-        print(b)
-        print(b.fen())
 
     game.headers["Result"] = b.result()
 
@@ -123,3 +120,4 @@ while True:
     # print(history.history)
 
     offset += n
+    white_searcher, black_searcher = black_searcher, white_searcher

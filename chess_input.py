@@ -108,7 +108,7 @@ class Repr2:
 
         return buf
 
-weights = [ None, .125, 0.5, 0.5, 0.5, 1, 1]
+weights = [ None, 1, 1, 1, 1, 1, 1]
 class Repr3:
 
     def __init__(self):
@@ -148,8 +148,8 @@ class Repr3:
             else:
                 r = range(0, 64)
             for sq in r:
-                if a[self.get_offset(sq, piece_type)] >= weights[piece_type] * .7:
+                if a[self.get_offset(sq, piece_type)] >= weights[piece_type] * .5:
                     b.set_piece_at(sq, Piece.from_symbol(white_pieces[piece_type]))
-                if a[self.get_offset(sq, piece_type) + self.SIZE_PER_COLOR] >= weights[piece_type] * .7:
+                if a[self.get_offset(sq, piece_type) + self.SIZE_PER_COLOR] >= weights[piece_type] * .5:
                     b.set_piece_at(sq, Piece.from_symbol(black_pieces[piece_type]))
         return b

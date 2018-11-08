@@ -69,22 +69,20 @@ pst = [
 ]
 
 mat_vals = [
-    None, 100, 325, 325, 500, 900, 0
+    None, 1.00, 3.25, 3.25, 5.00, 9.00, 0
 ]
 
 def evaluate(board):
     score = 0
     for piece_type in range(1, 7):
-        squares = board.pieces(piece_type, True)
+        squares = board.pieces(piece_type, board.turn)
         for sq in squares:
-            score += pst[piece_type][sq]
+            score += pst[piece_type][sq] * .01
             score += mat_vals[piece_type]
-        squares = board.pieces(piece_type, False)
+        squares = board.pieces(piece_type, not board.turn)
         for sq in squares:
             x = sq ^ 0x38
-            score -= pst[piece_type][x]
+            score -= pst[piece_type][x] * .01
             score -= mat_vals[piece_type]
 
-    if not board.turn:
-        score = -score
     return score

@@ -39,7 +39,7 @@ class Searcher:
         # print("{} qsearch({}, {})".format("  " * ply, alpha, beta))
         score = self.eval_cached(b)
 
-        if score >= beta or ply > 1:
+        if score >= beta:
             return score
         if score > alpha:
             alpha = score
