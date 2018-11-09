@@ -161,6 +161,8 @@ class BoardAndMoveRepr:
         self.SIZE_PER_COLOR = 48 + 5 * 64
         self.SIZE = 2 * self.SIZE_PER_COLOR + 4
 
+        self.SIZE2 = 6 * 64
+
     def get_offset(self, square, piece_type):
         if piece_type == 1:
             return square - 8
@@ -196,9 +198,9 @@ class BoardAndMoveRepr:
             buf[offset] = 1
         return buf
 
-    def move_to_array(self, b, move):
+    def move_to_array(self, b, piece, move):
         buf1 = np.zeros(64, np.int8)
-        buf2 = np.zeros(64, np.int8)
+        buf2 = np.zeros(self.SIZE2, np.int8)
 
         xor = 0
 
@@ -206,6 +208,6 @@ class BoardAndMoveRepr:
             xor = 0x38
 
         buf1[move.from_square ^ xor] = 1
-        buf2[move.to_square ^ xor] = 1
+        buf2[(piece - 1) * 64 + (move.to_square ^ xor)] = 1
 
         return (buf1, buf2)

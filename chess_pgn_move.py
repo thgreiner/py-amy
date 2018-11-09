@@ -22,21 +22,21 @@ from chess_input import BoardAndMoveRepr
 repr = BoardAndMoveRepr()
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
-POSITIONS_TO_LEARN_APRIORI = 5_000_000
+POSITIONS_TO_LEARN_APRIORI = 500_000
 
 # TensorFlow and tf.keras
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.models import load_model
 
-if False:
+if True:
     inputs = keras.layers.Input(shape = (repr.SIZE,))
     hidden1 = keras.layers.Dense(512, activation='relu')(inputs)
     hidden2 = keras.layers.Dense(512, activation='relu')(hidden1)
     hidden3 = keras.layers.Dense(512, activation='relu')(hidden2)
 
     output1 = keras.layers.Dense(64, activation='softmax')(hidden3)
-    output2 = keras.layers.Dense(64, activation='softmax')(hidden3)
+    output2 = keras.layers.Dense(repr.SIZE2)(hidden3)
 
     model = keras.Model(inputs = inputs, outputs=(output1, output2))
 else:
@@ -47,15 +47,15 @@ model.summary()
 opt1 = tf.train.AdamOptimizer()
 
 model.compile(optimizer=opt1,
-               loss='binary_crossentropy',
+               loss='mean_squared_error',
                metrics=['mae'])
 
-pgn = open("ClassicGames.pgn")
+pgn = open("TWIC.pgn")
 
 npos = POSITIONS_TO_LEARN_APRIORI
 train_data = np.zeros((npos, repr.SIZE), np.int8)
 train_labels1 = np.zeros((npos, 64), np.int8)
-train_labels2 = np.zeros((npos, 64), np.int8)
+train_labels2 = np.zeros((npos, repr.SIZE2), np.int8)
 
 i = 0
 
@@ -73,8 +73,9 @@ while True:
     nmoves = 0
     moves_in_game = len(list(game.main_line()))
     for move in game.main_line():
+        piece = b.piece_at(move.from_square).piece_type
         train_data[i] = repr.board_to_array(b)
-        train_labels1[i], train_labels2[i] = repr.move_to_array(b, move)
+        train_labels1[i], train_labels2[i] = repr.move_to_array(b, piece, move)
         i += 1
         b.push(move)
         if i >= npos:
@@ -89,7 +90,7 @@ if i < npos:
     npos = i
     train_data = np.resize(train_data, (npos, repr.SIZE))
     train_labels1 = np.resize(train_labels1, (npos, 64))
-    train_labels2 = np.resize(train_labels2, (npos, 64))
+    train_labels2 = np.resize(train_labels2, (npos, repr.SIZE2))
 
 while True:
     history = model.fit(train_data, (train_labels1, train_labels2), batch_size=1024, epochs=10)

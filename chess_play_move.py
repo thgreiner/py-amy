@@ -19,6 +19,12 @@ black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board))
 
 board = Board()
 
+def sort_key(from_pred, to_pred, board, move, xor):
+    type = board.piece_at(move.from_square).piece_type
+    fr = move.from_square ^ xor
+    to = move.to_square ^ xor
+    return (-from_pred[fr], -to_pred[(type-1) * 64 + to])
+
 while True:
     print(board)
 
@@ -31,14 +37,13 @@ while True:
     best_move = None
 
     if board.turn:
-        for move in board.generate_legal_moves():
-            xor = 0
-            if not board.turn:
-                xor = 0x38
-            prob = from_pred[move.from_square ^ xor] + to_pred[move.to_square ^ xor]
-            if best_move is None or prob > max_prob:
-                max_prob = prob
-                best_move = move
+        xor = 0
+        if not board.turn:
+            xor = 0x38
+        moves = list(board.generate_legal_moves())
+        moves = sorted(moves, key=lambda m: sort_key(from_pred, to_pred, board, m, xor))
+        print(moves)
+        best_move = moves[0]
     else:
         best_move = black_searcher.select_move(board)
     print("=> {}".format(board.san(best_move)))
