@@ -6,7 +6,7 @@ from chess import Move
 
 nodes = 0
 
-TIME_LIMIT = 15
+TIME_LIMIT = 3
 
 
 class Searcher:

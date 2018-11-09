@@ -153,3 +153,59 @@ class Repr3:
                 if a[self.get_offset(sq, piece_type) + self.SIZE_PER_COLOR] >= weights[piece_type] * .5:
                     b.set_piece_at(sq, Piece.from_symbol(black_pieces[piece_type]))
         return b
+
+
+class BoardAndMoveRepr:
+
+    def __init__(self):
+        self.SIZE_PER_COLOR = 48 + 5 * 64
+        self.SIZE = 2 * self.SIZE_PER_COLOR + 4
+
+    def get_offset(self, square, piece_type):
+        if piece_type == 1:
+            return square - 8
+        else:
+            return 48 + (piece_type - 2) * 64 + square
+
+    def board_to_array(self, b):
+        buf = np.zeros(self.SIZE, np.int8)
+        xor = 0
+
+        if not b.turn:
+            xor = 0x38
+
+        for piece_type in range(1, 7):
+            squares = b.pieces(piece_type, b.turn)
+            for sq in squares:
+                buf[self.get_offset(sq ^ xor, piece_type)] = 1
+            squares = b.pieces(piece_type, not b.turn)
+            for sq in squares:
+                buf[self.get_offset(sq ^ xor, piece_type) + self.SIZE_PER_COLOR] = 1
+
+        offset = 2 * self.SIZE_PER_COLOR
+        if b.has_kingside_castling_rights(b.turn):
+            buf[offset] = 1
+        offset += 1
+        if b.has_queenside_castling_rights(b.turn):
+            buf[offset] = 1
+        offset += 1
+        if b.has_queenside_castling_rights(not b.turn):
+            buf[offset] = 1
+        offset += 1
+        if b.has_queenside_castling_rights(not b.turn):
+            buf[offset] = 1
+        return buf
+
+    def move_to_array(self, b, move):
+        buf1 = np.zeros(64, np.int8)
+        buf2 = np.zeros(64, np.int8)
+
+        xor = 0
+
+        if not b.turn:
+            xor = 0x38
+
+        buf1[move.from_square ^ xor] = 1
+        buf2[move.to_square ^ xor] = 1
+
+        return (buf1, buf2)

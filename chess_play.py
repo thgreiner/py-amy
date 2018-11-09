@@ -5,7 +5,7 @@ import numpy as np
 import chess.pgn
 from searcher import Searcher, AmySearcher
 from chess_input import Repr1, Repr2
-# import piece_square_eval
+import piece_square_eval
 
 repr = Repr1()
 
@@ -37,19 +37,15 @@ def phasing(label, moves_in_game, current_move):
 
 
 def evaluate(board, model):
-    if b.turn:
-        input = repr.board_to_array(board)
-    else:
-        input = repr.board_to_array(board.mirror())
-
+    input = repr.board_to_array(board)
     prediction = model.predict([input.reshape(1, repr.SIZE)]).flatten()
     return prediction[0] # - prediction[1]
 
 
 offset = 0
 white_searcher = Searcher(lambda board: evaluate(board, model2))
-# black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board))
-black_searcher = white_searcher
+black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board))
+# black_searcher = white_searcher
 
 while True:
 
