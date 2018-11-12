@@ -199,15 +199,14 @@ class BoardAndMoveRepr:
         return buf
 
     def move_to_array(self, b, piece, move):
-        buf1 = np.zeros(64, np.int8)
-        buf2 = np.zeros(self.SIZE2, np.int8)
+        buf = np.zeros((7, 64), np.int8)
 
         xor = 0
 
         if not b.turn:
             xor = 0x38
 
-        buf1[move.from_square ^ xor] = 1
-        buf2[(piece - 1) * 64 + (move.to_square ^ xor)] = 1
+        buf[0][move.from_square ^ xor] = 1
+        buf[piece][move.to_square ^ xor] = 1
 
-        return (buf1, buf2)
+        return (buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6])

@@ -23,15 +23,16 @@ def sort_key(from_pred, to_pred, board, move, xor):
     type = board.piece_at(move.from_square).piece_type
     fr = move.from_square ^ xor
     to = move.to_square ^ xor
-    return (-from_pred[fr], -to_pred[(type-1) * 64 + to])
+    return -from_pred[fr] * to_pred[type-1][to]
 
-while True:
+while not board.is_game_over():
     print(board)
 
     input = repr.board_to_array(board)
     predictions = model.predict([input.reshape(1, repr.SIZE)])
     from_pred = predictions[0].flatten()
-    to_pred   = predictions[1].flatten()
+    to_pred   = [ predictions[i].flatten() for i in range(1,7)]
+    print("Prediction: {}".format(predictions[7].flatten()[0]))
 
     max_prob = 0
     best_move = None
