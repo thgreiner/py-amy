@@ -8,7 +8,7 @@ from chess_input import Repr2D
 import sys
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
-POSITIONS_TO_LEARN_APRIORI = 10_000_000
+POSITIONS_TO_LEARN_APRIORI = 1_000_000
 OPENING = 5
 MODEL_NAME='model-2d.h5'
 
@@ -31,13 +31,18 @@ def phasing(label, moves_in_game, current_move):
 def train_model_from_pgn(file_name):
     if False:
         model2 = keras.Sequential([
-            keras.layers.Conv2D(30, (3, 3), activation='relu', input_shape=(8, 8, 12)),
+            keras.layers.Conv2D(64, (3, 3), input_shape=(8, 8, 12)),
+            keras.layers.BatchNormalization(axis = 3),
+            keras.layers.LeakyReLU(),
             # keras.layers.MaxPooling2D(pool_size=(2, 2)),
-            keras.layers.Conv2D(20, (3, 3), activation='relu'),
+            keras.layers.Conv2D(32, (3, 3)),
+            keras.layers.BatchNormalization(axis = 3),
+            keras.layers.LeakyReLU(),
             # keras.layers.MaxPooling2D(pool_size=(2, 2)),
             keras.layers.Flatten(),
-            keras.layers.Dense(200, activation='relu'),
-            keras.layers.Dense(1)
+            keras.layers.Dense(200),
+            keras.layers.LeakyReLU(),
+            keras.layers.Dense(1, activation='tanh')
         ])
     else:
         model2 = load_model(MODEL_NAME)
@@ -96,7 +101,7 @@ def train_model_from_pgn(file_name):
     train_labels = train_labels[:npos]
 
     while True:
-        history = model2.fit(train_data, train_labels, batch_size=1024, epochs=10)
+        history = model2.fit(train_data, train_labels, batch_size=128, epochs=10)
         model2.save(MODEL_NAME)
 
 if __name__ == '__main__':

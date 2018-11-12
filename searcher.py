@@ -6,7 +6,7 @@ from chess import Move
 
 nodes = 0
 
-TIME_LIMIT = 3
+TIME_LIMIT = 10
 
 class TimeOutException(Exception):
     pass
@@ -98,7 +98,7 @@ class Searcher:
             return self.qsearch(b, alpha, beta)
 
         self.nodes += 1
-        
+
         if self.nodes > self.next_time_check:
             self.elapsed = time.perf_counter() - self.start_time
             if self.elapsed > self.time_limit:
@@ -169,7 +169,7 @@ class Searcher:
 
     def select_move(self, b):
         self.nodes = 0
-        
+
         self.eval_cache = {}
         self.move_cache = {}
 
