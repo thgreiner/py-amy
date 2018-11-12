@@ -9,7 +9,7 @@ import sys
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
 POSITIONS_TO_LEARN_APRIORI = 1_000_000
-OPENING = 5
+OPENING = 8
 MODEL_NAME='model-2d.h5'
 
 # TensorFlow and tf.keras
@@ -26,7 +26,7 @@ def label_for_result(result):
 
 
 def phasing(label, moves_in_game, current_move):
-    return 10 * label * (1.0 + moves_in_game - current_move) ** -0.8
+    return label * (1.0 + moves_in_game - current_move) ** -0.8
 
 def train_model_from_pgn(file_name):
     if False:
@@ -50,7 +50,7 @@ def train_model_from_pgn(file_name):
     model2.summary()
 
 
-    opt1 = tf.train.AdamOptimizer()
+    opt1 = keras.optimizers.Adadelta()
 
     model2.compile(optimizer=opt1,
                    loss='mean_squared_error',
@@ -60,8 +60,8 @@ def train_model_from_pgn(file_name):
 
     npos = POSITIONS_TO_LEARN_APRIORI
     repr = Repr2D()
-    train_data = np.zeros((npos, 8, 8, 12))
-    train_labels = np.zeros((npos))
+    train_data = np.zeros((npos, 8, 8, 12), np.int8)
+    train_labels = np.zeros((npos), np.float32)
 
     i = 0
     while True:
@@ -101,7 +101,7 @@ def train_model_from_pgn(file_name):
     train_labels = train_labels[:npos]
 
     while True:
-        history = model2.fit(train_data, train_labels, batch_size=128, epochs=10)
+        history = model2.fit(train_data, train_labels, batch_size=128, epochs=2)
         model2.save(MODEL_NAME)
 
 if __name__ == '__main__':
