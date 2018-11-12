@@ -108,20 +108,23 @@ class Searcher:
         if b.is_insufficient_material():
             return 0
 
+        if b.can_claim_draw() and 0 >= beta:
+            return 0
+
         if b.is_check():
             ply += 1
 
         max_score = -1000
         best_move = None
 
-        if ply > 2:
-            b.push(Move.null())
-            try:
-                score = -self.search(b, -beta, -alpha, ply-2)
-            finally:
-                b.pop()
-            if score >= beta:
-                return score
+        #if ply > 2:
+        #    b.push(Move.null())
+        #    try:
+        #        score = -self.search(b, -beta, -alpha, ply-2)
+        #    finally:
+        #        b.pop()
+        #    if score >= beta:
+        #        return score
 
         for move in self.next_move(b):
             b.push(move)
