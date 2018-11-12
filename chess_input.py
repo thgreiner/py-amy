@@ -210,3 +210,28 @@ class BoardAndMoveRepr:
         buf[piece][move.to_square ^ xor] = 1
 
         return (buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6])
+
+class Repr2D:
+
+    def coords(self, sq):
+        return (sq >> 3, sq & 7)
+
+    def board_to_array(self, b):
+        buf = np.zeros((8, 8, 12), np.int8)
+        xor = 0
+
+        if not b.turn:
+            xor = 0x38
+
+        for piece_type in range(1, 7):
+            offset = 2 * (piece_type - 1)
+            squares = b.pieces(piece_type, b.turn)
+            for sq in squares:
+                rank, file = self.coords(sq ^ xor)
+                buf[rank][file][offset] = 1
+            squares = b.pieces(piece_type, not b.turn)
+            for sq in squares:
+                rank, file = self.coords(sq ^ xor)
+                buf[rank][file][offset + 1] = 1
+
+        return buf
