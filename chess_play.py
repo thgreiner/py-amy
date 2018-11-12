@@ -6,6 +6,7 @@ import chess.pgn
 from searcher import Searcher, AmySearcher
 from chess_input import Repr2D
 import piece_square_eval
+from datetime import date
 
 repr = Repr2D()
 
@@ -45,6 +46,7 @@ def evaluate(board, model):
 offset = 0
 white_searcher = Searcher(lambda board: evaluate(board, model2))
 # black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board))
+# black_searcher = AmySearcher()
 black_searcher = white_searcher
 
 while True:
@@ -56,6 +58,7 @@ while True:
     game.headers["Event"] = "Test Game"
     game.headers["White"] = white_searcher.name
     game.headers["Black"] = black_searcher.name
+    game.headers["Date"] = date.today().strftime("%Y.%m.%d")
     node = game
 
     opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
