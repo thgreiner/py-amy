@@ -8,7 +8,7 @@ from chess_input import Repr2D
 import sys
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
-POSITIONS_TO_LEARN_APRIORI = 1_000_000
+POSITIONS_TO_LEARN_APRIORI = 2_000_000
 OPENING = 8
 MODEL_NAME='model-2d.h5'
 
@@ -26,7 +26,8 @@ def label_for_result(result):
 
 
 def phasing(label, moves_in_game, current_move):
-    return label * (1.0 + moves_in_game - current_move) ** -0.8
+    # return label * (1.0 + moves_in_game - current_move) ** -0.8
+    return label * (0.95 ** (moves_in_game - current_move))
 
 def train_model_from_pgn(file_name):
     if False:

@@ -40,7 +40,7 @@ def phasing(label, moves_in_game, current_move):
 def evaluate(board, model):
     input = repr.board_to_array(board)
     prediction = model.predict([input.reshape(1, 8, 8, 12)]).flatten()
-    return prediction[0] # - prediction[1]
+    return prediction[0]
 
 
 offset = 0
