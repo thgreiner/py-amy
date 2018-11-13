@@ -31,6 +31,16 @@ class Searcher:
             return eval
 
 
+    def next_capture(self, board):
+        for victim in range(5, 0, -1):
+            victims = board.pieces_mask(victim, not board.turn)
+            for attacker in range(1, 7):
+                attackers = board.pieces_mask(attacker, board.turn)
+                captures = board.generate_pseudo_legal_captures(attackers, victims)
+                for move in captures:
+                    if board.is_legal(move):
+                        yield move
+
     def qsearch(self, b, alpha, beta, ply = 0):
         self.nodes += 1
 
@@ -44,9 +54,7 @@ class Searcher:
             return score
         if score > alpha:
             alpha = score
-        for move in b.generate_pseudo_legal_captures():
-            if not b.is_legal(move):
-                continue
+        for move in self.next_capture(b):
             b.push(move)
             t = -self.qsearch(b, -beta, -alpha, ply + 1)
             b.pop()
