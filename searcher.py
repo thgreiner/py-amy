@@ -34,7 +34,15 @@ class Searcher:
     def next_capture(self, board):
         for victim in range(5, 0, -1):
             victims = board.pieces_mask(victim, not board.turn)
-            for attacker in range(1, 7):
+            for attacker in range(1, victim):
+                attackers = board.pieces_mask(attacker, board.turn)
+                captures = board.generate_pseudo_legal_captures(attackers, victims)
+                for move in captures:
+                    if board.is_legal(move):
+                        yield move
+        for victim in range(5, 0, -1):
+            victims = board.pieces_mask(victim, not board.turn)
+            for attacker in range(victim, 7):
                 attackers = board.pieces_mask(attacker, board.turn)
                 captures = board.generate_pseudo_legal_captures(attackers, victims)
                 for move in captures:

@@ -27,10 +27,10 @@ def label_for_result(result):
 
 def phasing(label, moves_in_game, current_move):
     # return label * (1.0 + moves_in_game - current_move) ** -0.8
-    return label * (0.95 ** (moves_in_game - current_move))
+    return label * (0.97 ** (moves_in_game - current_move))
 
 def train_model_from_pgn(file_name):
-    if True:
+    if False:
         model2 = keras.Sequential([
             keras.layers.Conv2D(128, (3, 3), input_shape=(8, 8, 12)),
             keras.layers.BatchNormalization(axis = 3),
@@ -63,6 +63,7 @@ def train_model_from_pgn(file_name):
     train_labels = np.zeros((npos), np.float32)
 
     i = 0
+    ngames = 0
     while True:
         try:
             game = chess.pgn.read_game(pgn)
@@ -71,8 +72,8 @@ def train_model_from_pgn(file_name):
         if game is None:
             break
         label = label_for_result(game.headers["Result"])
-        # if label == 0:
-        #     continue
+        if label == 0:
+            continue
         b = game.board()
         nmoves = 0
         moves_in_game = len(list(game.main_line()))
@@ -91,9 +92,10 @@ def train_model_from_pgn(file_name):
                 break
         if i >= npos:
             break
-        print(i, end='\r')
+        ngames += 1
+        print("Games: {}, Positions: {}".format(ngames, i), end='\r')
 
-    print(i)
+    print("Games: {}, Positions: {}".format(ngames, i))
 
     npos = i
     train_data = train_data[:npos]
