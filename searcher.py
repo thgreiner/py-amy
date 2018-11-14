@@ -3,6 +3,7 @@ import subprocess
 from subprocess import PIPE
 import re
 from chess import Move
+import chess
 
 nodes = 0
 
@@ -12,14 +13,16 @@ class TimeOutException(Exception):
     pass
 
 class Searcher:
-    def __init__(self, evaluator):
+    def __init__(self, evaluator, name="Tensorflow"):
         self.evaluator = evaluator
-        self.name = "Tensorflow"
+        self.name = name
+
 
     def pos_key(self, b):
         fen = b.fen()
         parts = fen.split(' ')
         return "{} {}".format(parts[0], parts[1])
+
 
     def eval_cached(self, b):
         key = self.pos_key(b)
@@ -32,22 +35,36 @@ class Searcher:
 
 
     def next_capture(self, board):
-        for victim in range(5, 0, -1):
-            victims = board.pieces_mask(victim, not board.turn)
-            for attacker in range(1, victim):
-                attackers = board.pieces_mask(attacker, board.turn)
-                captures = board.generate_pseudo_legal_captures(attackers, victims)
+        victims = [
+            board.pieces_mask(chess.QUEEN, not board.turn),
+            board.pieces_mask(chess.ROOK, not board.turn),
+            board.pieces_mask(chess.KNIGHT, not board.turn) | board.pieces_mask(chess.BISHOP, not board.turn),
+            board.pieces_mask(chess.PAWN, not board.turn),
+        ]
+        attackers = [
+            board.pieces_mask(chess.PAWN, board.turn),
+            board.pieces_mask(chess.KNIGHT, board.turn) | board.pieces_mask(chess.BISHOP, board.turn),
+            board.pieces_mask(chess.ROOK, board.turn),
+            board.pieces_mask(chess.QUEEN, board.turn),
+            board.pieces_mask(chess.KING, board.turn)
+        ]
+        for victim in range(0, len(victims)):
+            victims_mask = victims[victim]
+            for attacker in range(0, victim):
+                attackers_mask = attackers[attacker]
+                captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
                 for move in captures:
                     if board.is_legal(move):
                         yield move
-        for victim in range(5, 0, -1):
-            victims = board.pieces_mask(victim, not board.turn)
-            for attacker in range(victim, 7):
-                attackers = board.pieces_mask(attacker, board.turn)
-                captures = board.generate_pseudo_legal_captures(attackers, victims)
+        for victim in range(0, 4):
+            victims_mask = victims[victim]
+            for attacker in range(victim, len(attackers)):
+                attackers_mask = attackers[attacker]
+                captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
                 for move in captures:
                     if board.is_legal(move):
                         yield move
+
 
     def qsearch(self, b, alpha, beta, ply = 0):
         self.nodes += 1
