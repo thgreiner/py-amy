@@ -32,10 +32,10 @@ def phasing(label, moves_in_game, current_move):
 def train_model_from_pgn(file_name):
     if False:
         model2 = keras.Sequential([
-            keras.layers.Conv2D(128, (3, 3), input_shape=(8, 8, 12)),
+            keras.layers.Conv2D(96, (3, 3), input_shape=(8, 8, 12)),
             keras.layers.BatchNormalization(axis = 3),
             keras.layers.LeakyReLU(),
-            keras.layers.Conv2D(96, (3, 3)),
+            keras.layers.Conv2D(64, (3, 3)),
             keras.layers.BatchNormalization(axis = 3),
             keras.layers.LeakyReLU(),
             keras.layers.Flatten(),
