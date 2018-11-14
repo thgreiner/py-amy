@@ -191,7 +191,7 @@ class BoardAndMoveRepr:
         if b.has_queenside_castling_rights(b.turn):
             buf[offset] = 1
         offset += 1
-        if b.has_queenside_castling_rights(not b.turn):
+        if b.has_kingside_castling_rights(not b.turn):
             buf[offset] = 1
         offset += 1
         if b.has_queenside_castling_rights(not b.turn):
@@ -234,4 +234,16 @@ class Repr2D:
                 rank, file = self.coords(sq ^ xor)
                 buf[rank][file][offset + 1] = 1
 
+        return buf
+
+    def castling_to_array(self, b):
+        buf = np.zeros((4), np.int8)
+        if b.has_kingside_castling_rights(b.turn):
+            buf[0] = 1
+        if b.has_queenside_castling_rights(b.turn):
+            buf[1] = 1
+        if b.has_kingside_castling_rights(not b.turn):
+            buf[2] = 1
+        if b.has_queenside_castling_rights(not b.turn):
+            buf[3] = 1
         return buf
