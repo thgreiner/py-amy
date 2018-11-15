@@ -8,20 +8,24 @@ from chess_input import Repr2D
 import piece_square_eval
 from datetime import date
 
+import os
+
+os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
+
+import numpy as np
+import keras
+from keras.models import load_model
+
 repr = Repr2D()
 
 OPENING = 1
 
-# TensorFlow and tf.keras
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.models import load_model
-
 model2 = load_model("model-2d.h5")
 
 def evaluate(board, model):
-    input = repr.board_to_array(board)
-    prediction = model.predict([input.reshape(1, 8, 8, 12)]).flatten()
+    input_pos = repr.board_to_array(board).reshape(1, 8, 8, 12)
+    input_castling = repr.castling_to_array(board).reshape(1, 4)
+    prediction = model.predict([input_pos, input_castling]).flatten()
     return prediction[0]
 
 
@@ -42,9 +46,9 @@ while True:
     game.headers["Date"] = date.today().strftime("%Y.%m.%d")
     node = game
 
-    # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
+    opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
     # opening = "d4 d5"
-    opening = "e4 c5 Nf3 Nc6"
+    # opening = "e4 c5 Nf3 Nc6"
     for move in opening.split(" "):
         m = b.parse_san(move)
         node = node.add_variation(m)
