@@ -13,7 +13,7 @@ from tensorflow import keras
 from tensorflow.keras.models import load_model
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
-POSITIONS_TO_LEARN_APRIORI = 20_000
+POSITIONS_TO_LEARN_APRIORI = 4_000_000
 OPENING = 8
 MODEL_NAME='model-2d.h5'
 
@@ -34,22 +34,26 @@ def phasing(label, moves_in_game, current_move):
 def create_model():
     board_input = keras.layers.Input(shape = (8, 8, 12), name='board_input')
     castle_input =  keras.layers.Input(shape = (4,), name='castle_input')
-    
+
     conv1 = keras.layers.Conv2D(96, (3, 3), name='conv1')(board_input)
     norm1 = keras.layers.BatchNormalization(axis = 3, name='norm1')(conv1)
     leaky1 = keras.layers.LeakyReLU(0.01, name='leaky1')(norm1)
-    
+
     conv2 = keras.layers.Conv2D(64, (3, 3), name='conv2')(leaky1)
     norm2 = keras.layers.BatchNormalization(axis = 3, name='norm2')(conv2)
     leaky2 = keras.layers.LeakyReLU(0.01, name='leaky2')(norm2)
-    
+
     flatten = keras.layers.Flatten(name='flatten')(leaky2)
     concat = keras.layers.concatenate(inputs=[flatten, castle_input], name='concat')
-    
-    dense1 = keras.layers.Dense(256, name='dense1')(concat)
-    leaky3 = keras.layers.LeakyReLU(0.01, name='leaky3')(dense1)
 
-    output = keras.layers.Dense(1, activation='tanh', name='output')(leaky3)
+    dense1 = keras.layers.Dense(256, name='dense1')(concat)
+    norm3 = keras.layers.BatchNormalization(name='norm3')(dense1)
+    leaky3 = keras.layers.LeakyReLU(0.01, name='leaky3')(norm3)
+
+    dense2 = keras.layers.Dense(64, name='dense2')(leaky3)
+    leaky4 = keras.layers.LeakyReLU(0.01, name='leaky4')(dense2)
+
+    output = keras.layers.Dense(1, activation='tanh', name='output')(leaky4)
 
     return keras.Model(inputs = (board_input, castle_input), outputs=output)
 
@@ -109,13 +113,13 @@ def parse_pgn_to_training_data(file_name):
     train_data_pos = train_data_pos[:i]
     train_data_castle = train_data_castle[:i]
     train_labels = train_labels[:i]
-    
+
     return ([train_data_pos, train_data_castle], train_labels)
 
 
 def train_model_from_pgn(file_name):
 
-    if False:
+    if True:
         model = create_model()
     else:
         model = load_model(MODEL_NAME)
@@ -131,7 +135,7 @@ def train_model_from_pgn(file_name):
     train_data, train_labels = parse_pgn_to_training_data(file_name)
 
     while True:
-        history = model.fit(train_data, train_labels, batch_size=128, epochs=3,
+        history = model.fit(train_data, train_labels, batch_size=1024, epochs=3,
                              validation_split = 0.1)
         model.save(MODEL_NAME)
 
