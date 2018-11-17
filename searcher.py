@@ -48,9 +48,9 @@ class Searcher:
             board.pieces_mask(chess.QUEEN, board.turn),
             board.pieces_mask(chess.KING, board.turn)
         ]
-        for victim in range(0, len(victims)):
+        for victim in range(0, 4):
             victims_mask = victims[victim]
-            for attacker in range(0, victim):
+            for attacker in range(0, 4-victim):
                 attackers_mask = attackers[attacker]
                 captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
                 for move in captures:
@@ -58,7 +58,7 @@ class Searcher:
                         yield move
         for victim in range(0, 4):
             victims_mask = victims[victim]
-            for attacker in range(victim, len(attackers)):
+            for attacker in range(4-victim, len(attackers)):
                 attackers_mask = attackers[attacker]
                 captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
                 for move in captures:
@@ -120,9 +120,42 @@ class Searcher:
             hash_move = self.move_cache[key]
             yield hash_move
 
+        captures_searched = set()
+        victims = [
+            board.pieces_mask(chess.QUEEN, not board.turn),
+            board.pieces_mask(chess.ROOK, not board.turn),
+            board.pieces_mask(chess.KNIGHT, not board.turn) | board.pieces_mask(chess.BISHOP, not board.turn),
+            board.pieces_mask(chess.PAWN, not board.turn),
+        ]
+        attackers = [
+            board.pieces_mask(chess.PAWN, board.turn),
+            board.pieces_mask(chess.KNIGHT, board.turn) | board.pieces_mask(chess.BISHOP, board.turn),
+            board.pieces_mask(chess.ROOK, board.turn),
+            board.pieces_mask(chess.QUEEN, board.turn),
+            board.pieces_mask(chess.KING, board.turn)
+        ]
+        for victim in range(0, 4):
+            victims_mask = victims[victim]
+            for attacker in range(0, 4-victim):
+                attackers_mask = attackers[attacker]
+                captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
+                for move in captures:
+                    if move != hash_move and board.is_legal(move):
+                        captures_searched.add(move)
+                        yield move
+        for victim in range(0, 4):
+            victims_mask = victims[victim]
+            for attacker in range(4-victim, len(attackers)):
+                attackers_mask = attackers[attacker]
+                captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
+                for move in captures:
+                    if move != hash_move and board.is_legal(move):
+                        captures_searched.add(move)
+                        yield move
+
         l = list(board.generate_pseudo_legal_moves())
         for move in l:
-            if move != hash_move:
+            if move != hash_move and not move in captures_searched:
                 if board.is_legal(move):
                     yield move
 
