@@ -4,10 +4,14 @@ from subprocess import PIPE
 import re
 from chess import Move
 import chess
+import numpy as np
 
 nodes = 0
 
-TIME_LIMIT = 10
+TIME_LIMIT = 100
+NODE_LIMIT = 10000
+
+EPSILON = 0.01
 
 class TimeOutException(Exception):
     pass
@@ -22,6 +26,11 @@ class Searcher:
         fen = b.fen()
         parts = fen.split(' ')
         return "{} {}".format(parts[0], parts[1])
+
+
+
+    def history_index(self, m):
+        return (m.from_square << 6) + m.to_square
 
 
     def eval_cached(self, b):
@@ -143,6 +152,7 @@ class Searcher:
                     if move != hash_move and board.is_legal(move):
                         captures_searched.add(move)
                         yield move
+
         for victim in range(0, 4):
             victims_mask = victims[victim]
             for attacker in range(4-victim, len(attackers)):
@@ -154,20 +164,22 @@ class Searcher:
                         yield move
 
         l = list(board.generate_pseudo_legal_moves())
+        l = sorted(l, key = lambda m : self.history_table[self.history_index(m)], reverse = True)
+
         for move in l:
             if move != hash_move and not move in captures_searched:
                 if board.is_legal(move):
                     yield move
 
-    def search(self, b, alpha, beta, ply):
-        if ply == 0:
+    def search(self, b, alpha, beta, depth):
+        if depth == 0:
             return self.qsearch(b, alpha, beta)
 
         self.nodes += 1
 
         if self.nodes > self.next_time_check:
             self.elapsed = time.perf_counter() - self.start_time
-            if self.elapsed > self.time_limit:
+            if self.elapsed > self.time_limit or self.nodes > NODE_LIMIT:
                 raise TimeOutException()
             self.next_time_check = self.nodes + 100
 
@@ -178,7 +190,7 @@ class Searcher:
             return 0
 
         if b.is_check():
-            ply += 1
+            depth += 1
 
         max_score = -1000
         best_move = None
@@ -198,7 +210,7 @@ class Searcher:
                 if b.is_fivefold_repetition():
                     score = 0
                 else:
-                    score = -self.search(b, -beta, -alpha, ply-1)
+                    score = -self.search(b, -beta, -alpha, depth-1)
             finally:
                 b.pop()
 
@@ -208,6 +220,7 @@ class Searcher:
             if max_score >= beta:
                 key = self.pos_key(b)
                 self.move_cache[key] = move
+                self.history_table[self.history_index(move)] += (1 << depth)
                 return max_score
             if max_score > alpha:
                 alpha = max_score
@@ -241,6 +254,7 @@ class Searcher:
 
         self.eval_cache = {}
         self.move_cache = {}
+        self.history_table = np.zeros((4096), np.int32)
 
         l = list(b.generate_legal_moves())
         if len(l) == 1:
@@ -250,41 +264,73 @@ class Searcher:
         self.start_time = time.perf_counter()
         self.next_time_check = self.nodes + 100
         self.time_limit = TIME_LIMIT
+        self.elapsed = 0
 
         best_move = None
+        max_score = 0
 
         try:
             for depth in range(1, 10):
-                max_score = -1000
+                is_pv = True
                 for move in l:
+                    san = b.san(move)
+                    print("{:2d}  {:5.1f}          {}     ".format(
+                        depth,
+                        self.elapsed,
+                        san), end = '\r')
+                        
                     b.push(move)
                     try:
+                        alpha = max_score
+                        if is_pv:
+                            alpha = max_score - EPSILON
+                        beta = max_score + EPSILON
                         if b.is_fivefold_repetition():
                             score = 0
                         else:
-                            score = -self.search(b, -1000, -max_score, depth-1)
+                            score = -self.search(b, -beta, -alpha, depth-1)
+                            if is_pv and score <= alpha:
+                                if depth > 1:
+                                    print("{:2d}- {:5.1f}  {:+.3f}  {}".format(
+                                        depth,
+                                        self.elapsed,
+                                        score,
+                                        san))
+                                score = -self.search(b, -score, 1000, depth-1)
+                            if score >= beta:
+                                best_move = move
+                                if depth > 1:
+                                    print("{:2d}+ {:5.1f}  {:+.3f}  {}".format(
+                                        depth,
+                                        self.elapsed,
+                                        score,
+                                        san))
+                                score = -self.search(b, -1000, -score, depth-1)
+                                
                     finally:
                         b.pop()
 
                     self.elapsed = time.perf_counter() - self.start_time
 
-                    if best_move is None or move == best_move or score > max_score:
+                    if is_pv or score > max_score:
                         max_score = score
                         best_move = move
                         l.remove(move)
                         l.insert(0, move)
-                    print("{}: [{}] {} with score {:.3f}, {} nodes/sec".format(
-                        depth,
-                        b.san(best_move),
-                        b.san(move),
-                        score,
-                        int(self.nodes / self.elapsed)),
-                        end = '\r')
-                print("{}: {} in {:.1f} secs {:.3f}, {} nodes/sec                    ".format(
+                            
+                        if depth > 1:
+                            print("{:2d}+ {:5.1f}  {:+.3f}  {}".format(
+                                depth,
+                                self.elapsed,
+                                score,
+                                self.pv(b, best_move)))
+                    is_pv = False
+
+                print("{:2d}  {:5.1f}  {:+.3f}  {}, {} nodes/sec                    ".format(
                     depth,
-                    self.pv(b, best_move),
                     self.elapsed,
                     max_score,
+                    self.pv(b, best_move),
                     int(self.nodes / self.elapsed)))
         except TimeOutException:
             pass
