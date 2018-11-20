@@ -153,15 +153,15 @@ class Searcher:
                         captures_searched.add(move)
                         yield move
 
-        for victim in range(0, 4):
-            victims_mask = victims[victim]
-            for attacker in range(4-victim, len(attackers)):
-                attackers_mask = attackers[attacker]
-                captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
-                for move in captures:
-                    if move != hash_move and board.is_legal(move):
-                        captures_searched.add(move)
-                        yield move
+        # for victim in range(0, 4):
+        #     victims_mask = victims[victim]
+        #     for attacker in range(4-victim, len(attackers)):
+        #         attackers_mask = attackers[attacker]
+        #         captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
+        #         for move in captures:
+        #             if move != hash_move and board.is_legal(move):
+        #                 captures_searched.add(move)
+        #                 yield move
 
         l = list(board.generate_pseudo_legal_moves())
         l = sorted(l, key = lambda m : self.history_table[self.history_index(m)], reverse = True)
