@@ -247,3 +247,16 @@ class Repr2D:
         if b.has_queenside_castling_rights(not b.turn):
             buf[3] = 1
         return buf
+
+    def move_to_array(self, b, piece, move):
+        buf = np.zeros((64, 7), np.int8)
+
+        xor = 0
+
+        if not b.turn:
+            xor = 0x38
+
+        buf[move.from_square ^ xor][0] = 1
+        buf[move.to_square ^ xor][piece] = 1
+
+        return buf.reshape(8, 8, 7)
