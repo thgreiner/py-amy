@@ -12,8 +12,7 @@ from tensorflow.keras.models import load_model
 model = load_model("move-model.h5")
 repr = Repr2D()
 
-C = 1.2
-
+C = 1.4
 
 def sort_key(from_pred, to_pred, board, move, xor):
     type = board.piece_at(move.from_square).piece_type
@@ -65,7 +64,10 @@ def playout(board, depth = 100):
         return board.result(claim_draw = True)
 
     m = choose_move(board, model)
-    # print("{} ".format(board.san(m)), end='')
+    if depth > 90:
+        print("{} ".format(board.san(m)), end='')
+    elif depth == 90:
+        print("...", end='')
 
     board.push(m)
     winner = playout(board, depth-1)
