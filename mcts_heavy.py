@@ -84,7 +84,8 @@ def score(board, winner):
 
 def select_move(board, node):
     if board.is_game_over(claim_draw = True):
-        return board.result(claim_draw = True)
+        winner = board.result(claim_draw = True)
+        return winner
 
     moves = list(board.generate_legal_moves())
 
@@ -106,14 +107,14 @@ def select_move(board, node):
         print("{} [".format(board.san(m)), end='')
         board.push(m)
         winner = playout(board)
-        d = { "plays": 1, "wins": score(board, winner)}
         board.pop()
 
         print("] {}".format(winner))
 
+        d = { "plays": 1, "wins": score(board, winner)}
         node[board.san(m)] = d
         node["plays"] += 1
-        node["wins"] += score(board, winner)
+        # node["wins"] += score(board, winner)
 
         return winner
 
@@ -149,7 +150,7 @@ def select_move(board, node):
         # print("winner: {}".format(winner))
 
         node["plays"] += 1
-        node["wins"] += score(board, winner)
+        selected_child_node["wins"] += score(board, winner)
 
         return winner
 
@@ -158,15 +159,20 @@ def statistics(node):
     best_move = None
     best_visits = None
     best_wins = None
+
+    stats = []
     for key, val in node.items():
         if isinstance(val, dict):
             win_ratio = val["wins"] / val["plays"]
-            if best_move is None or win_ratio > best_wins:
-                best_move = key
-                best_visits = val["plays"]
-                best_wins = win_ratio
+            stats.append((key, win_ratio, val["plays"]))
 
-    print("{} {:.0f}%, {} visits".format(best_move, 100 * best_wins, best_visits))
+    stats = sorted(stats, key = lambda e: e[1], reverse=True)
+    cnt = 0
+    for stat in stats:
+        print("{:5s} {:.1f}% {} visits".format(stat[0], 100 * stat[1], stat[2]))
+        cnt += 1
+        if cnt >= 5:
+            break
 
 def mcts(board):
     root = { "plays": 0, "wins": 0 }
@@ -174,7 +180,7 @@ def mcts(board):
     iterations = 0
     while True:
         iterations += 1
-        print("Iteration {}".format(iteration))
+        print("Iteration {}".format(iterations))
         select_move(board, root)
         statistics(root)
 
