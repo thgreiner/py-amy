@@ -14,7 +14,7 @@ repr = Repr2D()
 LEAK=0.1
 
 # POSITIONS_TO_LEARN_APRIORI = 900000
-POSITIONS_TO_LEARN_APRIORI = 750_000
+POSITIONS_TO_LEARN_APRIORI = 2_000_000
 
 
 def label_for_result(result):
@@ -33,7 +33,7 @@ def create_model():
     temp = keras.layers.BatchNormalization()(temp)
     temp = keras.layers.LeakyReLU()(temp)
 
-    for i in range(8):
+    for i in range(9):
         temp = keras.layers.Conv2D(dim, (3, 3), padding='same')(temp)
         temp = keras.layers.BatchNormalization()(temp)
         temp = keras.layers.LeakyReLU()(temp)
@@ -64,6 +64,8 @@ cnt1 = 0
 i = 0
 ngames = 0
 
+book = dict()
+
 while True:
     try:
         game = chess.pgn.read_game(pgn)
@@ -78,19 +80,33 @@ while True:
     result = game.headers["Result"]
     result_label = label_for_result(result)
 
+    if not (result_label == 1 or result_label == -1):
+        continue
+
     b = game.board()
     nmoves = 0
     moves_in_game = len(list(game.main_line()))
-    for move in game.main_line():
-        if (b.turn and result_label == 1) or (not b.turn and result_label == -1):
-            piece = b.piece_at(move.from_square).piece_type
-            train_data[cnt1] = repr.board_to_array(b)
-            train_labels[cnt1] = repr.move_to_array(b, piece, move)
-            cnt1 += 1
 
-        b.push(move)
-        if cnt1 >= npos:
-            break
+    node = book
+
+    try:
+        for move in game.main_line():
+            san = b.san(move)
+
+            if (not san in book):
+                book[san] = dict()
+                if (b.turn and result_label == 1) or (not b.turn and result_label == -1):
+                    piece = b.piece_at(move.from_square).piece_type
+                    train_data[cnt1] = repr.board_to_array(b)
+                    train_labels[cnt1] = repr.move_to_array(b, piece, move)
+                    cnt1 += 1
+
+            book = book[san]
+            b.push(move)
+            if cnt1 >= npos:
+                break
+    except AttributeError:
+        print("Oops - bad game encountered. Skipping it...")
     if cnt1 >= npos:
         break
     print("{}: {}".format(ngames, cnt1), end='\r')

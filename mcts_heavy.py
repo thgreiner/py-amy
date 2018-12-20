@@ -87,6 +87,7 @@ def score(board, winner):
 def select_move(board, node):
     if board.is_game_over(claim_draw = True):
         winner = board.result(claim_draw = True)
+        print(winner)
         return winner
 
     moves = list(board.generate_legal_moves())
