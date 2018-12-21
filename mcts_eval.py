@@ -89,7 +89,7 @@ def score(board, winner):
 def select_move(board, node):
     if board.is_game_over(claim_draw = True):
         winner = board.result(claim_draw = True)
-        print(winner)
+        # print(winner)
         return 1.0 - score(board, winner)
 
     moves = list(board.generate_legal_moves())
@@ -109,12 +109,12 @@ def select_move(board, node):
 
     if non_visited:
         m = choose_move(board, model, non_visited)
-        print("{} [".format(board.san(m)), end='')
+        # print("{} [".format(board.san(m)), end='')
         board.push(m)
         winner = playout(board)
         board.pop()
 
-        print("] {}".format(winner))
+        # print("] {}".format(winner))
 
         d = { "plays": 1, "wins": 0}
         node[board.san(m)] = d
@@ -146,7 +146,7 @@ def select_move(board, node):
                 selected_prob = child_prob
                 selected_child_node = child
 
-        print("{} ".format(board.san(selected_move)), end='')
+        # print("{} ".format(board.san(selected_move)), end='')
 
         board.push(selected_move)
         winner = select_move(board, selected_child_node)
@@ -159,6 +159,23 @@ def select_move(board, node):
 
         return 1.0 - winner
 
+
+def pv(board, node):
+    stats = []
+    for key, val in node.items():
+        if isinstance(val, dict):
+            stats.append((key, val["plays"]))
+
+    if stats:
+        stats = sorted(stats, key = lambda e: e[1], reverse=True)
+        best_move = stats[0][0]
+        move = board.parse_san(best_move)
+        board.push(move)
+        line = best_move + " " + pv(board, node[best_move])
+        board.pop()
+        return line
+    else:
+        return ""
 
 def statistics(node):
     best_move = None
@@ -192,20 +209,32 @@ def mcts(board):
     iteration = 0
     best_move = None
     for iteration in range(0, 30000):
-        iteration += 1
-        print("Iteration {}".format(iteration))
         select_move(board, root)
 
-        click.clear()  # Clear the screen
-        print(board)
-        print()
+        iteration += 1
+        if (iteration % 100) == 0:
+            click.clear()  # Clear the screen
+            print(board)
+            print()
+            print("Iteration {}".format(iteration))
+            print()
 
-        best_move = statistics(root)
+            print("PV: {}".format(pv(board, root)))
+            print()
+            statistics(root)
+
+    best_move = statistics(root)
     return best_move
 
 if __name__ == "__main__":
-    board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
-    # board = Board()
+    # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
+    board = Board()
+    opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
+    # opening = "d4 d5"
+    # opening = "e4 c5 Nf3 Nc6"
+    for move in opening.split(" "):
+        m = board.parse_san(move)
+        board.push(m)
 
     while not board.is_game_over(claim_draw = True):
         print(board)
