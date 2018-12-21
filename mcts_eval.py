@@ -78,9 +78,9 @@ def playout(board):
 
 
 def score(board, winner):
-    if board.turn and winner == "1-0":
+    if board.turn and (winner == "1-0"):
         return 1
-    if not board.turn and winner == "0-1":
+    if (not board.turn) and (winner == "0-1"):
         return 1
     if winner == "1/2-1/2" or winner == "*":
         return 0.5
@@ -208,7 +208,7 @@ def mcts(board):
 
     iteration = 0
     best_move = None
-    for iteration in range(0, 30000):
+    for iteration in range(0, 3000):
         select_move(board, root)
 
         iteration += 1
