@@ -64,16 +64,14 @@ def residual_block(y):
 
     return y
 
-def residual_block2(y):
+def residual_block2(y, dim):
     shortcut = y
-    dim_int = 64
-    dim_out = 64
 
-    y = keras.layers.Conv2D(dim_int, (1, 1), padding='same')(y)
+    y = keras.layers.Conv2D(dim, (1, 1), padding='same')(y)
     y = keras.layers.BatchNormalization()(y)
     y = keras.layers.LeakyReLU()(y)
 
-    y = keras.layers.SeparableConv2D(dim_int, (3, 3), padding='same')(y)
+    y = keras.layers.SeparableConv2D(dim, (3, 3), padding='same')(y)
     y = keras.layers.BatchNormalization()(y)
 
     y = keras.layers.add([y, shortcut])
@@ -84,14 +82,14 @@ def residual_block2(y):
 def create_model():
     board_input = keras.layers.Input(shape = (8, 8, 17), name='board_input')
 
-    dim = 64
+    dim = 96
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same')(board_input)
     temp = keras.layers.BatchNormalization()(temp)
     temp = keras.layers.LeakyReLU()(temp)
 
     for i in range(13):
-        temp = residual_block2(temp)
+        temp = residual_block2(temp, dim)
         # temp = keras.layers.Conv2D(dim, (3, 3), padding='same')(temp)
         # temp = keras.layers.BatchNormalization()(temp)
         # temp = keras.layers.LeakyReLU()(temp)
@@ -99,7 +97,7 @@ def create_model():
     t2 = keras.layers.Conv2D(dim, (3, 3), padding='same')(temp)
     t2 = keras.layers.BatchNormalization()(t2)
     t2 = keras.layers.LeakyReLU()(t2)
-    t2 = keras.layers.Conv2D(64, (3, 3), activation='linear', padding='same')(t2)
+    t2 = keras.layers.Conv2D(73, (3, 3), activation='linear', padding='same')(t2)
     move_output = keras.layers.Flatten(name='moves')(t2)
 
     avg_pooled = keras.layers.GlobalAveragePooling2D()(temp)
@@ -137,13 +135,13 @@ pgn = open(sys.argv[1])
 # pgn = open("LearnGames.pgn")
 
 # Training batch size
-BATCH_SIZE = 256
+BATCH_SIZE = 4096
 
 # Checkpoint every x batches
-CHECKPOINT = 100
+CHECKPOINT = 5
 
 train_data = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
-train_labels1 = np.zeros((BATCH_SIZE, 4096), np.int8)
+train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
 train_labels2 = np.zeros((BATCH_SIZE, 2), np.float32)
 cnt1 = 0
 

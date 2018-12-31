@@ -1,4 +1,5 @@
 import numpy as np
+import chess
 from chess import Board, Piece
 
 white_pieces = [ None, 'P', 'N', 'B', 'R', 'Q', 'K' ]
@@ -213,8 +214,48 @@ class BoardAndMoveRepr:
 
 class Repr2D:
     
+    def __init__(self):
+        queen_dirs = [ -1, 1, -8, 8, -7, 7, -9, 9 ]
+        knight_dirs = [ -15, 15, -17, 17, -10, 10, -6, 6]
+        pawn_dirs = [ 7, 8, 9 ]
+        self.indexes = dict()
+        self.underpromo_indexes = {
+            chess.KNIGHT: dict(),
+            chess.BISHOP: dict(),
+            chess.ROOK: dict()
+        }
+
+        idx = 0
+
+        for dir in queen_dirs:
+            for i in range(1, 8):
+                delta = i * dir
+                self.indexes[delta] = idx
+                idx += 1
+
+        for delta in knight_dirs:
+            self.indexes[delta] = idx
+            idx += 1
+
+        for delta in pawn_dirs:
+            for piece in [ chess.KNIGHT, chess.BISHOP, chess.ROOK ]:
+                self.underpromo_indexes[piece][delta] = idx
+                idx += 1
+
+        print("Generated {} indexes for moves.".format(idx))
+
+
+    def plane_index(self, move, xor):
+        delta = (move.to_square ^ xor) - (move.from_square ^ xor)
+        if move.promotion and move.promotion != chess.QUEEN:
+            return self.underpromo_indexes[move.promotion][delta]
+        else:
+            return self.indexes[delta]
+
+        
     def coords(self, sq):
         return (sq >> 3, sq & 7)
+
 
     def board_to_array(self, b):
         buf = np.zeros((8, 8, 17), np.int8)
@@ -275,7 +316,7 @@ class Repr2D:
 
     def move_to_array(self, b, piece, move):
         # buf = np.zeros((64, 7), np.int8)
-        buf = np.zeros((64, 64), np.int8)
+        buf = np.zeros((64, 73), np.int8)
 
         xor = 0
 
@@ -284,7 +325,7 @@ class Repr2D:
 
         # buf[move.from_square ^ xor][0] = 1
         # buf[move.to_square ^ xor][piece] = 1
-        buf[move.to_square ^ xor, move.from_square ^ xor] = 1
+        buf[move.from_square ^ xor, self.plane_index(move, xor)] = 1
         
         # return buf.reshape(8, 8, 7)
-        return buf.reshape(4096)
+        return buf.reshape(4672)

@@ -47,10 +47,9 @@ class Node(object):
 
 
 def move_prob(logits, board, move, xor):
-    type = board.piece_at(move.from_square).piece_type
     fr = move.from_square ^ xor
-    to = move.to_square ^ xor
-    return math.exp(logits[to][fr])
+    plane = repr.plane_index(move, xor)
+    return math.exp(logits[fr][plane])
 
 
 def score(board, winner):
@@ -76,7 +75,7 @@ def evaluate(node, board):
     
     value = (prediction[1].flatten())[0]
 
-    logits = prediction[0].flatten().reshape((64, 64))
+    logits = prediction[0].flatten().reshape((64, 73))
 
     xor = 0
     if not board.turn:
