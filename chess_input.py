@@ -212,12 +212,12 @@ class BoardAndMoveRepr:
         return (buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6])
 
 class Repr2D:
-
+    
     def coords(self, sq):
         return (sq >> 3, sq & 7)
 
     def board_to_array(self, b):
-        buf = np.zeros((8, 8, 12), np.int8)
+        buf = np.zeros((8, 8, 17), np.int8)
         xor = 0
 
         if not b.turn:
@@ -228,12 +228,37 @@ class Repr2D:
             squares = b.pieces(piece_type, b.turn)
             for sq in squares:
                 rank, file = self.coords(sq ^ xor)
-                buf[rank][file][offset] = 1
+                buf[rank, file, offset] = 1
             squares = b.pieces(piece_type, not b.turn)
             for sq in squares:
                 rank, file = self.coords(sq ^ xor)
-                buf[rank][file][offset + 1] = 1
+                buf[rank, file, offset + 1] = 1
 
+        if b.ep_square:
+            rank, file = self.coords(b.ep_square ^ xor)
+            buf[rank, file, 12] = 1
+
+        if b.has_kingside_castling_rights(b.turn):
+            buf[0, 6, 13] = 1
+        if b.has_queenside_castling_rights(b.turn):
+            buf[0, 2, 13] = 1
+        if b.has_kingside_castling_rights(not b.turn):
+            buf[7, 6, 14] = 1
+        if b.has_queenside_castling_rights(not b.turn):
+            buf[7, 2, 14] = 1
+        
+        # Center
+        buf[3, 3, 15] = 1
+        buf[3, 4, 15] = 1
+        buf[4, 3, 15] = 1
+        buf[4, 4, 15] = 1
+
+        for i in range(8):
+            buf[i, 0, 16] = 1
+            buf[i, 7, 16] = 1
+            buf[0, i, 16] = 1
+            buf[7, i, 16] = 1
+        
         return buf
 
     def castling_to_array(self, b):
@@ -249,14 +274,17 @@ class Repr2D:
         return buf
 
     def move_to_array(self, b, piece, move):
-        buf = np.zeros((64, 7), np.int8)
+        # buf = np.zeros((64, 7), np.int8)
+        buf = np.zeros((64, 64), np.int8)
 
         xor = 0
 
         if not b.turn:
             xor = 0x38
 
-        buf[move.from_square ^ xor][0] = 1
-        buf[move.to_square ^ xor][piece] = 1
-
-        return buf.reshape(8, 8, 7)
+        # buf[move.from_square ^ xor][0] = 1
+        # buf[move.to_square ^ xor][piece] = 1
+        buf[move.to_square ^ xor, move.from_square ^ xor] = 1
+        
+        # return buf.reshape(8, 8, 7)
+        return buf.reshape(4096)
