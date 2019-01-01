@@ -1,9 +1,7 @@
 import chess
-from chess import Board, Move, Piece
-import random
+from chess import Board
 import numpy as np
 import chess.pgn
-from searcher import Searcher, AmySearcher
 from chess_input import Repr2D
 # TensorFlow and tf.keras
 import tensorflow as tf
@@ -13,11 +11,11 @@ from tensorflow.keras import backend as K
 
 import sys
 
-repr = Repr2D()
-LEAK=0.1
+# Training batch size
+BATCH_SIZE = 2048
 
-# POSITIONS_TO_LEARN_APRIORI = 900000
-POSITIONS_TO_LEARN_APRIORI = 400_000
+# Checkpoint every x batches
+CHECKPOINT = 50
 
 
 def label_for_result(result, turn):
@@ -44,82 +42,49 @@ def my_categorical_crossentropy(y_true, y_pred):
     return K.categorical_crossentropy(y_true, y_pred, from_logits=True)
 
 
-def residual_block(y):
+def residual_block(y, dim):
     shortcut = y
-    dim_int = 32
-    dim_out = 64
-
-    y = keras.layers.Conv2D(dim_int, (1, 1), padding='same')(y)
-    y = keras.layers.BatchNormalization()(y)
-    y = keras.layers.LeakyReLU()(y)
-
-    y = keras.layers.Conv2D(dim_int, (3, 3), padding='same')(y)
-    y = keras.layers.BatchNormalization()(y)
-    y = keras.layers.LeakyReLU()(y)
-
-    y = keras.layers.Conv2D(dim_out, (1, 1), padding='same')(y)
-    y = keras.layers.BatchNormalization()(y)
+    y = keras.layers.Conv2D(2 * dim, (1, 1), padding='same', activation='elu')(y)
+    y = keras.layers.DepthwiseConv2D((3, 3), padding='same', activation='elu')(y)
+    y = keras.layers.Conv2D(dim, (1, 1), padding='same', activation='elu')(y)
     y = keras.layers.add([y, shortcut])
-    y = keras.layers.LeakyReLU()(y)
-
     return y
 
-def residual_block2(y, dim):
-    shortcut = y
-
-    y = keras.layers.Conv2D(2 * dim, (1, 1), padding='same')(y)
-    y = keras.layers.BatchNormalization()(y)
-    y = keras.layers.LeakyReLU()(y)
-
-    y = keras.layers.DepthwiseConv2D((3, 3), padding='same')(y)
-    y = keras.layers.BatchNormalization()(y)
-    y = keras.layers.LeakyReLU()(y)
-
-    y = keras.layers.Conv2D(dim, (1, 1), padding='same')(y)
-    y = keras.layers.BatchNormalization()(y)
-
-    y = keras.layers.add([y, shortcut])
-    y = keras.layers.LeakyReLU()(y)
-
-    return y
 
 def create_model():
     board_input = keras.layers.Input(shape = (8, 8, 17), name='board_input')
 
-    dim = 64
+    dim = 80
 
-    temp = keras.layers.Conv2D(dim, (3, 3), padding='same')(board_input)
-    temp = keras.layers.BatchNormalization()(temp)
-    temp = keras.layers.LeakyReLU()(temp)
-
+    temp = keras.layers.Conv2D(dim, (3, 3), padding='same', activation='elu')(board_input)
     for i in range(13):
-        temp = residual_block2(temp, dim)
-        # temp = keras.layers.Conv2D(dim, (3, 3), padding='same')(temp)
-        # temp = keras.layers.BatchNormalization()(temp)
-        # temp = keras.layers.LeakyReLU()(temp)
+        temp = residual_block(temp, dim)
 
-    t2 = keras.layers.Conv2D(dim, (3, 3), padding='same')(temp)
-    t2 = keras.layers.BatchNormalization()(t2)
-    t2 = keras.layers.LeakyReLU()(t2)
+    t2 = keras.layers.Conv2D(dim, (3, 3), padding='same', activation='elu')(temp)
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear', padding='same')(t2)
     move_output = keras.layers.Flatten(name='moves')(t2)
 
     avg_pooled = keras.layers.GlobalAveragePooling2D()(temp)
     
-    temp = keras.layers.Conv2D(5, (1, 1), padding='same')(temp)
-    temp = keras.layers.BatchNormalization()(temp)
-    temp = keras.layers.LeakyReLU()(temp)
-    
+    temp = keras.layers.Conv2D(5, (1, 1), padding='same', activation='elu')(temp)    
     temp = keras.layers.Flatten()(temp)
     temp = keras.layers.concatenate([temp, avg_pooled])
-
-    temp = keras.layers.Dense(256)(temp)
-    temp = keras.layers.LeakyReLU()(temp)
+    temp = keras.layers.Dense(256, activation='elu')(temp)
 
     score_output = keras.layers.Dense(2, activation='softmax', name='score')(temp)
 
     return keras.Model(inputs = board_input, outputs=[move_output, score_output])
 
+
+def loosing_side(turn, result):
+    if result == "1-0" and not turn:
+        return True
+    if result == "0-1" and turn:
+        return True
+    return False
+
+
+repr = Repr2D()
 
 if True:
     model = create_model()
@@ -129,20 +94,13 @@ else:
 model.summary()
 
 # opt1 = tf.train.AdamOptimizer()
-opt1 = keras.optimizers.Adam()
+opt1 = keras.optimizers.Nadam()
 
 model.compile(optimizer=opt1,
                loss={'moves': my_categorical_crossentropy, 'score': 'mean_squared_error' },
                metrics=['accuracy', 'mae'])
 
 pgn = open(sys.argv[1])
-# pgn = open("LearnGames.pgn")
-
-# Training batch size
-BATCH_SIZE = 1024
-
-# Checkpoint every x batches
-CHECKPOINT = 50
 
 train_data = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
 train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
@@ -174,33 +132,32 @@ while True:
 
     try:
         for move in game.main_line():
-            san = b.san(move)
-
-            train_data[cnt1] = repr.board_to_array(b)
-            train_labels1[cnt1] = repr.move_to_array(b, move)
-            train_labels2[cnt1] = label_for_result(result, b.turn)
-            cnt1 += 1
             
-            if cnt1 == BATCH_SIZE:
-                train_labels = [ train_labels1, train_labels2 ]
-                results = model.train_on_batch(train_data, train_labels)
-                samples += cnt1
-                print(samples, results)
-                cnt1 = 0
-                if samples >= checkpoint_next:
-                    checkpoint_no += 1
-                    checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
-                    print("Checkpointing model to {}".format(checkpoint_name))
-                    model.save(checkpoint_name)
-                    checkpoint_next += CHECKPOINT * BATCH_SIZE
+            # Do not learn moves of the loosing side...
+            if not loosing_side(b.turn, result):
+                train_data[cnt1] = repr.board_to_array(b)
+                train_labels1[cnt1] = repr.move_to_array(b, move)
+                train_labels2[cnt1] = label_for_result(result, b.turn)
+                cnt1 += 1
+            
+                if cnt1 == BATCH_SIZE:
+                    train_labels = [ train_labels1, train_labels2 ]
+                    results = model.train_on_batch(train_data, train_labels)
+                    samples += cnt1
+                    print(samples, results)
+                    cnt1 = 0
+                    if samples >= checkpoint_next:
+                        checkpoint_no += 1
+                        checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
+                        print("Checkpointing model to {}".format(checkpoint_name))
+                        model.save(checkpoint_name)
+                        checkpoint_next += CHECKPOINT * BATCH_SIZE
 
             b.push(move)
             nmoves += 1
     except AttributeError:
         print("Oops - bad game encountered. Skipping it...")
-    if cnt1 >= POSITIONS_TO_LEARN_APRIORI:
-        break
-    print("{}: {}".format(ngames, cnt1), end='\r')
+    print("{}: {}    ".format(ngames, cnt1), end='\r')
 
 # Train on the remainder of the dataset
 train_labels = [ train_labels1[:cnt1], train_labels2[:cnt1] ]
@@ -208,4 +165,4 @@ results = model.train_on_batch(train_data[:cnt1], train_labels)
 samples += cnt1
 print(samples, results)
 
-model.save("move-model.h5")
+model.save("combined-model.h5")
