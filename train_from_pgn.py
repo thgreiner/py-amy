@@ -117,6 +117,10 @@ while True:
     # if label == 0:
     #     continue
     result = game.headers["Result"]
+    white = game.headers["White"]
+    black = game.headers["Black"]
+    
+    print("{}: {} - {}, {}". format(ngames, white, black, result))
 
     b = game.board()
     nmoves = 0
@@ -146,7 +150,6 @@ while True:
             nmoves += 1
     except AttributeError:
         print("Oops - bad game encountered. Skipping it...")
-    print("{}: {}    ".format(ngames, cnt), end='\r')
 
 # Train on the remainder of the dataset
 train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
