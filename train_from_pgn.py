@@ -76,14 +76,6 @@ def create_model():
     return keras.Model(inputs = board_input, outputs=[move_output, score_output])
 
 
-def loosing_side(turn, result):
-    if result == "1-0" and not turn:
-        return True
-    if result == "0-1" and turn:
-        return True
-    return False
-
-
 repr = Repr2D()
 
 if True:
@@ -105,7 +97,7 @@ pgn = open(sys.argv[1])
 train_data = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
 train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
 train_labels2 = np.zeros((BATCH_SIZE, 2), np.float32)
-cnt1 = 0
+cnt = 0
 
 ngames = 0
 
@@ -132,37 +124,34 @@ while True:
 
     try:
         for move in game.main_line():
-            
-            # Do not learn moves of the loosing side...
-            if not loosing_side(b.turn, result):
-                train_data[cnt1] = repr.board_to_array(b)
-                train_labels1[cnt1] = repr.move_to_array(b, move)
-                train_labels2[cnt1] = label_for_result(result, b.turn)
-                cnt1 += 1
-            
-                if cnt1 == BATCH_SIZE:
-                    train_labels = [ train_labels1, train_labels2 ]
-                    results = model.train_on_batch(train_data, train_labels)
-                    samples += cnt1
-                    print(samples, results)
-                    cnt1 = 0
-                    if samples >= checkpoint_next:
-                        checkpoint_no += 1
-                        checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
-                        print("Checkpointing model to {}".format(checkpoint_name))
-                        model.save(checkpoint_name)
-                        checkpoint_next += CHECKPOINT * BATCH_SIZE
+            train_data[cnt] = repr.board_to_array(b)
+            train_labels1[cnt] = repr.move_to_array(b, move)
+            train_labels2[cnt] = label_for_result(result, b.turn)
+            cnt += 1
+        
+            if cnt == BATCH_SIZE:
+                train_labels = [ train_labels1, train_labels2 ]
+                results = model.train_on_batch(train_data, train_labels)
+                samples += cnt
+                print(samples, results)
+                cnt = 0
+                if samples >= checkpoint_next:
+                    checkpoint_no += 1
+                    checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
+                    print("Checkpointing model to {}".format(checkpoint_name))
+                    model.save(checkpoint_name)
+                    checkpoint_next += CHECKPOINT * BATCH_SIZE
 
             b.push(move)
             nmoves += 1
     except AttributeError:
         print("Oops - bad game encountered. Skipping it...")
-    print("{}: {}    ".format(ngames, cnt1), end='\r')
+    print("{}: {}    ".format(ngames, cnt), end='\r')
 
 # Train on the remainder of the dataset
-train_labels = [ train_labels1[:cnt1], train_labels2[:cnt1] ]
-results = model.train_on_batch(train_data[:cnt1], train_labels)
-samples += cnt1
+train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
+results = model.train_on_batch(train_data[:cnt], train_labels)
+samples += cnt
 print(samples, results)
 
 model.save("combined-model.h5")
