@@ -21,16 +21,16 @@ CHECKPOINT = 50
 def label_for_result(result, turn):
     if result == '1-0':
         if turn:
-            return [ 1, 0 ]
+            return 1
         else:
-            return [ 0, 1 ]
+            return -1
     if result == '0-1':
         if turn:
-            return [ 0, 1 ]
+            return -1
         else:
-            return [ 1, 0 ]
+            return 1
 
-    return [ 0.5, 0.5 ]
+    return 0
 
 
 def phasing(label, moves_in_game, current_move):
@@ -71,7 +71,7 @@ def create_model():
     temp = keras.layers.concatenate([temp, avg_pooled])
     temp = keras.layers.Dense(256, activation='elu')(temp)
 
-    score_output = keras.layers.Dense(2, activation='softmax', name='score')(temp)
+    score_output = keras.layers.Dense(1, activation='tanh', name='score')(temp)
 
     return keras.Model(inputs = board_input, outputs=[move_output, score_output])
 
@@ -96,7 +96,7 @@ pgn = open(sys.argv[1])
 
 train_data = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
 train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
-train_labels2 = np.zeros((BATCH_SIZE, 2), np.float32)
+train_labels2 = np.zeros((BATCH_SIZE, 1), np.float32)
 cnt = 0
 
 ngames = 0
@@ -130,7 +130,7 @@ while True:
         for move in game.main_line():
             train_data[cnt] = repr.board_to_array(b)
             train_labels1[cnt] = repr.move_to_array(b, move)
-            train_labels2[cnt] = label_for_result(result, b.turn)
+            train_labels2[cnt, 0] = label_for_result(result, b.turn)
             cnt += 1
         
             if cnt == BATCH_SIZE:
