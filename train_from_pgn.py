@@ -67,11 +67,15 @@ def residual_block(y):
 def residual_block2(y, dim):
     shortcut = y
 
-    # y = keras.layers.Conv2D(dim, (1, 1), padding='same')(y)
-    # y = keras.layers.BatchNormalization()(y)
-    # y = keras.layers.LeakyReLU()(y)
+    y = keras.layers.Conv2D(2 * dim, (1, 1), padding='same')(y)
+    y = keras.layers.BatchNormalization()(y)
+    y = keras.layers.LeakyReLU()(y)
 
-    y = keras.layers.SeparableConv2D(dim, (3, 3), padding='same')(y)
+    y = keras.layers.DepthwiseConv2D((3, 3), padding='same')(y)
+    y = keras.layers.BatchNormalization()(y)
+    y = keras.layers.LeakyReLU()(y)
+
+    y = keras.layers.Conv2D(dim, (1, 1), padding='same')(y)
     y = keras.layers.BatchNormalization()(y)
 
     y = keras.layers.add([y, shortcut])
@@ -82,7 +86,7 @@ def residual_block2(y, dim):
 def create_model():
     board_input = keras.layers.Input(shape = (8, 8, 17), name='board_input')
 
-    dim = 96
+    dim = 64
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same')(board_input)
     temp = keras.layers.BatchNormalization()(temp)
@@ -135,10 +139,10 @@ pgn = open(sys.argv[1])
 # pgn = open("LearnGames.pgn")
 
 # Training batch size
-BATCH_SIZE = 256
+BATCH_SIZE = 1024
 
 # Checkpoint every x batches
-CHECKPOINT = 100
+CHECKPOINT = 50
 
 train_data = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
 train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
