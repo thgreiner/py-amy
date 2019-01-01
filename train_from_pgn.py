@@ -23,7 +23,7 @@ POSITIONS_TO_LEARN_APRIORI = 400_000
 def label_for_result(result, turn):
     if result == '1-0':
         if turn:
-            return [ 1 , 0 ]
+            return [ 1, 0 ]
         else:
             return [ 0, 1 ]
     if result == '0-1':
@@ -67,9 +67,9 @@ def residual_block(y):
 def residual_block2(y, dim):
     shortcut = y
 
-    y = keras.layers.Conv2D(dim, (1, 1), padding='same')(y)
-    y = keras.layers.BatchNormalization()(y)
-    y = keras.layers.LeakyReLU()(y)
+    # y = keras.layers.Conv2D(dim, (1, 1), padding='same')(y)
+    # y = keras.layers.BatchNormalization()(y)
+    # y = keras.layers.LeakyReLU()(y)
 
     y = keras.layers.SeparableConv2D(dim, (3, 3), padding='same')(y)
     y = keras.layers.BatchNormalization()(y)
@@ -135,10 +135,10 @@ pgn = open(sys.argv[1])
 # pgn = open("LearnGames.pgn")
 
 # Training batch size
-BATCH_SIZE = 4096
+BATCH_SIZE = 256
 
 # Checkpoint every x batches
-CHECKPOINT = 5
+CHECKPOINT = 100
 
 train_data = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
 train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
@@ -172,9 +172,8 @@ while True:
         for move in game.main_line():
             san = b.san(move)
 
-            piece = b.piece_at(move.from_square).piece_type
             train_data[cnt1] = repr.board_to_array(b)
-            train_labels1[cnt1] = repr.move_to_array(b, piece, move)
+            train_labels1[cnt1] = repr.move_to_array(b, move)
             train_labels2[cnt1] = label_for_result(result, b.turn)
             cnt1 += 1
             

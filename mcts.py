@@ -49,7 +49,7 @@ class Node(object):
 def move_prob(logits, board, move, xor):
     fr = move.from_square ^ xor
     plane = repr.plane_index(move, xor)
-    return math.exp(logits[fr][plane])
+    return math.exp(logits[fr, plane])
 
 
 def score(board, winner):
@@ -75,11 +75,9 @@ def evaluate(node, board):
     
     value = (prediction[1].flatten())[0]
 
-    logits = prediction[0].flatten().reshape((64, 73))
+    logits = prediction[0].reshape(64, 73)
 
-    xor = 0
-    if not board.turn:
-        xor = 0x38
+    xor = 0 if board.turn else 0x38
 
     # Expand the node.
     node.turn = board.turn
@@ -88,7 +86,7 @@ def evaluate(node, board):
     for action, p in policy.items():
         node.children[action] = Node(p / policy_sum)
 
-    return (1 + value) * 0.5
+    return value
 
 
 def score(board, winner):
@@ -210,7 +208,7 @@ def mcts(board):
 
     root = Node(0)
     evaluate(root, board)
-    add_exploration_noise(root)
+    # add_exploration_noise(root)
     
     best_move = None
     for iteration in range(0, 800):

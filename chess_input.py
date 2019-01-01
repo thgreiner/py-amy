@@ -218,7 +218,8 @@ class Repr2D:
         queen_dirs = [ -1, 1, -8, 8, -7, 7, -9, 9 ]
         knight_dirs = [ -15, 15, -17, 17, -10, 10, -6, 6]
         pawn_dirs = [ 7, 8, 9 ]
-        self.indexes = dict()
+        self.queen_indexes = dict()
+        self.knight_indexes = dict()
         self.underpromo_indexes = {
             chess.KNIGHT: dict(),
             chess.BISHOP: dict(),
@@ -230,11 +231,11 @@ class Repr2D:
         for dir in queen_dirs:
             for i in range(1, 8):
                 delta = i * dir
-                self.indexes[delta] = idx
+                self.queen_indexes[delta] = idx
                 idx += 1
 
         for delta in knight_dirs:
-            self.indexes[delta] = idx
+            self.knight_indexes[delta] = idx
             idx += 1
 
         for delta in pawn_dirs:
@@ -245,12 +246,19 @@ class Repr2D:
         print("Generated {} indexes for moves.".format(idx))
 
 
+    def is_knight_move(self, move):
+        file_dist = abs((move.from_square & 7) - (move.to_square & 7))
+        rank_dist = abs((move.from_square >> 3) - (move.to_square >> 3))
+        return (file_dist == 1 and rank_dist == 2) or (file_dist == 2 and rank_dist == 1)
+
     def plane_index(self, move, xor):
         delta = (move.to_square ^ xor) - (move.from_square ^ xor)
         if move.promotion and move.promotion != chess.QUEEN:
             return self.underpromo_indexes[move.promotion][delta]
+        elif self.is_knight_move(move):
+            return self.knight_indexes[delta]
         else:
-            return self.indexes[delta]
+            return self.queen_indexes[delta]
 
         
     def coords(self, sq):
@@ -314,14 +322,11 @@ class Repr2D:
             buf[3] = 1
         return buf
 
-    def move_to_array(self, b, piece, move):
+    def move_to_array(self, b, move):
         # buf = np.zeros((64, 7), np.int8)
         buf = np.zeros((64, 73), np.int8)
 
-        xor = 0
-
-        if not b.turn:
-            xor = 0x38
+        xor = 0 if b.turn else 0x38
 
         # buf[move.from_square ^ xor][0] = 1
         # buf[move.to_square ^ xor][piece] = 1
