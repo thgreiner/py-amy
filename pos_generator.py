@@ -11,5 +11,4 @@ def generate_kqk():
         board.set_piece_at(positions[1], Piece.from_symbol("Q"))
         board.set_piece_at(positions[2], Piece.from_symbol("k"))
         is_ok = board.is_valid()
-    print(board)
     return board
