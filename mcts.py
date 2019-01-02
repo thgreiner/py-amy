@@ -16,7 +16,7 @@ import tensorflow.keras.backend as K
 
 import click
 
-from searcher import Searcher
+from searcher import Searcher, AmySearcher
 import piece_square_eval
 from pos_generator import generate_kqk
 
@@ -266,10 +266,14 @@ if __name__ == "__main__":
                 m = board.parse_san(move)
                 board.push(m)
 
-        black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
+        # black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
+        amy_searcher = AmySearcher()
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
-            best_move = mcts(board)
+            if board.turn:
+                best_move = board.san(amy_searcher.select_move(board))
+            else:
+                best_move = mcts(board)
             m = board.parse_san(best_move)
             board.push(m)
             total_positions += 1
