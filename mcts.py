@@ -74,6 +74,8 @@ def evaluate(node, board):
     prediction = model.predict(input_pos)
     
     value = (prediction[1].flatten())[0]
+    # Transform [-1, 1] range to [0, 1]
+    value = (value + 1) * 0.5
 
     logits = prediction[0].reshape(64, 73)
 
@@ -175,7 +177,6 @@ def ucb_score(parent: Node, child: Node):
     prior_score = pb_c * child.prior
     value_score = child.value()
     
-    # print("({:.2f} {:.2f}) ".format(prior_score, value_score), end='', flush=True)
     return prior_score + value_score
 
 def backpropagate(search_path, value: float, to_play):
@@ -220,13 +221,11 @@ def mcts(board):
         scratch_board = board.copy()
         while node.expanded():
             move, node = select_child(node)
-            # print("{} ".format(scratch_board.san(move)), end='')
             scratch_board.push(move)
             search_path.append(node)
             depth += 1
         
         value = evaluate(node, scratch_board)
-        # print("{:.1f}%        ".format(100 * value))
         backpropagate(search_path, value, scratch_board.turn)
 
         max_depth = max(max_depth, depth)
@@ -243,7 +242,7 @@ if __name__ == "__main__":
     game = chess.pgn.Game()
     game.headers["Event"] = "Test Game"
     game.headers["White"] = "Amy Zero"
-    game.headers["Black"] = "Piece Square Tables"
+    game.headers["Black"] = "PieceSquares"
     game.headers["Date"] = date.today().strftime("%Y.%m.%d")
     node = game
 
@@ -263,7 +262,7 @@ if __name__ == "__main__":
 
     while not board.is_game_over(claim_draw = True):
         print(board)
-        if True or board.turn:
+        if not board.turn:
             best_move = mcts(board)
         else:
             best_move = board.san(black_searcher.select_move(board))

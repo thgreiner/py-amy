@@ -86,7 +86,7 @@ else:
 model.summary()
 
 # opt1 = tf.train.AdamOptimizer()
-opt1 = keras.optimizers.Nadam()
+opt1 = keras.optimizers.Adam()
 
 model.compile(optimizer=opt1,
                loss={'moves': my_categorical_crossentropy, 'score': 'mean_squared_error' },
