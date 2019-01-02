@@ -123,6 +123,14 @@ def pv(board, node):
     else:
         return ""
 
+
+def pv_prefix(board):
+    prefix = "{}. ".format(board.fullmove_number)
+    if not board.turn:
+        prefix += "… "
+    return prefix
+
+
 def statistics(root, board):
     global start_time, num_simulations, max_depth, sum_depth, depth_list
 
@@ -130,7 +138,7 @@ def statistics(root, board):
     print(board)
 
     print()
-    print(pv(board, root))
+    print(pv_prefix(board) + pv(board, root))
     print()
     elapsed = time.perf_counter() - start_time
     print("{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
@@ -220,7 +228,7 @@ def mcts(board):
 
     root = Node(0)
     evaluate(root, board)
-    add_exploration_noise(root)
+    # add_exploration_noise(root)
 
     best_move = None
     for iteration in range(0, 800):
