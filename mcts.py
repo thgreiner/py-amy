@@ -2,7 +2,7 @@ from chess import Board
 import chess.pgn
 import random
 import math
-import numpy
+import numpy as np
 import time
 
 from datetime import date
@@ -18,6 +18,12 @@ import click
 
 from searcher import Searcher
 import piece_square_eval
+from pos_generator import generate_kqk
+
+# MAX_HALFMOVES_IN_GAME = 200
+
+# For KQK training
+MAX_HALFMOVES_IN_GAME = 60
 
 # This is required to load the model...
 def my_categorical_crossentropy(y_true, y_pred):
@@ -68,11 +74,10 @@ def evaluate(node, board):
         # print(winner)
         node.turn = board.turn
         return score(board, winner)
-    
+
     input_pos = repr.board_to_array(board).reshape(1, 8, 8, 17)
-    # input_castling = repr.castling_to_array(board).reshape(1, 4)
     prediction = model.predict(input_pos)
-    
+
     value = (prediction[1].flatten())[0]
     # Transform [-1, 1] range to [0, 1]
     value = (value + 1) * 0.5
@@ -119,7 +124,7 @@ def pv(board, node):
         return ""
 
 def statistics(root, board):
-    global start_time, num_simulations, max_depth, sum_depth
+    global start_time, num_simulations, max_depth, sum_depth, depth_list
 
     click.clear()
     print(board)
@@ -134,8 +139,12 @@ def statistics(root, board):
         num_simulations / elapsed
     ))
     print()
+
     avg_depth = sum_depth / num_simulations
-    print("Max depth: {} Avg depth: {:.1f}".format(max_depth, avg_depth))
+    tmp = np.array(depth_list)
+    median_depth = np.median(tmp, overwrite_input=True)
+    print("Max depth: {} Median depth: {} Avg depth: {:.1f}".format(
+        max_depth, median_depth, avg_depth))
     print()
 
     best_move = None
@@ -176,7 +185,7 @@ def ucb_score(parent: Node, child: Node):
 
     prior_score = pb_c * child.prior
     value_score = child.value()
-    
+
     return prior_score + value_score
 
 def backpropagate(search_path, value: float, to_play):
@@ -187,9 +196,9 @@ def backpropagate(search_path, value: float, to_play):
 def add_exploration_noise(node: Node):
     root_dirichlet_alpha = 0.3
     root_exploration_fraction = 0.2
-    
+
     actions = node.children.keys()
-    noise = numpy.random.gamma(root_dirichlet_alpha, 1, len(actions))
+    noise = np.random.gamma(root_dirichlet_alpha, 1, len(actions))
     frac = root_exploration_fraction
     for a, n in zip(actions, noise):
         node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
@@ -198,24 +207,26 @@ start_time = None
 num_simulations = None
 max_depth = None
 sum_depth = None
+depth_list = None
 
 def mcts(board):
-    global start_time, num_simulations, max_depth, sum_depth
-    
+    global start_time, num_simulations, max_depth, sum_depth, depth_list
+
     start_time = time.perf_counter()
     num_simulations = 0
     max_depth = 0
     sum_depth = 0
+    depth_list = []
 
     root = Node(0)
     evaluate(root, board)
-    # add_exploration_noise(root)
-    
+    add_exploration_noise(root)
+
     best_move = None
     for iteration in range(0, 800):
         num_simulations += 1
         depth = 0
-        
+
         node = root
         search_path = [ node ]
         scratch_board = board.copy()
@@ -224,13 +235,14 @@ def mcts(board):
             scratch_board.push(move)
             search_path.append(node)
             depth += 1
-        
+
         value = evaluate(node, scratch_board)
         backpropagate(search_path, value, scratch_board.turn)
 
         max_depth = max(max_depth, depth)
         sum_depth += depth
-                
+        depth_list.append(depth)
+
         if iteration % 100 == 0:
             statistics(root, board)
 
@@ -238,41 +250,36 @@ def mcts(board):
     return best_move
 
 if __name__ == "__main__":
-    # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
-    game = chess.pgn.Game()
-    game.headers["Event"] = "Test Game"
-    game.headers["White"] = "Amy Zero"
-    game.headers["Black"] = "PieceSquares"
-    game.headers["Date"] = date.today().strftime("%Y.%m.%d")
-    node = game
+    total_positions = 0
+    while total_positions < 4096:
+        # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
 
-    board = Board()
-    # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
-    # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
-    # opening = "d4 d5"
-    # opening = "e4 c5 Nf3 Nc6"
-    opening = None
-    if opening:
-        for move in opening.split(" "):
-            m = board.parse_san(move)
-            node = node.add_variation(m)
-            board.push(m)
+        # board = Board()
+        board = generate_kqk()
+        # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
+        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
+        # opening = "d4 d5"
+        # opening = "e4 c5 Nf3 Nc6"
+        opening = None
+        if opening:
+            for move in opening.split(" "):
+                m = board.parse_san(move)
+                board.push(m)
 
-    black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
+        black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
 
-    while not board.is_game_over(claim_draw = True):
-        print(board)
-        if not board.turn:
+        while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             best_move = mcts(board)
-        else:
-            best_move = board.san(black_searcher.select_move(board))
-            
-        print(best_move)
-        m = board.parse_san(best_move)
-        node = node.add_variation(m)
-        board.push(m)
+            m = board.parse_san(best_move)
+            board.push(m)
+            total_positions += 1
 
-    game.headers["Result"] = board.result()
+        game = chess.pgn.Game.from_board(board)
+        game.headers["Event"] = "Test Game"
+        game.headers["White"] = "Amy Zero"
+        game.headers["Black"] = "Amy Zero"
+        game.headers["Date"] = date.today().strftime("%Y.%m.%d")
+        game.headers["Result"] = board.result()
 
-    with open("LearnGames.pgn", "a") as f:
-        print(game, file=f, end="\n\n")
+        with open("LearnGames.pgn", "a") as f:
+            print(game, file=f, end="\n\n")

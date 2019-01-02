@@ -65,8 +65,8 @@ def create_model():
     move_output = keras.layers.Flatten(name='moves')(t2)
 
     avg_pooled = keras.layers.GlobalAveragePooling2D()(temp)
-    
-    temp = keras.layers.Conv2D(5, (1, 1), padding='same', activation='elu')(temp)    
+
+    temp = keras.layers.Conv2D(5, (1, 1), padding='same', activation='elu')(temp)
     temp = keras.layers.Flatten()(temp)
     temp = keras.layers.concatenate([temp, avg_pooled])
     temp = keras.layers.Dense(256, activation='elu')(temp)
@@ -75,24 +75,31 @@ def create_model():
 
     return keras.Model(inputs = board_input, outputs=[move_output, score_output])
 
+def load_or_create_model(model_name):
+    if model_name is None:
+        model = create_model()
+    else:
+        model = load_model(model_name, custom_objects={'my_categorical_crossentropy': my_categorical_crossentropy})
+
+    model.summary()
+
+    # opt1 = tf.train.AdamOptimizer()
+    opt1 = keras.optimizers.Adam()
+
+    model.compile(optimizer=opt1,
+                   loss={'moves': my_categorical_crossentropy, 'score': 'mean_squared_error' },
+                   metrics=['accuracy', 'mae'])
+    return model
 
 repr = Repr2D()
 
-if True:
-    model = create_model()
-else:
-    model = load_model("combined-model.h5", custom_objects={'my_categorical_crossentropy': my_categorical_crossentropy})
-
-model.summary()
-
-# opt1 = tf.train.AdamOptimizer()
-opt1 = keras.optimizers.Adam()
-
-model.compile(optimizer=opt1,
-               loss={'moves': my_categorical_crossentropy, 'score': 'mean_squared_error' },
-               metrics=['accuracy', 'mae'])
 
 pgn = open(sys.argv[1])
+model_name = None
+if len(sys.argv) > 2:
+    model_name = sys.argv[2]
+
+model = load_or_create_model(model_name)
 
 train_data = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
 train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
@@ -119,7 +126,7 @@ while True:
     result = game.headers["Result"]
     white = game.headers["White"]
     black = game.headers["Black"]
-    
+
     print("{}: {} - {}, {}". format(ngames, white, black, result))
 
     b = game.board()
@@ -132,7 +139,7 @@ while True:
             train_labels1[cnt] = repr.move_to_array(b, move)
             train_labels2[cnt, 0] = label_for_result(result, b.turn)
             cnt += 1
-        
+
             if cnt == BATCH_SIZE:
                 train_labels = [ train_labels1, train_labels2 ]
                 results = model.train_on_batch(train_data, train_labels)
@@ -157,4 +164,7 @@ results = model.train_on_batch(train_data[:cnt], train_labels)
 samples += cnt
 print(samples, results)
 
-model.save("combined-model.h5")
+if model_name is None:
+    model.save("combined-model.h5")
+else:
+    model.save(model_name)
