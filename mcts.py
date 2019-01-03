@@ -55,7 +55,7 @@ class Node(object):
 def move_prob(logits, board, move, xor):
     fr = move.from_square ^ xor
     plane = repr.plane_index(move, xor)
-    return math.exp(logits[fr, plane])
+    return logits[fr, plane]
 
 
 def score(board, winner):
@@ -75,8 +75,9 @@ def evaluate(node, board):
         node.turn = board.turn
         return score(board, winner)
 
-    input_pos = repr.board_to_array(board).reshape(1, 8, 8, 17)
-    prediction = model.predict(input_pos)
+    input_board = repr.board_to_array(board).reshape(1, 8, 8, 17)
+    input_moves = repr.legal_moves_mask(board).reshape(1, 4672)
+    prediction = model.predict([input_board, input_moves])
 
     value = (prediction[1].flatten())[0]
     # Transform [-1, 1] range to [0, 1]
@@ -228,11 +229,11 @@ def mcts(board):
 
     root = Node(0)
     evaluate(root, board)
-    
+
     if len(root.children) == 1:
         for best_move in root.children.keys():
             return board.san(best_move)
-        
+
     # add_exploration_noise(root)
 
     best_move = None

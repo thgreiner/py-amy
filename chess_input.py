@@ -213,7 +213,7 @@ class BoardAndMoveRepr:
         return (buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6])
 
 class Repr2D:
-    
+
     def __init__(self):
         queen_dirs = [ -1, 1, -8, 8, -7, 7, -9, 9 ]
         knight_dirs = [ -15, 15, -17, 17, -10, 10, -6, 6]
@@ -260,7 +260,7 @@ class Repr2D:
         else:
             return self.queen_indexes[delta]
 
-        
+
     def coords(self, sq):
         return (sq >> 3, sq & 7)
 
@@ -295,7 +295,7 @@ class Repr2D:
             buf[7, 6, 14] = 1
         if b.has_queenside_castling_rights(not b.turn):
             buf[7, 2, 14] = 1
-        
+
         # Center
         buf[3, 3, 15] = 1
         buf[3, 4, 15] = 1
@@ -307,7 +307,7 @@ class Repr2D:
             buf[i, 7, 16] = 1
             buf[0, i, 16] = 1
             buf[7, i, 16] = 1
-        
+
         return buf
 
     def castling_to_array(self, b):
@@ -322,6 +322,18 @@ class Repr2D:
             buf[3] = 1
         return buf
 
+
+    def legal_moves_mask(self, b):
+        buf = np.zeros((64, 73), np.int8)
+
+        xor = 0 if b.turn else 0x38
+
+        for move in b.generate_legal_moves():
+            buf[move.from_square ^ xor, self.plane_index(move, xor)] = 1
+
+        return buf.flatten()
+
+
     def move_to_array(self, b, move):
         # buf = np.zeros((64, 7), np.int8)
         buf = np.zeros((64, 73), np.int8)
@@ -331,6 +343,6 @@ class Repr2D:
         # buf[move.from_square ^ xor][0] = 1
         # buf[move.to_square ^ xor][piece] = 1
         buf[move.from_square ^ xor, self.plane_index(move, xor)] = 1
-        
+
         # return buf.reshape(8, 8, 7)
         return buf.reshape(4672)
