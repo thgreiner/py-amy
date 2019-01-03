@@ -19,6 +19,8 @@ BATCH_SIZE = 128
 CHECKPOINT = 400
 
 
+REGULARIZATION_WEIGHT=3e-5
+
 def label_for_result(result, turn):
     if result == '1-0':
         if turn:
@@ -45,9 +47,9 @@ def my_categorical_crossentropy(y_true, y_pred):
 
 def residual_block(y, dim):
     shortcut = y
-    y = keras.layers.Conv2D(3 * dim, (1, 1), padding='same', activation='elu')(y)
-    y = keras.layers.DepthwiseConv2D((3, 3), padding='same', activation='elu')(y)
-    y = keras.layers.Conv2D(dim, (1, 1), padding='same', activation='elu')(y)
+    y = keras.layers.Conv2D(3 * dim, (1, 1), padding='same', activation='elu', kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
+    y = keras.layers.DepthwiseConv2D((3, 3), padding='same', activation='elu', kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
+    y = keras.layers.Conv2D(dim, (1, 1), padding='same', activation='elu', kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
     y = keras.layers.add([y, shortcut])
     return y
 
@@ -58,12 +60,14 @@ def create_model():
 
     dim = 64
 
-    temp = keras.layers.Conv2D(dim, (3, 3), padding='same', activation='elu')(board_input)
+    temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
+                                            activation='elu',
+                                            kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(board_input)
 
     for i in range(13):
         temp = residual_block(temp, dim)
 
-    t2 = keras.layers.Conv2D(dim, (3, 3), padding='same', activation='elu')(temp)
+    t2 = keras.layers.Conv2D(dim, (3, 3), padding='same', activation='elu', kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear', padding='same')(t2)
     t2 = keras.layers.Flatten()(t2)
     t2 = keras.layers.multiply([t2, moves_input])
@@ -71,7 +75,7 @@ def create_model():
 
     temp = keras.layers.Conv2D(1, (1, 1), padding='same', activation='elu')(temp)
     temp = keras.layers.Flatten()(temp)
-    temp = keras.layers.Dense(256, activation='elu')(temp)
+    temp = keras.layers.Dense(256, activation='elu', kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
 
     score_output = keras.layers.Dense(1, activation='tanh', name='score')(temp)
 
