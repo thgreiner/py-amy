@@ -10,6 +10,7 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 
 import sys
+import time
 
 # Training batch size
 BATCH_SIZE = 2048
@@ -44,7 +45,7 @@ def my_categorical_crossentropy(y_true, y_pred):
 
 def residual_block(y, dim):
     shortcut = y
-    y = keras.layers.Conv2D(2 * dim, (1, 1), padding='same', activation='elu')(y)
+    y = keras.layers.Conv2D(3 * dim, (1, 1), padding='same', activation='elu')(y)
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same', activation='elu')(y)
     y = keras.layers.Conv2D(dim, (1, 1), padding='same', activation='elu')(y)
     y = keras.layers.add([y, shortcut])
@@ -54,7 +55,7 @@ def residual_block(y, dim):
 def create_model():
     board_input = keras.layers.Input(shape = (8, 8, 17), name='board_input')
 
-    dim = 80
+    dim = 64
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same', activation='elu')(board_input)
     for i in range(13):
@@ -64,11 +65,8 @@ def create_model():
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear', padding='same')(t2)
     move_output = keras.layers.Flatten(name='moves')(t2)
 
-    avg_pooled = keras.layers.GlobalAveragePooling2D()(temp)
-
-    temp = keras.layers.Conv2D(5, (1, 1), padding='same', activation='elu')(temp)
+    temp = keras.layers.Conv2D(1, (1, 1), padding='same', activation='elu')(temp)
     temp = keras.layers.Flatten()(temp)
-    temp = keras.layers.concatenate([temp, avg_pooled])
     temp = keras.layers.Dense(256, activation='elu')(temp)
 
     score_output = keras.layers.Dense(1, activation='tanh', name='score')(temp)
@@ -79,16 +77,17 @@ def load_or_create_model(model_name):
     if model_name is None:
         model = create_model()
     else:
+        print("Loading model from \"{}\"".format(model_name))
         model = load_model(model_name, custom_objects={'my_categorical_crossentropy': my_categorical_crossentropy})
 
     model.summary()
 
-    # opt1 = tf.train.AdamOptimizer()
-    opt1 = keras.optimizers.Adam()
+    optimizer = keras.optimizers.Adam()
+    # optimizer = keras.optimizers.SGD(lr=0.2, momentum=0.9)
 
-    model.compile(optimizer=opt1,
-                   loss={'moves': my_categorical_crossentropy, 'score': 'mean_squared_error' },
-                   metrics=['accuracy', 'mae'])
+    model.compile(optimizer=optimizer,
+                  loss={'moves': my_categorical_crossentropy, 'score': 'mean_squared_error' },
+                  metrics=['accuracy', 'mae'])
     return model
 
 repr = Repr2D()
@@ -124,10 +123,10 @@ while True:
     # if label == 0:
     #     continue
     result = game.headers["Result"]
-    white = game.headers["White"]
-    black = game.headers["Black"]
-
-    print("{}: {} - {}, {}". format(ngames, white, black, result))
+    # white = game.headers["White"]
+    # black = game.headers["Black"]
+    # 
+    # print("{}: {} - {}, {}". format(ngames, white, black, result))
 
     b = game.board()
     nmoves = 0
@@ -141,10 +140,16 @@ while True:
             cnt += 1
 
             if cnt == BATCH_SIZE:
+                # print(train_labels2)
                 train_labels = [ train_labels1, train_labels2 ]
+
+                start_time = time.perf_counter()
                 results = model.train_on_batch(train_data, train_labels)
+                elapsed = time.perf_counter() - start_time
+                
                 samples += cnt
-                print(samples, results)
+                print("{}: {} in {:.1f}s".format(samples, results, elapsed))
+
                 cnt = 0
                 if samples >= checkpoint_next:
                     checkpoint_no += 1
@@ -160,9 +165,13 @@ while True:
 
 # Train on the remainder of the dataset
 train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
+
+start_time = time.perf_counter()
 results = model.train_on_batch(train_data[:cnt], train_labels)
+elapsed = time.perf_counter() - start_time
+
 samples += cnt
-print(samples, results)
+print("{}: {} in {:.1f}s".format(samples, results, elapsed))
 
 if model_name is None:
     model.save("combined-model.h5")

@@ -18,7 +18,7 @@ import click
 
 from searcher import Searcher, AmySearcher
 import piece_square_eval
-from pos_generator import generate_kqk
+from pos_generator import generate_kxk
 
 # MAX_HALFMOVES_IN_GAME = 200
 
@@ -127,7 +127,7 @@ def pv(board, node):
 def pv_prefix(board):
     prefix = "{}. ".format(board.fullmove_number)
     if not board.turn:
-        prefix += "… "
+        prefix += ".. "
     return prefix
 
 
@@ -228,6 +228,11 @@ def mcts(board):
 
     root = Node(0)
     evaluate(root, board)
+    
+    if len(root.children) == 1:
+        for best_move in root.children.keys():
+            return board.san(best_move)
+        
     # add_exploration_noise(root)
 
     best_move = None
@@ -263,7 +268,7 @@ if __name__ == "__main__":
         # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
 
         # board = Board()
-        board = generate_kqk()
+        board = generate_kxk()
         # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
         # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
         # opening = "d4 d5"
@@ -288,7 +293,7 @@ if __name__ == "__main__":
 
         game = chess.pgn.Game.from_board(board)
         game.headers["Event"] = "Test Game"
-        game.headers["White"] = "Amy Zero"
+        game.headers["White"] = "Amy 0.9.1"
         game.headers["Black"] = "Amy Zero"
         game.headers["Date"] = date.today().strftime("%Y.%m.%d")
         game.headers["Result"] = board.result()
