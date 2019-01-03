@@ -90,9 +90,10 @@ def evaluate(node, board):
     # Expand the node.
     node.turn = board.turn
     policy = {a: move_prob(logits, board, a, xor) for a in board.generate_legal_moves()}
-    policy_sum = sum(policy.values())
+    # We don't need to normalize - softmax does this for us
+    # policy_sum = sum(policy.values())
     for action, p in policy.items():
-        node.children[action] = Node(p / policy_sum)
+        node.children[action] = Node(p)
 
     return value
 
@@ -268,8 +269,8 @@ if __name__ == "__main__":
     while total_positions < 4096:
         # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
 
-        # board = Board()
-        board = generate_kxk()
+        board = Board()
+        # board = generate_kxk()
         # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
         # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
         # opening = "d4 d5"
@@ -280,14 +281,15 @@ if __name__ == "__main__":
                 m = board.parse_san(move)
                 board.push(m)
 
-        # black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
+        black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
         amy_searcher = AmySearcher()
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             if board.turn:
-                best_move = board.san(amy_searcher.select_move(board))
-            else:
                 best_move = mcts(board)
+                # best_move = board.san(amy_searcher.select_move(board))
+            else:
+                best_move = board.san(black_searcher.select_move(board))
             m = board.parse_san(best_move)
             board.push(m)
             total_positions += 1
