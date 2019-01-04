@@ -246,27 +246,28 @@ class Repr2D:
         print("Generated {} indexes for moves.".format(idx))
 
 
-    def is_knight_move(self, move):
+    def _is_knight_move(self, move):
         file_dist = abs((move.from_square & 7) - (move.to_square & 7))
         rank_dist = abs((move.from_square >> 3) - (move.to_square >> 3))
         return (file_dist == 1 and rank_dist == 2) or (file_dist == 2 and rank_dist == 1)
+
 
     def plane_index(self, move, xor):
         delta = (move.to_square ^ xor) - (move.from_square ^ xor)
         if move.promotion and move.promotion != chess.QUEEN:
             return self.underpromo_indexes[move.promotion][delta]
-        elif self.is_knight_move(move):
+        elif self._is_knight_move(move):
             return self.knight_indexes[delta]
         else:
             return self.queen_indexes[delta]
 
 
-    def coords(self, sq):
+    def _coords(self, sq):
         return (sq >> 3, sq & 7)
 
 
     def board_to_array(self, b):
-        buf = np.zeros((8, 8, 17), np.int8)
+        buf = np.zeros((8, 8, 16), np.int8)
         xor = 0
 
         if not b.turn:
@@ -276,15 +277,15 @@ class Repr2D:
             offset = 2 * (piece_type - 1)
             squares = b.pieces(piece_type, b.turn)
             for sq in squares:
-                rank, file = self.coords(sq ^ xor)
+                rank, file = self._coords(sq ^ xor)
                 buf[rank, file, offset] = 1
             squares = b.pieces(piece_type, not b.turn)
             for sq in squares:
-                rank, file = self.coords(sq ^ xor)
+                rank, file = self._coords(sq ^ xor)
                 buf[rank, file, offset + 1] = 1
 
         if b.ep_square:
-            rank, file = self.coords(b.ep_square ^ xor)
+            rank, file = self._coords(b.ep_square ^ xor)
             buf[rank, file, 12] = 1
 
         if b.has_kingside_castling_rights(b.turn):
@@ -296,30 +297,9 @@ class Repr2D:
         if b.has_queenside_castling_rights(not b.turn):
             buf[7, 2, 14] = 1
 
-        # Center
-        buf[3, 3, 15] = 1
-        buf[3, 4, 15] = 1
-        buf[4, 3, 15] = 1
-        buf[4, 4, 15] = 1
+        # One plane just ones so the network can detect the board edge
+        buf[:, :, 15] = 1
 
-        for i in range(8):
-            buf[i, 0, 16] = 1
-            buf[i, 7, 16] = 1
-            buf[0, i, 16] = 1
-            buf[7, i, 16] = 1
-
-        return buf
-
-    def castling_to_array(self, b):
-        buf = np.zeros((4), np.int8)
-        if b.has_kingside_castling_rights(b.turn):
-            buf[0] = 1
-        if b.has_queenside_castling_rights(b.turn):
-            buf[1] = 1
-        if b.has_kingside_castling_rights(not b.turn):
-            buf[2] = 1
-        if b.has_queenside_castling_rights(not b.turn):
-            buf[3] = 1
         return buf
 
 

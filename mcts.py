@@ -71,7 +71,7 @@ def evaluate(node, board):
         node.turn = board.turn
         return score(board, winner)
 
-    input_board = repr.board_to_array(board).reshape(1, 8, 8, 17)
+    input_board = repr.board_to_array(board).reshape(1, 8, 8, 16)
     input_moves = repr.legal_moves_mask(board).reshape(1, 4672)
     prediction = model.predict([input_board, input_moves])
 
@@ -158,14 +158,14 @@ def statistics(root, board):
     stats = []
     for key, val in root.children.items():
         if val.visit_count > 0:
-            stats.append((board.san(key), val.value(), val.visit_count))
+            stats.append((board.san(key), val.value(), val.visit_count, val.prior))
 
     stats = sorted(stats, key = lambda e: e[2], reverse=True)
 
     cnt = 0
     for s1 in stats:
-        print("{:5s} {:5.1f}% {:5.0f} visits".format(
-            s1[0], 100 * s1[1], s1[2]))
+        print("{:5s} {:5.1f}% {:5.0f} visits  [{:4.1f}%]".format(
+            s1[0], 100 * s1[1], s1[2], 100 * s1[3]))
         cnt += 1
         if cnt >= 10:
             break
@@ -265,8 +265,8 @@ if __name__ == "__main__":
     while total_positions < 4096:
         # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
 
-        board = Board()
-        # board = generate_kxk()
+        # board = Board()
+        board = generate_kxk()
         # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
         # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
         # opening = "d4 d5"
@@ -282,10 +282,11 @@ if __name__ == "__main__":
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             if board.turn:
-                best_move = mcts(board)
-                # best_move = board.san(amy_searcher.select_move(board))
+                # best_move = mcts(board)
+                best_move = board.san(amy_searcher.select_move(board))
             else:
-                best_move = board.san(black_searcher.select_move(board))
+                best_move = mcts(board)
+                # best_move = board.san(black_searcher.select_move(board))
             m = board.parse_san(best_move)
             board.push(m)
             total_positions += 1

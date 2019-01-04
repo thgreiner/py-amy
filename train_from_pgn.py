@@ -57,7 +57,7 @@ def residual_block(y, dim):
 
 
 def create_model():
-    board_input = keras.layers.Input(shape = (8, 8, 17), name='board_input')
+    board_input = keras.layers.Input(shape = (8, 8, 16), name='board_input')
     moves_input = keras.layers.Input(shape = (4672,), name='moves_input')
 
     dim = 67
@@ -113,7 +113,7 @@ def stats(step_output):
     loss = step_output[0]
     moves_accuracy = step_output[3]
     score_mae = step_output[6]
-    
+
     return "loss: {:.3f}, move accuracy: {:.0f}%, score mae: {:.3f}".format(
         loss, moves_accuracy * 100, score_mae
     )
@@ -127,7 +127,7 @@ if __name__ == "__main__":
 
     model = load_or_create_model(model_name)
 
-    train_data_board = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
+    train_data_board = np.zeros(((BATCH_SIZE, 8, 8, 16)), np.int8)
     train_data_moves = np.zeros((BATCH_SIZE, 4672), np.int8)
     train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
     train_labels2 = np.zeros((BATCH_SIZE, 1), np.float32)
