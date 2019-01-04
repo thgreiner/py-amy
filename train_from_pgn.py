@@ -19,7 +19,7 @@ BATCH_SIZE = 128
 CHECKPOINT = 400
 
 
-REGULARIZATION_WEIGHT=3e-5
+REGULARIZATION_WEIGHT=2e-5
 
 def label_for_result(result, turn):
     if result == '1-0':
@@ -39,10 +39,6 @@ def label_for_result(result, turn):
 def phasing(label, moves_in_game, current_move):
     # return label * (1.0 + moves_in_game - current_move) ** -0.8
     return label # * (0.99 ** (moves_in_game - current_move))
-
-
-def my_categorical_crossentropy(y_true, y_pred):
-    return K.categorical_crossentropy(y_true, y_pred, from_logits=True)
 
 
 def residual_block(y, dim):
@@ -101,7 +97,7 @@ def load_or_create_model(model_name):
         model = create_model()
     else:
         print("Loading model from \"{}\"".format(model_name))
-        model = load_model(model_name, custom_objects={'my_categorical_crossentropy': my_categorical_crossentropy})
+        model = load_model(model_name)
 
     model.summary()
 
@@ -113,95 +109,107 @@ def load_or_create_model(model_name):
                   metrics=['accuracy', 'mae'])
     return model
 
-repr = Repr2D()
+def stats(step_output):
+    loss = step_output[0]
+    moves_accuracy = step_output[3]
+    score_mae = step_output[6]
+    
+    return "loss: {:.3f}, move accuracy: {:.0f}%, score mae: {:.3f}".format(
+        loss, moves_accuracy * 100, score_mae
+    )
 
-model_name = None
-if len(sys.argv) > 2:
-    model_name = sys.argv[2]
+if __name__ == "__main__":
+    repr = Repr2D()
 
-model = load_or_create_model(model_name)
+    model_name = None
+    if len(sys.argv) > 2:
+        model_name = sys.argv[2]
 
-train_data_board = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
-train_data_moves = np.zeros((BATCH_SIZE, 4672), np.int8)
-train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
-train_labels2 = np.zeros((BATCH_SIZE, 1), np.float32)
+    model = load_or_create_model(model_name)
 
-for iteration in range(100):
-    with open(sys.argv[1]) as pgn:
-        cnt = 0
+    train_data_board = np.zeros(((BATCH_SIZE, 8, 8, 17)), np.int8)
+    train_data_moves = np.zeros((BATCH_SIZE, 4672), np.int8)
+    train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
+    train_labels2 = np.zeros((BATCH_SIZE, 1), np.float32)
 
-        ngames = 0
+    for iteration in range(100):
+        with open(sys.argv[1]) as pgn:
+            cnt = 0
 
-        samples = 0
-        checkpoint_no = 0
-        checkpoint_next = CHECKPOINT * BATCH_SIZE
+            ngames = 0
 
-        while True:
-            try:
-                game = chess.pgn.read_game(pgn)
-            except UnicodeDecodeError or ValueError:
-                pass
-            if game is None:
-                break
+            samples = 0
+            checkpoint_no = 0
+            checkpoint_next = CHECKPOINT * BATCH_SIZE
 
-            ngames += 1
-            # if label == 0:
-            #     continue
-            result = game.headers["Result"]
-            # white = game.headers["White"]
-            # black = game.headers["Black"]
-            #
-            # print("{}: {} - {}, {}". format(ngames, white, black, result))
+            while True:
+                try:
+                    game = chess.pgn.read_game(pgn)
+                except UnicodeDecodeError or ValueError:
+                    pass
+                if game is None:
+                    break
 
-            b = game.board()
-            nmoves = 0
-            moves_in_game = len(list(game.main_line()))
+                ngames += 1
+                # if label == 0:
+                #     continue
+                result = game.headers["Result"]
+                # white = game.headers["White"]
+                # black = game.headers["Black"]
+                #
+                # print("{}: {} - {}, {}". format(ngames, white, black, result))
 
-            try:
-                for move in game.main_line():
-                    train_data_board[cnt] = repr.board_to_array(b)
-                    train_data_moves[cnt] = repr.legal_moves_mask(b)
-                    train_labels1[cnt] = repr.move_to_array(b, move)
-                    train_labels2[cnt, 0] = label_for_result(result, b.turn)
-                    cnt += 1
+                b = game.board()
+                nmoves = 0
+                moves_in_game = len(list(game.main_line()))
 
-                    if cnt == BATCH_SIZE:
-                        # print(train_labels2)
-                        train_data = [ train_data_board, train_data_moves]
-                        train_labels = [ train_labels1, train_labels2 ]
+                try:
+                    for move in game.main_line():
+                        train_data_board[cnt] = repr.board_to_array(b)
+                        train_data_moves[cnt] = repr.legal_moves_mask(b)
+                        train_labels1[cnt] = repr.move_to_array(b, move)
+                        train_labels2[cnt, 0] = label_for_result(result, b.turn)
+                        cnt += 1
 
-                        start_time = time.perf_counter()
-                        results = model.train_on_batch(train_data, train_labels)
-                        elapsed = time.perf_counter() - start_time
+                        if cnt >= BATCH_SIZE:
+                            # print(train_labels2)
+                            train_data = [ train_data_board, train_data_moves]
+                            train_labels = [ train_labels1, train_labels2 ]
 
-                        samples += cnt
-                        print("{}.{}: {} in {:.1f}s".format(iteration, samples, results, elapsed))
+                            start_time = time.perf_counter()
+                            results = model.train_on_batch(train_data, train_labels)
+                            elapsed = time.perf_counter() - start_time
 
-                        cnt = 0
-                        if samples >= checkpoint_next:
-                            checkpoint_no += 1
-                            checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
-                            print("Checkpointing model to {}".format(checkpoint_name))
-                            model.save(checkpoint_name)
-                            checkpoint_next += CHECKPOINT * BATCH_SIZE
+                            samples += cnt
+                            print("{}.{}: {} in {:.1f}s [{} games]".format(
+                                iteration, samples, stats(results), elapsed, ngames))
 
-                    b.push(move)
-                    nmoves += 1
-            except AttributeError:
-                print("Oops - bad game encountered. Skipping it...")
+                            cnt = 0
+                            if samples >= checkpoint_next:
+                                checkpoint_no += 1
+                                checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
+                                print("Checkpointing model to {}".format(checkpoint_name))
+                                model.save(checkpoint_name)
+                                checkpoint_next += CHECKPOINT * BATCH_SIZE
 
-        # Train on the remainder of the dataset
-        train_data = [ train_data_board[:cnt], train_data_moves[:cnt]]
-        train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
+                        b.push(move)
+                        nmoves += 1
+                except AttributeError:
+                    print("Oops - bad game encountered. Skipping it...")
 
-        start_time = time.perf_counter()
-        results = model.train_on_batch(train_data, train_labels)
-        elapsed = time.perf_counter() - start_time
+            # Train on the remainder of the dataset
+            train_data = [ train_data_board[:cnt], train_data_moves[:cnt]]
+            train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
 
-        samples += cnt
-        print("{}.{}: {} in {:.1f}s".format(iteration, samples, results, elapsed))
+            start_time = time.perf_counter()
+            results = model.train_on_batch(train_data, train_labels)
+            elapsed = time.perf_counter() - start_time
 
-        if model_name is None:
-            model.save("combined-model.h5")
-        else:
-            model.save(model_name)
+            samples += cnt
+            print("{}.{}: {} in {:.1f}s [{} games]".format(
+                iteration, samples, stats(results), elapsed, ngames))
+
+            if model_name is None:
+                model.save("combined-model.h5")
+            else:
+                model.save(model_name)
