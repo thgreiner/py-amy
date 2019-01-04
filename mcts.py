@@ -25,11 +25,7 @@ from pos_generator import generate_kxk
 # For KQK training
 MAX_HALFMOVES_IN_GAME = 60
 
-# This is required to load the model...
-def my_categorical_crossentropy(y_true, y_pred):
-    return K.categorical_crossentropy(y_true, y_pred, from_logits=True)
-
-model = load_model("combined-model.h5", custom_objects={'my_categorical_crossentropy': my_categorical_crossentropy})
+model = load_model("combined-model.h5")
 repr = Repr2D()
 
 C = 1.4
@@ -238,7 +234,7 @@ def mcts(board):
     # add_exploration_noise(root)
 
     best_move = None
-    for iteration in range(0, 800):
+    for iteration in range(0, 2000):
         num_simulations += 1
         depth = 0
 
