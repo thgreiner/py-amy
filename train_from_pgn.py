@@ -69,11 +69,19 @@ def create_model():
     for i in range(13):
         temp = residual_block(temp, dim)
 
-    t2 = keras.layers.Conv2D(dim, (3, 3), padding='same',
+    t2 = keras.layers.Conv2D(3 * dim, (1, 1), padding='same',
+                                              activation='elu',
+                                              kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
+    t2 = keras.layers.DepthwiseConv2D((3, 3), padding='same',
+                                              activation='elu',
+                                              kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(t2)
+    t2 = keras.layers.Conv2D(128, (1, 1), padding='same',
                                           activation='elu',
-                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
+                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(t2)
+
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                          padding='same',
+                                         name='moves_convolution',
                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(t2)
     t2 = keras.layers.Flatten()(t2)
     t2 = keras.layers.multiply([t2, moves_input])
@@ -154,6 +162,9 @@ if __name__ == "__main__":
                 # if label == 0:
                 #     continue
                 result = game.headers["Result"]
+                if result == "*":
+                    continue
+
                 # white = game.headers["White"]
                 # black = game.headers["Black"]
                 #
