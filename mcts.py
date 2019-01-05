@@ -20,10 +20,10 @@ from searcher import Searcher, AmySearcher
 import piece_square_eval
 from pos_generator import generate_kxk
 
-# MAX_HALFMOVES_IN_GAME = 200
+MAX_HALFMOVES_IN_GAME = 200
 
 # For KQK training
-MAX_HALFMOVES_IN_GAME = 60
+# MAX_HALFMOVES_IN_GAME = 60
 
 model = load_model("combined-model.h5")
 repr = Repr2D()
@@ -71,7 +71,7 @@ def evaluate(node, board):
         node.turn = board.turn
         return score(board, winner)
 
-    input_board = repr.board_to_array(board).reshape(1, 8, 8, 16)
+    input_board = repr.board_to_array(board).reshape(1, 8, 8, repr.num_planes)
     input_moves = repr.legal_moves_mask(board).reshape(1, 4672)
     prediction = model.predict([input_board, input_moves])
 
@@ -183,8 +183,8 @@ def select_child(node: Node):
 # The score for a node is based on its value, plus an exploration bonus based on
 # the prior.
 def ucb_score(parent: Node, child: Node):
-    pb_c_base = 900
-    pb_c_init = 1.25
+    pb_c_base = 19652
+    pb_c_init = 1.75 # 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -234,7 +234,7 @@ def mcts(board):
     # add_exploration_noise(root)
 
     best_move = None
-    for iteration in range(0, 2000):
+    for iteration in range(0, 2500):
         num_simulations += 1
         depth = 0
 
@@ -265,13 +265,14 @@ if __name__ == "__main__":
     while total_positions < 4096:
         # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
 
-        # board = Board()
-        board = generate_kxk()
+        board = Board()
+        # board = generate_kxk()
         # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
-        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
+
+        opening = None
+        opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
         # opening = "d4 d5"
         # opening = "e4 c5 Nf3 Nc6"
-        opening = None
         if opening:
             for move in opening.split(" "):
                 m = board.parse_san(move)
@@ -282,11 +283,11 @@ if __name__ == "__main__":
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             if board.turn:
-                # best_move = mcts(board)
-                best_move = board.san(amy_searcher.select_move(board))
-            else:
                 best_move = mcts(board)
-                # best_move = board.san(black_searcher.select_move(board))
+                # best_move = board.san(amy_searcher.select_move(board))
+            else:
+                # best_move = mcts(board)
+                best_move = board.san(black_searcher.select_move(board))
             m = board.parse_san(best_move)
             board.push(m)
             total_positions += 1
