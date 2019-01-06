@@ -6,6 +6,7 @@ from chess_input import Repr2D
 
 import sys
 import time
+import random
 
 from network import load_or_create_model
 
@@ -14,6 +15,16 @@ BATCH_SIZE = 256
 
 # Checkpoint every x batches
 CHECKPOINT = 200
+
+
+p1 = 0.5
+p2 = 0.3
+
+c = (p1 / p2) ** (1/20)
+
+def drop_move(fullmove_number):
+    prob_of_dropping = p1 * (c ** fullmove_number)
+    return random.uniform(0, 1) < prob_of_dropping
 
 
 def label_for_result(result, turn):
@@ -96,32 +107,34 @@ if __name__ == "__main__":
 
                 try:
                     for move in game.main_line():
-                        train_data_board[cnt] = repr.board_to_array(b)
-                        train_data_moves[cnt] = repr.legal_moves_mask(b)
-                        train_labels1[cnt] = repr.move_to_array(b, move)
-                        train_labels2[cnt, 0] = label_for_result(result, b.turn)
-                        cnt += 1
+                        
+                        if not drop_move(b.fullmove_number):
+                            train_data_board[cnt] = repr.board_to_array(b)
+                            train_data_moves[cnt] = repr.legal_moves_mask(b)
+                            train_labels1[cnt] = repr.move_to_array(b, move)
+                            train_labels2[cnt, 0] = label_for_result(result, b.turn)
+                            cnt += 1
 
-                        if cnt >= BATCH_SIZE:
-                            # print(train_labels2)
-                            train_data = [ train_data_board, train_data_moves]
-                            train_labels = [ train_labels1, train_labels2 ]
+                            if cnt >= BATCH_SIZE:
+                                # print(train_labels2)
+                                train_data = [ train_data_board, train_data_moves]
+                                train_labels = [ train_labels1, train_labels2 ]
 
-                            results = model.train_on_batch(train_data, train_labels)
-                            elapsed = time.perf_counter() - start_time
+                                results = model.train_on_batch(train_data, train_labels)
+                                elapsed = time.perf_counter() - start_time
 
-                            samples += cnt
-                            print("{}.{}: {} in {:.1f}s [{} games]".format(
-                                iteration, samples, stats(results), elapsed, ngames))
-                            start_time = time.perf_counter()
+                                samples += cnt
+                                print("{}.{}: {} in {:.1f}s [{} games]".format(
+                                    iteration, samples, stats(results), elapsed, ngames))
+                                start_time = time.perf_counter()
 
-                            cnt = 0
-                            if samples >= checkpoint_next:
-                                checkpoint_no += 1
-                                checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
-                                print("Checkpointing model to {}".format(checkpoint_name))
-                                model.save(checkpoint_name)
-                                checkpoint_next += CHECKPOINT * BATCH_SIZE
+                                cnt = 0
+                                if samples >= checkpoint_next:
+                                    checkpoint_no += 1
+                                    checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
+                                    print("Checkpointing model to {}".format(checkpoint_name))
+                                    model.save(checkpoint_name)
+                                    checkpoint_next += CHECKPOINT * BATCH_SIZE
 
                         b.push(move)
                         nmoves += 1
