@@ -2,7 +2,7 @@ import numpy as np
 import chess
 from chess import Board, Piece
 
-HISTORY=3
+HISTORY=7
 
 class Repr2D:
 
