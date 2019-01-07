@@ -23,6 +23,15 @@ p2 = 0.3
 
 c = (p1 / p2) ** (1/20)
 
+class Node:
+    
+    def __init__(self):
+        self.visit_count = 0
+        self.learn_count = 0
+        self.result = 0
+        self.children = {}
+
+
 def drop_move(fullmove_number):
     prob_of_dropping = p1 * (c ** fullmove_number)
     return random.uniform(0, 1) < prob_of_dropping
@@ -81,6 +90,9 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
 
     for iteration in range(100):
+        
+        root = Node()
+        
         with open(args.filename) as pgn:
             cnt = 0
 
@@ -140,43 +152,64 @@ if __name__ == "__main__":
 
                 b = game.board()
                 nmoves = 0
-                moves_in_game = len(list(game.mainline_moves()))
 
-                try:
-                    for move in game.mainline_moves():
+                if "SetUp" in game.headers and game.headers["SetUp"] == "1":
+                    node = None
+                else:
+                    node = root
+                out_of_book = 0
+                
+                for move in game.mainline_moves():
 
-                        if not drop_move(b.fullmove_number):
-                            train_data_board[cnt] = repr.board_to_array(b)
-                            train_data_moves[cnt] = repr.legal_moves_mask(b)
-                            train_labels1[cnt] = repr.move_to_array(b, move)
+                    if node:
+                        node.visit_count += 1
+                        node.result += label_for_result(result, b.turn)
+                        
+                    if not drop_move(b.fullmove_number):
+                        train_data_board[cnt] = repr.board_to_array(b)
+                        train_data_moves[cnt] = repr.legal_moves_mask(b)
+                        train_labels1[cnt] = repr.move_to_array(b, move)
+                        if node:
+                            train_labels2[cnt, 0] = node.result / node.visit_count
+                        else:
                             train_labels2[cnt, 0] = label_for_result(result, b.turn)
-                            cnt += 1
+                        cnt += 1
 
-                            if cnt >= BATCH_SIZE:
-                                # print(train_labels2)
-                                train_data = [ train_data_board, train_data_moves]
-                                train_labels = [ train_labels1, train_labels2 ]
+                        if cnt >= BATCH_SIZE:
+                            # print(train_labels2)
+                            train_data = [ train_data_board, train_data_moves]
+                            train_labels = [ train_labels1, train_labels2 ]
 
-                                results = model.train_on_batch(train_data, train_labels)
-                                elapsed = time.perf_counter() - start_time
+                            results = model.train_on_batch(train_data, train_labels)
+                            elapsed = time.perf_counter() - start_time
 
-                                samples += cnt
-                                print("{}.{}: {} in {:.1f}s [{} games]".format(
-                                    iteration, samples, stats(results), elapsed, ngames))
-                                start_time = time.perf_counter()
+                            samples += cnt
+                            print("{}.{}: {} in {:.1f}s [{} games]".format(
+                                iteration, samples, stats(results), elapsed, ngames))
+                            start_time = time.perf_counter()
 
-                                cnt = 0
-                                if samples >= checkpoint_next:
-                                    checkpoint_no += 1
-                                    checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
-                                    print("Checkpointing model to {}".format(checkpoint_name))
-                                    model.save(checkpoint_name)
-                                    checkpoint_next += CHECKPOINT * BATCH_SIZE
+                            cnt = 0
+                            if samples >= checkpoint_next:
+                                checkpoint_no += 1
+                                checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
+                                print("Checkpointing model to {}".format(checkpoint_name))
+                                model.save(checkpoint_name)
+                                checkpoint_next += CHECKPOINT * BATCH_SIZE
 
-                        b.push(move)
-                        nmoves += 1
-                except AttributeError:
-                    print("Oops - bad game encountered. Skipping it...")
+                    if node:
+                        if move in node.children:
+                            node = node.children[move]
+                        else:
+                            out_of_book += 1
+                            if out_of_book <= 10:
+                                child_node = Node()
+                                node.children[move] = child_node
+                            else:
+                                node = None
+
+
+                    b.push(move)
+                    nmoves += 1
 
             # Train on the remainder of the dataset
             train_data = [ train_data_board[:cnt], train_data_moves[:cnt]]
