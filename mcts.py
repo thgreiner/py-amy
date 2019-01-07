@@ -9,26 +9,18 @@ from datetime import date
 
 from chess_input import Repr2D
 
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.models import load_model
-import tensorflow.keras.backend as K
-
 import click
 
 from searcher import Searcher, AmySearcher
 import piece_square_eval
 from pos_generator import generate_kxk
 
+from network import load_or_create_model
+
 MAX_HALFMOVES_IN_GAME = 200
 
 # For KQK training
 # MAX_HALFMOVES_IN_GAME = 60
-
-model = load_model("combined-model.h5")
-repr = Repr2D()
-
-C = 1.4
 
 class Node(object):
 
@@ -105,10 +97,10 @@ def score(board, winner):
 
 
 def pv(board, node, variation):
-    
+
     best_move = None
     best_visits = 0
-    
+
     for key, val in node.children.items():
         if val.visit_count > 0:
             if best_move is None or val.visit_count > best_visits:
@@ -117,7 +109,7 @@ def pv(board, node, variation):
 
     if best_move is None:
         return
-    
+
     variation.append(best_move)
     board.push(best_move)
     pv(board, node.children[best_move], variation)
@@ -129,6 +121,8 @@ def statistics(root, board):
 
     click.clear()
     print(board)
+    print()
+    print(board.fen())
 
     print()
     principal_variation = []
@@ -231,7 +225,7 @@ def mcts(board):
     # add_exploration_noise(root)
 
     best_move = None
-    for iteration in range(800):
+    for iteration in range(80000):
         num_simulations += 1
         depth = 0
 
@@ -258,6 +252,10 @@ def mcts(board):
     return best_move
 
 if __name__ == "__main__":
+
+    model = load_or_create_model("combined-model.h5")
+    repr = Repr2D()
+
     total_positions = 0
     while total_positions < 4096:
         # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
@@ -268,6 +266,7 @@ if __name__ == "__main__":
 
         opening = None
         opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
+        opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5 Bd3 h6 Bf4 b4 Ne4 Nxe4 Bxe4 Ba6 Qa4 Bb5"
         # opening = "d4 d5"
         # opening = "e4 c5 Nf3 Nc6"
         if opening:

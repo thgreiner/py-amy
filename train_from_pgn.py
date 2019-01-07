@@ -7,6 +7,7 @@ from chess_input import Repr2D
 import sys
 import time
 import random
+import argparse
 
 from network import load_or_create_model
 
@@ -52,19 +53,24 @@ def stats(step_output):
     score_mae = step_output[6]
 
     return "loss: {:.2f} = {:.2f} + {:.2f} + {:.2f}, move accuracy: {:2.0f}%, score mae: {:.2f}".format(
-        loss, 
+        loss,
         moves_loss, score_loss, reg_loss,
         moves_accuracy * 100, score_mae
     )
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run training on a PGN file.")
+    parser.add_argument("filename")
+    parser.add_argument('--diff', type=int, help="minimum elo barrier", default=0)
+    parser.add_argument('--model', help="model file name")
+
+    args = parser.parse_args()
+
     repr = Repr2D()
 
-    model_name = None
-    if len(sys.argv) > 2:
-        model_name = sys.argv[2]
-
+    elo_diff = args.diff
+    model_name = args.model
     model = load_or_create_model(model_name)
 
     train_data_board = np.zeros(((BATCH_SIZE, 8, 8, repr.num_planes)), np.int8)
@@ -75,7 +81,7 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
 
     for iteration in range(100):
-        with open(sys.argv[1]) as pgn:
+        with open(args.filename) as pgn:
             cnt = 0
 
             ngames = 0
@@ -85,6 +91,11 @@ if __name__ == "__main__":
             checkpoint_next = CHECKPOINT * BATCH_SIZE
 
             while True:
+                # skip = random.uniform(0, 100)
+                # for i in range(int(skip)):
+                #     if not chess.pgn.skip_game(pgn):
+                #        break
+
                 try:
                     game = chess.pgn.read_game(pgn)
                 except UnicodeDecodeError or ValueError:
@@ -92,22 +103,48 @@ if __name__ == "__main__":
                 if game is None:
                     break
 
-                ngames += 1
                 # if label == 0:
                 #     continue
                 result = game.headers["Result"]
-                # white = game.headers["White"]
-                # black = game.headers["Black"]
-                #
-                # print("{}: {} - {}, {}". format(ngames, white, black, result))
+                white = game.headers["White"]
+                black = game.headers["Black"]
+                date_of_game = game.headers["Date"]
+
+                if "WhiteElo" in game.headers:
+                    white_elo = game.headers["WhiteElo"]
+                else:
+                    white_elo = "-"
+
+                if "BlackElo" in game.headers:
+                    black_elo = game.headers["BlackElo"]
+                else:
+                    black_elo = "-"
+
+                if white_elo != "-" and black_elo != "-":
+                    w = int(white_elo)
+                    b = int(black_elo)
+                    if abs(w - b) < elo_diff:
+                        # print("Skipping game - Elo diff less than {}}.".format(elo_diff))
+                        continue
+                else:
+                    # print("Skipping game, one side has no Elo.")
+                    continue
+
+                print("{}: {} ({}) - {} ({}), {} {}". format(
+                    ngames,
+                    white, white_elo,
+                    black, black_elo,
+                    result, date_of_game))
+
+                ngames += 1
 
                 b = game.board()
                 nmoves = 0
-                moves_in_game = len(list(game.main_line()))
+                moves_in_game = len(list(game.mainline_moves()))
 
                 try:
-                    for move in game.main_line():
-                        
+                    for move in game.mainline_moves():
+
                         if not drop_move(b.fullmove_number):
                             train_data_board[cnt] = repr.board_to_array(b)
                             train_data_moves[cnt] = repr.legal_moves_mask(b)

@@ -25,7 +25,7 @@ def residual_block(y, dim):
 
 def create_model():
     repr = Repr2D()
-    
+
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board_input')
     moves_input = keras.layers.Input(shape = (4672,), name='moves_input')
 
