@@ -2,8 +2,6 @@ import numpy as np
 import chess
 from chess import Board, Piece
 
-HISTORY=7
-
 class Repr2D:
 
     def __init__(self):
@@ -35,7 +33,7 @@ class Repr2D:
                 self.underpromo_indexes[piece][delta] = idx
                 idx += 1
 
-        self.num_planes = (HISTORY + 1) * 12 + 4
+        self.num_planes = 16
 
         print("Generated {} indexes for moves.".format(idx))
 
@@ -81,20 +79,7 @@ class Repr2D:
 
         self._store_board(b, buf, turn, 0)
         
-        redo_buffer = []
-        for history in range(HISTORY):
-            if b.move_stack:
-                move = b.pop()
-                redo_buffer.append(move)
-                plane_offset = 12 * (history + 1)
-                self._store_board(b, buf, turn, plane_offset)
-            else:
-                break
-                
-        while redo_buffer:
-            b.push(redo_buffer.pop())
-
-        offset = (HISTORY + 1)  * 12
+        offset = 12
         
         if b.ep_square:
             xor = 0 if turn else 0x38
