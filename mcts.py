@@ -104,29 +104,24 @@ def score(board, winner):
     return 0
 
 
-def pv(board, node):
-    stats = []
+def pv(board, node, variation):
+    
+    best_move = None
+    best_visits = 0
+    
     for key, val in node.children.items():
         if val.visit_count > 0:
-            stats.append((key, val.visit_count))
+            if best_move is None or val.visit_count > best_visits:
+                best_move = key
+                best_visits = val.visit_count
 
-    if stats:
-        stats = sorted(stats, key = lambda e: e[1], reverse=True)
-        best_move = stats[0][0]
-        line = board.san(best_move) + " "
-        board.push(best_move)
-        line += pv(board, node.children[best_move])
-        board.pop()
-        return line
-    else:
-        return ""
-
-
-def pv_prefix(board):
-    prefix = "{}. ".format(board.fullmove_number)
-    if not board.turn:
-        prefix += ".. "
-    return prefix
+    if best_move is None:
+        return
+    
+    variation.append(best_move)
+    board.push(best_move)
+    pv(board, node.children[best_move], variation)
+    board.pop()
 
 
 def statistics(root, board):
@@ -136,7 +131,9 @@ def statistics(root, board):
     print(board)
 
     print()
-    print(pv_prefix(board) + pv(board, root))
+    principal_variation = []
+    pv(board, root, principal_variation)
+    print(board.variation_san(principal_variation))
     print()
     elapsed = time.perf_counter() - start_time
     print("{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
@@ -184,7 +181,7 @@ def select_child(node: Node):
 # the prior.
 def ucb_score(parent: Node, child: Node):
     pb_c_base = 19652
-    pb_c_init = 1.75 # 1.25
+    pb_c_init = 3.5 # 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -234,7 +231,7 @@ def mcts(board):
     # add_exploration_noise(root)
 
     best_move = None
-    for iteration in range(0, 2500):
+    for iteration in range(800):
         num_simulations += 1
         depth = 0
 

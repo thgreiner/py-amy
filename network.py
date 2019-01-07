@@ -4,11 +4,13 @@ from tensorflow import keras
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 
+from chess_input import Repr2D
+
 REGULARIZATION_WEIGHT=1e-5
 
 def residual_block(y, dim):
     shortcut = y
-    y = keras.layers.Conv2D(3 * dim, (1, 1), padding='same',
+    y = keras.layers.Conv2D(2 * dim, (1, 1), padding='same',
                                              activation='elu',
                                              kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
@@ -22,10 +24,12 @@ def residual_block(y, dim):
 
 
 def create_model():
+    repr = Repr2D()
+    
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board_input')
     moves_input = keras.layers.Input(shape = (4672,), name='moves_input')
 
-    dim = 48
+    dim = 100
 
     temp = keras.layers.Conv2D(128, (3, 3), padding='same',
                                             activation='elu',
