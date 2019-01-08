@@ -36,13 +36,11 @@ def create_model():
                                             activation='elu',
                                             kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(board_input)
 
-    for i in range(15):
+    for i in range(17):
         temp = residual_block(temp, dim)
 
 
-    t2 = keras.layers.Conv2D(128, (3, 3), padding='same',
-                                          activation='elu',
-                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
+    t2 = residual_block(temp, dim)
 
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                          padding='same',
