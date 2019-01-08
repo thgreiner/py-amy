@@ -6,13 +6,14 @@ from tensorflow.keras import backend as K
 
 from chess_input import Repr2D
 
-REGULARIZATION_WEIGHT=1e-4
+# We really need almost no regularization as the model has so few params
+REGULARIZATION_WEIGHT=1e-6
 
 def residual_block(y, dim):
     shortcut = y
-    y = keras.layers.Conv2D(2 * dim, (1, 1), padding='same',
-                                             activation='elu',
-                                             kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
+    y = keras.layers.Conv2D(dim, (1, 1), padding='same',
+                                         activation='elu',
+                                         kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
                                              activation='elu',
                                              kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
@@ -29,7 +30,7 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board_input')
     moves_input = keras.layers.Input(shape = (4672,), name='moves_input')
 
-    dim = 112
+    dim = 128
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             activation='elu',
