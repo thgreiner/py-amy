@@ -33,8 +33,9 @@ class Node:
 
 
 def drop_move(fullmove_number):
-    prob_of_dropping = p1 * (c ** fullmove_number)
-    return random.uniform(0, 1) < prob_of_dropping
+    # prob_of_dropping = p1 * (c ** fullmove_number)
+    # return random.uniform(0, 1) < prob_of_dropping
+    return False
 
 
 def label_for_result(result, turn):
@@ -73,6 +74,7 @@ if __name__ == "__main__":
     parser.add_argument("filename")
     parser.add_argument('--diff', type=int, help="minimum elo barrier", default=0)
     parser.add_argument('--model', help="model file name")
+    parser.add_argument('--skip', type=int, help="games to skip", default=0)
 
     args = parser.parse_args()
 
@@ -101,6 +103,8 @@ if __name__ == "__main__":
             samples = 0
             checkpoint_no = 0
             checkpoint_next = CHECKPOINT * BATCH_SIZE
+            
+            skip_games = args.skip
 
             while True:
                 # skip = random.uniform(0, 100)
@@ -142,11 +146,16 @@ if __name__ == "__main__":
                     # print("Skipping game, one side has no Elo.")
                     continue
 
-                print("{}: {} ({}) - {} ({}), {} {}". format(
+                if skip_games > 0:
+                    print("Skipping {} games...".format(skip_games), end='\r')
+                    skip_games -= 1
+                    continue
+
+                print("{}: {} ({}) - {} ({}), {} {}        ". format(
                     ngames,
                     white, white_elo,
                     black, black_elo,
-                    result, date_of_game))
+                    result, date_of_game), end='\r')
 
                 ngames += 1
 
