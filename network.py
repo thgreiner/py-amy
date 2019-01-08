@@ -8,8 +8,9 @@ from chess_input import Repr2D
 
 REGULARIZATION_WEIGHT=1e-4
 
-def conv_block(y, dim):
-    y = keras.layers.Conv2D(3 * dim, (1, 1), padding='same',
+def residual_block(y, dim):
+    shortcut = y
+    y = keras.layers.Conv2D(2 * dim, (1, 1), padding='same',
                                              activation='elu',
                                              kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
@@ -18,6 +19,7 @@ def conv_block(y, dim):
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          activation='elu',
                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
+    y = keras.layers.add([y, shortcut])
     return y
 
 
@@ -27,33 +29,14 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board_input')
     moves_input = keras.layers.Input(shape = (4672,), name='moves_input')
 
-    temp = keras.layers.Conv2D(64, (3, 3), padding='same',
-                                           activation='elu',
-                                           kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(board_input)
+    dim = 112
 
-    k = 32
-    for block in range(4):
-        block_input = temp
-        temp = conv_block(temp, k)
-        temp = keras.layers.concatenate([block_input, temp])
-
-    temp = keras.layers.Conv2D(128, (1, 1), padding='same',
+    temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             activation='elu',
-                                            kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
+                                            kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(board_input)
 
-    for block in range(6):
-        block_input = temp
-        temp = conv_block(temp, k)
-        temp = keras.layers.concatenate([block_input, temp])
-
-    temp = keras.layers.Conv2D(128, (1, 1), padding='same',
-                                            activation='elu',
-                                            kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
-
-    for block in range(6):
-        block_input = temp
-        temp = conv_block(temp, k)
-        temp = keras.layers.concatenate([block_input, temp])
+    for i in range(15):
+        temp = residual_block(temp, dim)
 
 
     t2 = keras.layers.Conv2D(128, (3, 3), padding='same',
@@ -79,7 +62,7 @@ def create_model():
                                          name='score')(temp)
 
     return keras.Model(
-        name = "DenseNet-like",
+        name = "ResNet-like",
         inputs = [board_input, moves_input],
         outputs=[move_output, score_output])
 
@@ -96,7 +79,7 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True)
+    optimizer = keras.optimizers.Adam()
     # optimizer = keras.optimizers.SGD(lr=0.2, momentum=0.9)
 
     model.compile(optimizer=optimizer,
