@@ -56,9 +56,9 @@ def create_model():
         temp = keras.layers.concatenate([block_input, temp])
 
 
-    t2 = keras.layers.Conv2D(73, (3, 3), padding='same',
-                                         activation='elu',
-                                         kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
+    t2 = keras.layers.Conv2D(128, (3, 3), padding='same',
+                                          activation='elu',
+                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
 
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                          padding='same',
@@ -78,7 +78,10 @@ def create_model():
                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT),
                                          name='score')(temp)
 
-    return keras.Model(inputs = [board_input, moves_input], outputs=[move_output, score_output])
+    return keras.Model(
+        name = "DenseNet-like",
+        inputs = [board_input, moves_input],
+        outputs=[move_output, score_output])
 
 
 def load_or_create_model(model_name):
@@ -89,8 +92,11 @@ def load_or_create_model(model_name):
         model = load_model(model_name)
 
     model.summary()
+    print()
+    print("Model name is \"{}\"".format(model.name))
+    print()
 
-    optimizer = keras.optimizers.Adam()
+    optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True)
     # optimizer = keras.optimizers.SGD(lr=0.2, momentum=0.9)
 
     model.compile(optimizer=optimizer,

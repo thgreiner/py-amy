@@ -12,10 +12,10 @@ import argparse
 from network import load_or_create_model
 
 # Training batch size
-BATCH_SIZE = 256
+BATCH_SIZE = 4096
 
-# Checkpoint every x batches
-CHECKPOINT = 200
+# Checkpoint approximately every 100.000 updates
+CHECKPOINT = 100_000 // BATCH_SIZE
 
 
 p1 = 0.5
@@ -24,7 +24,7 @@ p2 = 0.3
 c = (p1 / p2) ** (1/20)
 
 class Node:
-    
+
     def __init__(self):
         self.visit_count = 0
         self.learn_count = 0
@@ -92,9 +92,9 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
 
     for iteration in range(100):
-        
+
         root = Node()
-        
+
         with open(args.filename) as pgn:
             cnt = 0
 
@@ -103,7 +103,7 @@ if __name__ == "__main__":
             samples = 0
             checkpoint_no = 0
             checkpoint_next = CHECKPOINT * BATCH_SIZE
-            
+
             skip_games = args.skip
 
             while True:
@@ -167,13 +167,13 @@ if __name__ == "__main__":
                 else:
                     node = root
                 out_of_book = 0
-                
+
                 for move in game.mainline_moves():
 
                     if node:
                         node.visit_count += 1
                         node.result += label_for_result(result, b.turn)
-                        
+
                     if not drop_move(b.fullmove_number):
                         train_data_board[cnt] = repr.board_to_array(b)
                         train_data_moves[cnt] = repr.legal_moves_mask(b)
