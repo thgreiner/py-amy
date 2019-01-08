@@ -75,9 +75,10 @@ if __name__ == "__main__":
     parser.add_argument('--diff', type=int, help="minimum elo barrier", default=0)
     parser.add_argument('--model', help="model file name")
     parser.add_argument('--skip', type=int, help="games to skip", default=0)
+    parser.add_argument('--test', action='store_const', const=True, default=False, help="run test instead of training")
 
     args = parser.parse_args()
-
+    
     repr = Repr2D()
 
     elo_diff = args.diff
@@ -142,7 +143,7 @@ if __name__ == "__main__":
                     if abs(w - b) < elo_diff:
                         # print("Skipping game - Elo diff less than {}}.".format(elo_diff))
                         continue
-                else:
+                elif elo_diff > 0:
                     # print("Skipping game, one side has no Elo.")
                     continue
 
@@ -189,7 +190,11 @@ if __name__ == "__main__":
                             train_data = [ train_data_board, train_data_moves]
                             train_labels = [ train_labels1, train_labels2 ]
 
-                            results = model.train_on_batch(train_data, train_labels)
+                            if args.test:
+                                results = model.test_on_batch(train_data, train_labels)
+                            else:
+                                results = model.train_on_batch(train_data, train_labels)
+                                
                             elapsed = time.perf_counter() - start_time
 
                             samples += cnt
@@ -198,7 +203,7 @@ if __name__ == "__main__":
                             start_time = time.perf_counter()
 
                             cnt = 0
-                            if samples >= checkpoint_next:
+                            if samples >= checkpoint_next and not args.test:
                                 checkpoint_no += 1
                                 checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
                                 print("Checkpointing model to {}".format(checkpoint_name))
@@ -225,14 +230,19 @@ if __name__ == "__main__":
             train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
 
             start_time = time.perf_counter()
-            results = model.train_on_batch(train_data, train_labels)
+            if args.test:
+                results = model.test_on_batch(train_data, train_labels)
+            else:
+                results = model.train_on_batch(train_data, train_labels)
+                
             elapsed = time.perf_counter() - start_time
 
             samples += cnt
             print("{}.{}: {} in {:.1f}s [{} games]".format(
                 iteration, samples, stats(results), elapsed, ngames))
 
-            if model_name is None:
-                model.save("combined-model.h5")
-            else:
-                model.save(model_name)
+            if not args.test:
+                if model_name is None:
+                    model.save("combined-model.h5")
+                else:
+                    model.save(model_name)
