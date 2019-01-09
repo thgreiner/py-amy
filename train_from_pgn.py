@@ -12,7 +12,7 @@ import argparse
 from network import load_or_create_model
 
 # Training batch size
-BATCH_SIZE = 4096
+BATCH_SIZE = 2048
 
 # Checkpoint approximately every 100.000 updates
 CHECKPOINT = 100_000 // BATCH_SIZE
