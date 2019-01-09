@@ -14,9 +14,10 @@ def residual_block(y, dim):
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          activation='elu',
                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
+
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
-                                             activation='elu',
-                                             kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
+                                             activation='elu')(y)
+
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          activation='elu',
                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)

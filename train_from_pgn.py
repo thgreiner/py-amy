@@ -32,12 +32,6 @@ class Node:
         self.children = {}
 
 
-def drop_move(fullmove_number):
-    # prob_of_dropping = p1 * (c ** fullmove_number)
-    # return random.uniform(0, 1) < prob_of_dropping
-    return False
-
-
 def label_for_result(result, turn):
     if result == '1-0':
         if turn:
@@ -78,7 +72,7 @@ if __name__ == "__main__":
     parser.add_argument('--test', action='store_const', const=True, default=False, help="run test instead of training")
 
     args = parser.parse_args()
-    
+
     repr = Repr2D()
 
     elo_diff = args.diff
@@ -108,6 +102,7 @@ if __name__ == "__main__":
             skip_games = args.skip
 
             while True:
+                skip_training = False
                 # skip = random.uniform(0, 100)
                 # for i in range(int(skip)):
                 #     if not chess.pgn.skip_game(pgn):
@@ -147,16 +142,16 @@ if __name__ == "__main__":
                     # print("Skipping game, one side has no Elo.")
                     continue
 
-                if skip_games > 0:
-                    print("Skipping {} games...".format(skip_games), end='\r')
-                    skip_games -= 1
-                    continue
-
                 print("{}: {} ({}) - {} ({}), {} {}        ". format(
                     ngames,
                     white, white_elo,
                     black, black_elo,
                     result, date_of_game), end='\r')
+
+                if skip_games > 0:
+                    print("Skipping {} games...".format(skip_games), end='\r')
+                    skip_games -= 1
+                    skip_training = True
 
                 ngames += 1
 
@@ -175,7 +170,7 @@ if __name__ == "__main__":
                         node.visit_count += 1
                         node.result += label_for_result(result, b.turn)
 
-                    if not drop_move(b.fullmove_number):
+                    if not skip_training:
                         train_data_board[cnt] = repr.board_to_array(b)
                         train_data_moves[cnt] = repr.legal_moves_mask(b)
                         train_labels1[cnt] = repr.move_to_array(b, move)
@@ -194,7 +189,7 @@ if __name__ == "__main__":
                                 results = model.test_on_batch(train_data, train_labels)
                             else:
                                 results = model.train_on_batch(train_data, train_labels)
-                                
+
                             elapsed = time.perf_counter() - start_time
 
                             samples += cnt
@@ -234,7 +229,7 @@ if __name__ == "__main__":
                 results = model.test_on_batch(train_data, train_labels)
             else:
                 results = model.train_on_batch(train_data, train_labels)
-                
+
             elapsed = time.perf_counter() - start_time
 
             samples += cnt
