@@ -1,13 +1,15 @@
 import chess
 from chess import Board
-import numpy as np
 import chess.pgn
 from chess_input import Repr2D
 
+import numpy as np
 import sys
 import time
 import random
 import argparse
+
+from prometheus_client import start_http_server, Counter, Gauge
 
 from network import load_or_create_model
 
@@ -86,6 +88,13 @@ if __name__ == "__main__":
 
     start_time = time.perf_counter()
 
+    start_http_server(9099)
+    game_counter = Counter('training_game_total', "Games seen by training")
+    pos_counter = Counter('training_position_total', "Positions seen by training")
+    loss_gauge = Gauge('training_loss', "Training loss")
+    moves_accuracy_gauge = Gauge('training_move_accuracy', "Move accuracy")
+    score_mae_gauge = Gauge('training_score_mae', "Score mean absolute error")
+
     for iteration in range(100):
 
         root = Node()
@@ -154,6 +163,7 @@ if __name__ == "__main__":
                     skip_training = True
 
                 ngames += 1
+                game_counter.inc()
 
                 b = game.board()
                 nmoves = 0
@@ -179,6 +189,7 @@ if __name__ == "__main__":
                         else:
                             train_labels2[cnt, 0] = label_for_result(result, b.turn)
                         cnt += 1
+                        pos_counter.inc()
 
                         if cnt >= BATCH_SIZE:
                             # print(train_labels2)
@@ -195,6 +206,11 @@ if __name__ == "__main__":
                             samples += cnt
                             print("{}.{}: {} in {:.1f}s [{} games]".format(
                                 iteration, samples, stats(results), elapsed, ngames))
+
+                            loss_gauge.set(results[0])
+                            moves_accuracy_gauge.set(results[3] * 100)
+                            score_mae_gauge.set(results[6])
+
                             start_time = time.perf_counter()
 
                             cnt = 0
