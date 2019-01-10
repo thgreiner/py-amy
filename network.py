@@ -11,16 +11,15 @@ REGULARIZATION_WEIGHT=1e-6
 
 def residual_block(y, dim):
     shortcut = y
-    y = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                         activation='elu',
-                                         kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
+    y = keras.layers.Conv2D(3 * dim, (1, 1), padding='same',
+                                             activation='elu')(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
                                              activation='elu')(y)
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                         activation='elu',
-                                         kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(y)
+                                         activation='linear')(y)
+
     y = keras.layers.add([y, shortcut])
     return y
 
@@ -31,34 +30,47 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board_input')
     moves_input = keras.layers.Input(shape = (4672,), name='moves_input')
 
-    dim = 128
+    dim = 64
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
-                                            activation='elu',
-                                            kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(board_input)
+                                            activation='elu')(board_input)
 
-    for i in range(17):
+    for i in range(5):
+        temp = residual_block(temp, dim)
+
+    dim = 96
+
+    # Scale up to new layer size
+    temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
+                                            activation='linear')(temp)
+
+    for i in range(5):
+        temp = residual_block(temp, dim)
+
+    dim = 128
+
+    # Scale up to new layer size
+    temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
+                                            activation='linear')(temp)
+
+    for i in range(5):
         temp = residual_block(temp, dim)
 
 
     t2 = residual_block(temp, dim)
 
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
-                                         padding='same',
-                                         kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(t2)
+                                         padding='same')(t2)
     t2 = keras.layers.Flatten()(t2)
     t2 = keras.layers.multiply([t2, moves_input])
     move_output = keras.layers.Activation("softmax", name='moves')(t2)
 
     temp = keras.layers.Conv2D(8, (1, 1), padding='same',
-                                          activation='elu',
-                                          kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
+                                          activation='elu')(temp)
     temp = keras.layers.Flatten()(temp)
-    temp = keras.layers.Dense(192, activation='elu',
-                                   kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT))(temp)
+    temp = keras.layers.Dense(192, activation='elu')(temp)
 
     score_output = keras.layers.Dense(1, activation='tanh',
-                                         kernel_regularizer=keras.regularizers.l2(REGULARIZATION_WEIGHT),
                                          name='score')(temp)
 
     return keras.Model(
