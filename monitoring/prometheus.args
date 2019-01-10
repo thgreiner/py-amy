@@ -1,0 +1,1 @@
+--config.file /usr/local/etc/prometheus.yml --storage.tsdb.path=/usr/local/share/prometheus/data
