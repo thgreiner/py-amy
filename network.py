@@ -74,7 +74,7 @@ def create_model():
                                          name='score')(temp)
 
     return keras.Model(
-        name = "ResNet-like",
+        name = "MobileNet V2-like",
         inputs = [board_input, moves_input],
         outputs=[move_output, score_output])
 
