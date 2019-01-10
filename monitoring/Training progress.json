@@ -1,19 +1,4 @@
 {
-  "__inputs": [],
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "5.4.2"
-    },
-    {
-      "type": "panel",
-      "id": "graph",
-      "name": "Graph",
-      "version": "5.0.0"
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -30,8 +15,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": null,
-  "iteration": 1547112828766,
+  "id": 1,
+  "iteration": 1547112828892,
   "links": [],
   "panels": [
     {
@@ -301,6 +286,97 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 8,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "rate(training_game_total[$timerange])",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Games",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(training_position_total[$timerange])",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "Positions",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Processing speed",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "ops",
+          "label": null,
+          "logBase": 10,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
   "refresh": "1m",
@@ -313,8 +389,8 @@
         "allValue": null,
         "current": {
           "tags": [],
-          "text": "5m",
-          "value": "5m"
+          "text": "3m",
+          "value": "3m"
         },
         "hide": 0,
         "includeAll": false,
@@ -329,6 +405,11 @@
           },
           {
             "selected": true,
+            "text": "3m",
+            "value": "3m"
+          },
+          {
+            "selected": false,
             "text": "5m",
             "value": "5m"
           },
@@ -339,11 +420,16 @@
           },
           {
             "selected": false,
+            "text": "30m",
+            "value": "30m"
+          },
+          {
+            "selected": false,
             "text": "60m",
             "value": "60m"
           }
         ],
-        "query": "1m, 5m, 15m, 60m",
+        "query": "1m, 3m, 5m, 15m, 30m, 60m",
         "skipUrlSync": false,
         "type": "custom"
       }
@@ -381,5 +467,5 @@
   "timezone": "",
   "title": "Training progress",
   "uid": "lfHySq8mz",
-  "version": 6
+  "version": 8
 }
