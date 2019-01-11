@@ -16,7 +16,7 @@ from prometheus_client import start_http_server, Counter, Gauge
 from network import load_or_create_model
 
 # Training batch size
-BATCH_SIZE = 128
+BATCH_SIZE = 2048
 
 # Checkpoint approximately every 100.000 updates
 CHECKPOINT = 100_000 // BATCH_SIZE
@@ -69,7 +69,7 @@ def stats(step_output):
 
 def pos_generator(filename, elo_diff, skip_games):
 
-    game_counter = Counter('training_game_total', "Games seen by training")
+    game_counter = Counter('training_game_total', "Games seen by training", [ "result" ])
     root = Node()
 
     with open(filename) as pgn:
@@ -111,7 +111,7 @@ def pos_generator(filename, elo_diff, skip_games):
                 skip_games -= 1
                 skip_training = True
 
-            game_counter.inc()
+            game_counter.labels(result=result).inc()
 
             b = game.board()
 

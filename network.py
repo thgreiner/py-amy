@@ -91,7 +91,7 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.Adam()
+    optimizer = keras.optimizers.Adam(lr = 0.002)
     # optimizer = keras.optimizers.SGD(lr=0.2, momentum=0.9)
 
     model.compile(optimizer=optimizer,
