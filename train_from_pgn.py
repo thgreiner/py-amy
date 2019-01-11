@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import chess
 from chess import Board
 import chess.pgn
@@ -14,7 +16,7 @@ from prometheus_client import start_http_server, Counter, Gauge
 from network import load_or_create_model
 
 # Training batch size
-BATCH_SIZE = 2048
+BATCH_SIZE = 128
 
 # Checkpoint approximately every 100.000 updates
 CHECKPOINT = 100_000 // BATCH_SIZE
@@ -65,6 +67,92 @@ def stats(step_output):
     )
 
 
+def pos_generator(filename, elo_diff, skip_games):
+
+    game_counter = Counter('training_game_total', "Games seen by training")
+    root = Node()
+
+    with open(filename) as pgn:
+        while True:
+            skip_training = False
+
+            try:
+                game = chess.pgn.read_game(pgn)
+            except UnicodeDecodeError or ValueError:
+                continue
+            if game is None:
+                break
+
+            result = game.headers["Result"]
+            white = game.headers["White"]
+            black = game.headers["Black"]
+            date_of_game = game.headers["Date"]
+
+            white_elo = game.headers.get("WhiteElo", "-")
+            black_elo = game.headers.get("BlackElo", "-")
+
+            if white_elo != "-" and black_elo != "-":
+                w = int(white_elo)
+                b = int(black_elo)
+                if abs(w - b) < elo_diff:
+                    # print("Skipping game - Elo diff less than {}}.".format(elo_diff))
+                    continue
+            elif elo_diff > 0:
+                # print("Skipping game, one side has no Elo.")
+                continue
+
+            print("{} ({}) - {} ({}), {} {}        ". format(
+                white, white_elo,
+                black, black_elo,
+                result, date_of_game), end='\r')
+
+            if skip_games > 0:
+                print("Skipping {} games...".format(skip_games), end='\r')
+                skip_games -= 1
+                skip_training = True
+
+            game_counter.inc()
+
+            b = game.board()
+
+            if game.headers.get("SetUp", "0") == "1":
+                node = None
+            else:
+                node = root
+            out_of_book = 0
+
+            for move in game.mainline_moves():
+
+                if node:
+                    node.visit_count += 1
+                    node.result += label_for_result(result, b.turn)
+
+                if not skip_training:
+                    train_data_board = repr.board_to_array(b)
+                    train_data_moves = repr.legal_moves_mask(b)
+                    train_labels1 = repr.move_to_array(b, move)
+                    if node:
+                        train_labels2 = node.result / node.visit_count
+                    else:
+                        train_labels2 = label_for_result(result, b.turn)
+    
+                    yield (train_data_board, train_data_moves, train_labels1, train_labels2)
+
+
+                if node:
+                  if move in node.children:
+                      node = node.children[move]
+                  else:
+                      out_of_book += 1
+                      if out_of_book <= 10:
+                          child_node = Node()
+                          node.children[move] = child_node
+                      else:
+                          node = None
+
+                b.push(move)
+
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
     parser.add_argument("filename")
@@ -77,7 +165,6 @@ if __name__ == "__main__":
 
     repr = Repr2D()
 
-    elo_diff = args.diff
     model_name = args.model
     model = load_or_create_model(model_name)
 
@@ -89,7 +176,6 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
 
     start_http_server(9099)
-    game_counter = Counter('training_game_total', "Games seen by training")
     pos_counter = Counter('training_position_total', "Positions seen by training")
     loss_gauge = Gauge('training_loss', "Training loss")
     moves_accuracy_gauge = Gauge('training_move_accuracy', "Move accuracy")
@@ -97,163 +183,69 @@ if __name__ == "__main__":
 
     for iteration in range(100):
 
-        root = Node()
+        cnt = 0
+        samples = 0
+        checkpoint_no = 0
+        checkpoint_next = CHECKPOINT * BATCH_SIZE
 
-        with open(args.filename) as pgn:
-            cnt = 0
+        for sample in pos_generator(args.filename, args.diff, args.skip):
+            train_data_board[cnt] = sample[0]
+            train_data_moves[cnt] = sample[1]
+            train_labels1[cnt] = sample[2]
+            train_labels2[cnt, 0] = sample[3]
+            cnt += 1
 
-            ngames = 0
+            pos_counter.inc()
 
-            samples = 0
-            checkpoint_no = 0
-            checkpoint_next = CHECKPOINT * BATCH_SIZE
+            if cnt >= BATCH_SIZE:
+                # print(train_labels2)
+                train_data = [ train_data_board, train_data_moves]
+                train_labels = [ train_labels1, train_labels2 ]
 
-            skip_games = args.skip
-
-            while True:
-                skip_training = False
-                # skip = random.uniform(0, 100)
-                # for i in range(int(skip)):
-                #     if not chess.pgn.skip_game(pgn):
-                #        break
-
-                try:
-                    game = chess.pgn.read_game(pgn)
-                except UnicodeDecodeError or ValueError:
-                    pass
-                if game is None:
-                    break
-
-                # if label == 0:
-                #     continue
-                result = game.headers["Result"]
-                white = game.headers["White"]
-                black = game.headers["Black"]
-                date_of_game = game.headers["Date"]
-
-                if "WhiteElo" in game.headers:
-                    white_elo = game.headers["WhiteElo"]
+                if args.test:
+                    results = model.test_on_batch(train_data, train_labels)
                 else:
-                    white_elo = "-"
+                    results = model.train_on_batch(train_data, train_labels)
 
-                if "BlackElo" in game.headers:
-                    black_elo = game.headers["BlackElo"]
-                else:
-                    black_elo = "-"
+                elapsed = time.perf_counter() - start_time
 
-                if white_elo != "-" and black_elo != "-":
-                    w = int(white_elo)
-                    b = int(black_elo)
-                    if abs(w - b) < elo_diff:
-                        # print("Skipping game - Elo diff less than {}}.".format(elo_diff))
-                        continue
-                elif elo_diff > 0:
-                    # print("Skipping game, one side has no Elo.")
-                    continue
+                samples += cnt
+                print("{}.{}: {} in {:.1f}s".format(
+                    iteration, samples, stats(results), elapsed))
 
-                print("{}: {} ({}) - {} ({}), {} {}        ". format(
-                    ngames,
-                    white, white_elo,
-                    black, black_elo,
-                    result, date_of_game), end='\r')
+                loss_gauge.set(results[0])
+                moves_accuracy_gauge.set(results[3] * 100)
+                score_mae_gauge.set(results[6])
 
-                if skip_games > 0:
-                    print("Skipping {} games...".format(skip_games), end='\r')
-                    skip_games -= 1
-                    skip_training = True
+                start_time = time.perf_counter()
 
-                ngames += 1
-                game_counter.inc()
-
-                b = game.board()
-                nmoves = 0
-
-                if "SetUp" in game.headers and game.headers["SetUp"] == "1":
-                    node = None
-                else:
-                    node = root
-                out_of_book = 0
-
-                for move in game.mainline_moves():
-
-                    if node:
-                        node.visit_count += 1
-                        node.result += label_for_result(result, b.turn)
-
-                    if not skip_training:
-                        train_data_board[cnt] = repr.board_to_array(b)
-                        train_data_moves[cnt] = repr.legal_moves_mask(b)
-                        train_labels1[cnt] = repr.move_to_array(b, move)
-                        if node:
-                            train_labels2[cnt, 0] = node.result / node.visit_count
-                        else:
-                            train_labels2[cnt, 0] = label_for_result(result, b.turn)
-                        cnt += 1
-                        pos_counter.inc()
-
-                        if cnt >= BATCH_SIZE:
-                            # print(train_labels2)
-                            train_data = [ train_data_board, train_data_moves]
-                            train_labels = [ train_labels1, train_labels2 ]
-
-                            if args.test:
-                                results = model.test_on_batch(train_data, train_labels)
-                            else:
-                                results = model.train_on_batch(train_data, train_labels)
-
-                            elapsed = time.perf_counter() - start_time
-
-                            samples += cnt
-                            print("{}.{}: {} in {:.1f}s [{} games]".format(
-                                iteration, samples, stats(results), elapsed, ngames))
-
-                            loss_gauge.set(results[0])
-                            moves_accuracy_gauge.set(results[3] * 100)
-                            score_mae_gauge.set(results[6])
-
-                            start_time = time.perf_counter()
-
-                            cnt = 0
-                            if samples >= checkpoint_next and not args.test:
-                                checkpoint_no += 1
-                                checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
-                                print("Checkpointing model to {}".format(checkpoint_name))
-                                model.save(checkpoint_name)
-                                checkpoint_next += CHECKPOINT * BATCH_SIZE
-
-                    if node:
-                        if move in node.children:
-                            node = node.children[move]
-                        else:
-                            out_of_book += 1
-                            if out_of_book <= 10:
-                                child_node = Node()
-                                node.children[move] = child_node
-                            else:
-                                node = None
+                cnt = 0
+                if samples >= checkpoint_next and not args.test:
+                    checkpoint_no += 1
+                    checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
+                    print("Checkpointing model to {}".format(checkpoint_name))
+                    model.save(checkpoint_name)
+                    checkpoint_next += CHECKPOINT * BATCH_SIZE
 
 
-                    b.push(move)
-                    nmoves += 1
+        # Train on the remainder of the dataset
+        train_data = [ train_data_board[:cnt], train_data_moves[:cnt]]
+        train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
 
-            # Train on the remainder of the dataset
-            train_data = [ train_data_board[:cnt], train_data_moves[:cnt]]
-            train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
+        start_time = time.perf_counter()
+        if args.test:
+            results = model.test_on_batch(train_data, train_labels)
+        else:
+            results = model.train_on_batch(train_data, train_labels)
 
-            start_time = time.perf_counter()
-            if args.test:
-                results = model.test_on_batch(train_data, train_labels)
+        elapsed = time.perf_counter() - start_time
+
+        samples += cnt
+        print("{}.{}: {} in {:.1f}s]".format(
+            iteration, samples, stats(results), elapsed))
+
+        if not args.test:
+            if model_name is None:
+                model.save("combined-model.h5")
             else:
-                results = model.train_on_batch(train_data, train_labels)
-
-            elapsed = time.perf_counter() - start_time
-
-            samples += cnt
-            print("{}.{}: {} in {:.1f}s [{} games]".format(
-                iteration, samples, stats(results), elapsed, ngames))
-
-            if not args.test:
-                if model_name is None:
-                    model.save("combined-model.h5")
-                else:
-                    model.save(model_name)
+                model.save(model_name)
