@@ -7,17 +7,24 @@ from tensorflow.keras import backend as K
 from chess_input import Repr2D
 
 # We really need almost no regularization as the model has so few params
-REGULARIZATION_WEIGHT=1e-6
+REGULARIZATION_WEIGHT=1e-4
+
+L2_REGULARIZER = keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
 def residual_block(y, dim):
     shortcut = y
+
+    y = keras.layers.BatchNormalization()(y)
     y = keras.layers.Conv2D(3 * dim, (1, 1), padding='same',
+                                             kernel_initializer='lecun_normal',
                                              activation='elu')(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
+                                             kernel_initializer='lecun_normal',
                                              activation='elu')(y)
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
+                                         kernel_initializer='lecun_normal',
                                          activation='linear')(y)
 
     y = keras.layers.add([y, shortcut])
@@ -33,6 +40,8 @@ def create_model():
     dim = 64
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
+                                            kernel_regularizer=L2_REGULARIZER,
+                                            kernel_initializer='lecun_normal',
                                             activation='elu')(board_input)
 
     for i in range(5):
@@ -41,8 +50,10 @@ def create_model():
     dim = 96
 
     # Scale up to new layer size
+    temp = keras.layers.BatchNormalization()(temp)
     temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                            activation='linear')(temp)
+                                            kernel_initializer='lecun_normal',
+                                            activation='elu')(temp)
 
     for i in range(5):
         temp = residual_block(temp, dim)
@@ -50,8 +61,10 @@ def create_model():
     dim = 128
 
     # Scale up to new layer size
+    temp = keras.layers.BatchNormalization()(temp)
     temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                            activation='linear')(temp)
+                                            kernel_initializer='lecun_normal',
+                                            activation='elu')(temp)
 
     for i in range(5):
         temp = residual_block(temp, dim)
@@ -59,22 +72,31 @@ def create_model():
 
     t2 = residual_block(temp, dim)
 
+    t2 = keras.layers.BatchNormalization()(t2)
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                          padding='same')(t2)
+
     t2 = keras.layers.Flatten()(t2)
     t2 = keras.layers.multiply([t2, moves_input])
     move_output = keras.layers.Activation("softmax", name='moves')(t2)
 
+    temp = keras.layers.BatchNormalization()(temp)
     temp = keras.layers.Conv2D(8, (1, 1), padding='same',
+                                          kernel_initializer='lecun_normal',
                                           activation='elu')(temp)
     temp = keras.layers.Flatten()(temp)
-    temp = keras.layers.Dense(192, activation='elu')(temp)
+    temp = keras.layers.BatchNormalization()(temp)
+    temp = keras.layers.Dense(192, 
+                              kernel_regularizer=L2_REGULARIZER,
+                              kernel_initializer='lecun_normal',
+                              activation='elu')(temp)
 
+    temp = keras.layers.BatchNormalization()(temp)
     score_output = keras.layers.Dense(1, activation='tanh',
                                          name='score')(temp)
 
     return keras.Model(
-        name = "MobileNet V2-like",
+        name = "MobileNet V2-like (with BN + L2)",
         inputs = [board_input, moves_input],
         outputs=[move_output, score_output])
 
