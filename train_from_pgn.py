@@ -10,13 +10,14 @@ import sys
 import time
 import random
 import argparse
+from functools import partial
 
 from prometheus_client import start_http_server, Counter, Gauge
 
 from network import load_or_create_model
 
 # Training batch size
-BATCH_SIZE = 2048
+BATCH_SIZE = 256
 
 # Checkpoint approximately every 100.000 updates
 CHECKPOINT = 100_000 // BATCH_SIZE
@@ -55,14 +56,13 @@ def stats(step_output):
     loss = step_output[0]
     moves_loss = step_output[1]
     score_loss = step_output[2]
-    reg_loss = loss - moves_loss - score_loss
 
     moves_accuracy = step_output[3]
     score_mae = step_output[6]
 
-    return "loss: {:.2f} = {:.2f} + {:.2f} + {:.2f}, move accuracy: {:2.0f}%, score mae: {:.2f}".format(
+    return "loss: {:.2f} = {:.2f} + {:.2f}, move accuracy: {:2.0f}%, score mae: {:.2f}".format(
         loss,
-        moves_loss, score_loss, reg_loss,
+        moves_loss, score_loss,
         moves_accuracy * 100, score_mae
     )
 
@@ -152,6 +152,28 @@ def pos_generator(filename, elo_diff, skip_games):
 
                 b.push(move)
 
+
+def shuffling_pos_generator(generator):
+
+    buf_size = 100000
+    data = []
+
+    for sample in generator():
+        data.append(sample)
+        if len(data) >= buf_size:
+            random.shuffle(data)
+            barrier = buf_size // 2
+
+            to_yield = data[0:barrier]
+            data = data[barrier:]
+            for x in to_yield:
+                yield x
+
+    if len(data) > 0:
+        data = random.shuffle(data)
+        for x in data:
+            yield x
+
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
@@ -188,7 +210,8 @@ if __name__ == "__main__":
         checkpoint_no = 0
         checkpoint_next = CHECKPOINT * BATCH_SIZE
 
-        for sample in pos_generator(args.filename, args.diff, args.skip):
+        pos_gen = partial(pos_generator, args.filename, args.diff, args.skip)
+        for sample in shuffling_pos_generator(pos_gen):
             train_data_board[cnt] = sample[0]
             train_data_moves[cnt] = sample[1]
             train_labels1[cnt] = sample[2]
