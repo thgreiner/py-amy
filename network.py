@@ -86,7 +86,7 @@ def create_model():
                                           activation='elu')(temp)
     temp = keras.layers.Flatten()(temp)
     temp = keras.layers.BatchNormalization()(temp)
-    temp = keras.layers.Dense(192, 
+    temp = keras.layers.Dense(192,
                               kernel_regularizer=L2_REGULARIZER,
                               kernel_initializer='lecun_normal',
                               activation='elu')(temp)
@@ -113,8 +113,8 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.Adam(lr = 0.002)
-    # optimizer = keras.optimizers.SGD(lr=0.2, momentum=0.9)
+    # optimizer = keras.optimizers.Adam(lr = 0.002)
+    optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': 'categorical_crossentropy', 'score': 'mean_squared_error' },
