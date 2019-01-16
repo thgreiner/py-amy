@@ -225,7 +225,7 @@ def mcts(board, tree=None):
 
     if len(root.children) == 1:
         for best_move in root.children.keys():
-            return board.san(best_move)
+            return board.san(best_move), root
 
     # add_exploration_noise(root)
 
@@ -280,7 +280,7 @@ if __name__ == "__main__":
         # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
 
         opening = None
-        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
+        opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
         # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5 Bd3 h6 Bf4 b4 Ne4 Nxe4 Bxe4 Ba6 Qa4 Bb5"
         # opening = "d4 d5"
         opening = "d4 d5 c4 e6 Nc3 Nf6"

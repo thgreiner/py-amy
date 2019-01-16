@@ -114,7 +114,7 @@ def load_or_create_model(model_name):
     print()
 
     # optimizer = keras.optimizers.Adam(lr = 0.002)
-    optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9)
+    optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True, decay=1e-4)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': 'categorical_crossentropy', 'score': 'mean_squared_error' },

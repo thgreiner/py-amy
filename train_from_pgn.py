@@ -16,11 +16,8 @@ from prometheus_client import start_http_server, Counter, Gauge
 
 from network import load_or_create_model
 
-# Training batch size
-BATCH_SIZE = 256
-
 # Checkpoint approximately every 100.000 updates
-CHECKPOINT = 100_000 // BATCH_SIZE
+CHECKPOINT = 100_000
 
 
 p1 = 0.5
@@ -56,13 +53,14 @@ def stats(step_output):
     loss = step_output[0]
     moves_loss = step_output[1]
     score_loss = step_output[2]
+    reg_loss = loss - moves_loss - score_loss
 
     moves_accuracy = step_output[3]
     score_mae = step_output[6]
 
-    return "loss: {:.2f} = {:.2f} + {:.2f}, move accuracy: {:2.0f}%, score mae: {:.2f}".format(
+    return "loss: {:.2f} = {:.2f} + {:.2f} + {:.2f}, move accuracy: {:2.0f}%, score mae: {:.2f}".format(
         loss,
-        moves_loss, score_loss,
+        moves_loss, score_loss, reg_loss,
         moves_accuracy * 100, score_mae
     )
 
@@ -182,6 +180,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', help="model file name")
     parser.add_argument('--skip', type=int, help="games to skip", default=0)
     parser.add_argument('--test', action='store_const', const=True, default=False, help="run test instead of training")
+    parser.add_argument('--batch_size', type=int, help="batch size", default=256)
 
     args = parser.parse_args()
 
@@ -190,10 +189,11 @@ if __name__ == "__main__":
     model_name = args.model
     model = load_or_create_model(model_name)
 
-    train_data_board = np.zeros(((BATCH_SIZE, 8, 8, repr.num_planes)), np.int8)
-    train_data_moves = np.zeros((BATCH_SIZE, 4672), np.int8)
-    train_labels1 = np.zeros((BATCH_SIZE, 4672), np.int8)
-    train_labels2 = np.zeros((BATCH_SIZE, 1), np.float32)
+    batch_size = args.batch_size
+    train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
+    train_data_moves = np.zeros((batch_size, 4672), np.int8)
+    train_labels1 = np.zeros((batch_size, 4672), np.int8)
+    train_labels2 = np.zeros((batch_size, 1), np.float32)
 
     start_time = time.perf_counter()
 
@@ -208,7 +208,7 @@ if __name__ == "__main__":
         cnt = 0
         samples = 0
         checkpoint_no = 0
-        checkpoint_next = CHECKPOINT * BATCH_SIZE
+        checkpoint_next = CHECKPOINT
 
         pos_gen = partial(pos_generator, args.filename, args.diff, args.skip)
         for sample in shuffling_pos_generator(pos_gen):
@@ -220,7 +220,7 @@ if __name__ == "__main__":
 
             pos_counter.inc()
 
-            if cnt >= BATCH_SIZE:
+            if cnt >= batch_size:
                 # print(train_labels2)
                 train_data = [ train_data_board, train_data_moves]
                 train_labels = [ train_labels1, train_labels2 ]
@@ -248,7 +248,7 @@ if __name__ == "__main__":
                     checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
                     print("Checkpointing model to {}".format(checkpoint_name))
                     model.save(checkpoint_name)
-                    checkpoint_next += CHECKPOINT * BATCH_SIZE
+                    checkpoint_next += CHECKPOINT
 
 
         # Train on the remainder of the dataset
