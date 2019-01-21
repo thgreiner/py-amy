@@ -113,10 +113,28 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    # optimizer = keras.optimizers.Adam(lr = 0.002)
-    optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True, decay=1e-4)
+    optimizer = keras.optimizers.Adam(lr = 0.002)
+    # optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': 'categorical_crossentropy', 'score': 'mean_squared_error' },
                   metrics=['accuracy', 'mae'])
     return model
+
+
+def schedule_learn_rate(model, batch_no):
+    
+    min_rate = 0.02
+    max_rate = 0.2
+    
+    peak = 1200
+    
+    if batch_no < peak // 2:
+        learn_rate = min_rate + (batch_no / (peak // 2)) * (max_rate - min_rate)
+    elif batch_no < peak:
+        learn_rate = min_rate + ((peak - batch_no) / (peak // 2)) * (max_rate - min_rate)
+    else:
+        learn_rate = min_rate / (1 + (batch_no - 900) / 500)
+    
+    # K.set_value(model.optimizer.lr, learn_rate)
+    return learn_rate

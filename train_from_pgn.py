@@ -14,9 +14,9 @@ from functools import partial
 
 from prometheus_client import start_http_server, Counter, Gauge
 
-from network import load_or_create_model
+from network import load_or_create_model, schedule_learn_rate
 
-# Checkpoint approximately every 100.000 updates
+# Checkpoint every "CHEKCPOINT" updates
 CHECKPOINT = 100_000
 
 
@@ -153,7 +153,7 @@ def pos_generator(filename, elo_diff, skip_games):
 
 def shuffling_pos_generator(generator):
 
-    buf_size = 100000
+    buf_size = 171329
     data = []
 
     for sample in generator():
@@ -199,9 +199,11 @@ if __name__ == "__main__":
 
     start_http_server(9099)
     pos_counter = Counter('training_position_total', "Positions seen by training")
+    batch_no_counter = Counter('training_batch_total', "Training batches")
     loss_gauge = Gauge('training_loss', "Training loss")
     moves_accuracy_gauge = Gauge('training_move_accuracy', "Move accuracy")
     score_mae_gauge = Gauge('training_score_mae', "Score mean absolute error")
+    learn_rate_gauge = Gauge('training_learn_rate', "Learn rate")
 
     for iteration in range(100):
 
@@ -209,9 +211,14 @@ if __name__ == "__main__":
         samples = 0
         checkpoint_no = 0
         checkpoint_next = CHECKPOINT
+        batch_no = 0
 
         pos_gen = partial(pos_generator, args.filename, args.diff, args.skip)
-        for sample in shuffling_pos_generator(pos_gen):
+
+        if not args.test:
+            pos_gen = partial(shuffling_pos_generator, pos_gen)
+
+        for sample in pos_gen():
             train_data_board[cnt] = sample[0]
             train_data_moves[cnt] = sample[1]
             train_labels1[cnt] = sample[2]
@@ -224,6 +231,11 @@ if __name__ == "__main__":
                 # print(train_labels2)
                 train_data = [ train_data_board, train_data_moves]
                 train_labels = [ train_labels1, train_labels2 ]
+
+                lr = schedule_learn_rate(model, batch_no)
+                learn_rate_gauge.set(lr)
+                batch_no += 1
+                batch_no_counter.inc()
 
                 if args.test:
                     results = model.test_on_batch(train_data, train_labels)
