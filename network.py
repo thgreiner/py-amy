@@ -11,94 +11,112 @@ REGULARIZATION_WEIGHT=1e-4
 
 L2_REGULARIZER = keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
-def residual_block(y, dim):
+def residual_block(y, dim, index, factor=3):
     shortcut = y
 
-    y = keras.layers.BatchNormalization()(y)
-    y = keras.layers.Conv2D(3 * dim, (1, 1), padding='same',
-                                             kernel_initializer='lecun_normal',
-                                             activation='elu')(y)
+    y = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(y)
+    y = keras.layers.Conv2D(factor * dim, (1, 1),
+                            padding='same',
+                            name="residual-block-{}-expand".format(index),
+                            kernel_initializer='lecun_normal',
+                            activation='elu')(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
+                                             name="residual-block-{}-depthwise".format(index),
                                              kernel_initializer='lecun_normal',
                                              activation='elu')(y)
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
+                                         name="residual-block-{}-contract".format(index),
                                          kernel_initializer='lecun_normal',
                                          activation='linear')(y)
 
-    y = keras.layers.add([y, shortcut])
+    y = keras.layers.add([y, shortcut], name="residual-block-{}-add".format(index))
     return y
 
 
 def create_model():
     repr = Repr2D()
 
-    board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board_input')
-    moves_input = keras.layers.Input(shape = (4672,), name='moves_input')
+    board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
+    moves_input = keras.layers.Input(shape = (4672,), name='moves-input')
 
     dim = 64
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
+                                            name="initial-conv",
                                             kernel_regularizer=L2_REGULARIZER,
                                             kernel_initializer='lecun_normal',
                                             activation='elu')(board_input)
 
+    index = 1
     for i in range(5):
-        temp = residual_block(temp, dim)
+        temp = residual_block(temp, dim, index, 5)
+        index += 1
 
     dim = 96
 
     # Scale up to new layer size
-    temp = keras.layers.BatchNormalization()(temp)
+    temp = keras.layers.BatchNormalization(name="scale-up-1-bn")(temp)
     temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
+                                            name="scale-up-1-conv",
                                             kernel_initializer='lecun_normal',
                                             activation='elu')(temp)
 
     for i in range(5):
-        temp = residual_block(temp, dim)
+        temp = residual_block(temp, dim, index, 4)
+        index += 1
 
     dim = 128
 
     # Scale up to new layer size
-    temp = keras.layers.BatchNormalization()(temp)
+    temp = keras.layers.BatchNormalization(name="scale-up-2-bn")(temp)
     temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
+                                            name="scale-up-2-conv",
                                             kernel_initializer='lecun_normal',
                                             activation='elu')(temp)
 
     for i in range(5):
-        temp = residual_block(temp, dim)
+        temp = residual_block(temp, dim, index)
+        index += 1
 
 
-    t2 = residual_block(temp, dim)
+    # Create the policy head
+    t2 = residual_block(temp, dim, index)
 
-    t2 = keras.layers.BatchNormalization()(t2)
+    t2 = keras.layers.BatchNormalization(name="pre-moves-bn")(t2)
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
+                                         name="pre-moves-conv",
                                          padding='same')(t2)
 
-    t2 = keras.layers.Flatten()(t2)
-    t2 = keras.layers.multiply([t2, moves_input])
+    t2 = keras.layers.Flatten(name='flatten-moves')(t2)
+    t2 = keras.layers.multiply([t2, moves_input], name='limit-to-legal-moves')
     move_output = keras.layers.Activation("softmax", name='moves')(t2)
 
-    temp = keras.layers.BatchNormalization()(temp)
-    temp = keras.layers.Conv2D(8, (1, 1), padding='same',
-                                          kernel_initializer='lecun_normal',
-                                          activation='elu')(temp)
-    temp = keras.layers.Flatten()(temp)
-    temp = keras.layers.BatchNormalization()(temp)
-    temp = keras.layers.Dense(192,
+    # Create the value head
+    temp = keras.layers.BatchNormalization(name="pre-value-bn")(temp)
+    temp = keras.layers.Conv2D(32, (1, 1), padding='same',
+                                           name="pre-value-conv",
+                                           kernel_regularizer=L2_REGULARIZER,
+                                           kernel_initializer='lecun_normal',
+                                           activation='elu')(temp)
+    temp = keras.layers.Flatten(name="flatten-value")(temp)
+    temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
+    temp = keras.layers.Dense(128,
+                              name="value-dense",
                               kernel_regularizer=L2_REGULARIZER,
                               kernel_initializer='lecun_normal',
                               activation='elu')(temp)
 
-    temp = keras.layers.BatchNormalization()(temp)
-    score_output = keras.layers.Dense(1, activation='tanh',
-                                         name='score')(temp)
+    temp = keras.layers.BatchNormalization(name="value-bn")(temp)
+    value_output = keras.layers.Dense(1, activation='tanh',
+                                         kernel_regularizer=L2_REGULARIZER,
+                                         name='value')(temp)
 
     return keras.Model(
         name = "MobileNet V2-like (with BN + L2)",
         inputs = [board_input, moves_input],
-        outputs=[move_output, score_output])
+        outputs = [move_output, value_output])
 
 
 def load_or_create_model(model_name):
@@ -113,28 +131,28 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.Adam(lr = 0.002)
+    optimizer = keras.optimizers.Adam(lr = 0.001)
     # optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
-                  loss={'moves': 'categorical_crossentropy', 'score': 'mean_squared_error' },
+                  loss={'moves': 'categorical_crossentropy', 'value': 'mean_squared_error' },
                   metrics=['accuracy', 'mae'])
     return model
 
 
 def schedule_learn_rate(model, batch_no):
-    
+
     min_rate = 0.02
     max_rate = 0.2
-    
+
     peak = 1200
-    
+
     if batch_no < peak // 2:
         learn_rate = min_rate + (batch_no / (peak // 2)) * (max_rate - min_rate)
     elif batch_no < peak:
         learn_rate = min_rate + ((peak - batch_no) / (peak // 2)) * (max_rate - min_rate)
     else:
         learn_rate = min_rate / (1 + (batch_no - 900) / 500)
-    
+
     # K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate

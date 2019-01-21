@@ -58,7 +58,7 @@ def stats(step_output):
     moves_accuracy = step_output[3]
     score_mae = step_output[6]
 
-    return "loss: {:.2f} = {:.2f} + {:.2f} + {:.2f}, move accuracy: {:2.0f}%, score mae: {:.2f}".format(
+    return "loss: {:.2f} = {:.2f} + {:.2f} + {:.2f}, move accuracy: {:4.1f}%, score mae: {:.2f}".format(
         loss,
         moves_loss, score_loss, reg_loss,
         moves_accuracy * 100, score_mae
@@ -133,7 +133,7 @@ def pos_generator(filename, elo_diff, skip_games):
                         train_labels2 = node.result / node.visit_count
                     else:
                         train_labels2 = label_for_result(result, b.turn)
-    
+
                     yield (train_data_board, train_data_moves, train_labels1, train_labels2)
 
 
@@ -172,7 +172,7 @@ def shuffling_pos_generator(generator):
         for x in data:
             yield x
 
-    
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
     parser.add_argument("filename")
