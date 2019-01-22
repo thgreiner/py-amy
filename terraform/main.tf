@@ -87,7 +87,7 @@ resource "aws_elb" "web" {
 
   subnets         = ["${aws_subnet.default.id}"]
   security_groups = ["${aws_security_group.elb.id}"]
-  instances       = ["${aws_instance.web.id}"]
+  instances       = ["${aws_spot_instance_request.web.spot_instance_id}"]
 
   listener {
     instance_port     = 9099
@@ -110,7 +110,10 @@ resource "aws_key_pair" "auth" {
   public_key = "${file(var.public_key_path)}"
 }
 
-resource "aws_instance" "web" {
+resource "aws_spot_instance_request" "web" {
+    
+  spot_price = "0.25"
+  
   # The connection block tells our provisioner how to
   # communicate with the resource (instance)
   connection {
@@ -120,11 +123,11 @@ resource "aws_instance" "web" {
     # The connection will use the local SSH agent for authentication.
   }
 
-  instance_type = "t2.micro"
+  instance_type = "g3s.xlarge"
 
   # Lookup the correct AMI based on the region
   # we specified
-  ami = "${lookup(var.aws_amis, var.aws_region)}"
+  ami = "ami-0d0ff0945ae093aea"
 
   # The name of our SSH keypair we created above.
   key_name = "${aws_key_pair.auth.id}"
@@ -136,18 +139,20 @@ resource "aws_instance" "web" {
   # environment it's more common to have a separate private subnet for
   # backend instances.
   subnet_id = "${aws_subnet.default.id}"
+  
+  iam_instance_profile = "${aws_iam_instance_profile.web_instance_profile.id}"
 
   # We run a remote provisioner on the instance after creating it.
   # In this case, we just install nginx and start it. By default,
   # this should be on port 80
   provisioner "remote-exec" {
     inline = [
-      "sudo apt-get -y update",
-      "sudo apt-get -y install prometheus",
-      "sudo service prometheus start",
-      "sudo apt-get -y install python3-pip",
-      # "sudo yum install -y python3 git",
-      "pip3 install python-chess tensorflow click prometheus_client",
+      # "sudo apt-get -y update",
+      # "sudo apt-get -y install prometheus",
+      # "sudo service prometheus start",
+      # "sudo apt-get -y install python3-pip",
+      # # "sudo yum install -y python3 git",
+      # "pip3 install --user python-chess tensorflow click prometheus_client",
       "git clone https://github.com/thgreiner/py-amy.git"
     ]
   }

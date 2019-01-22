@@ -3,5 +3,5 @@ output "address" {
 }
 
 output "public_ip" {
-  value = "${aws_instance.web.public_ip}"
+  value = "${aws_spot_instance_request.web.public_ip}"
 }
