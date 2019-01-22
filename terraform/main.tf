@@ -113,7 +113,8 @@ resource "aws_key_pair" "auth" {
 resource "aws_spot_instance_request" "web" {
     
   spot_price = "0.25"
-  
+  spot_type = "one-time"
+
   # The connection block tells our provisioner how to
   # communicate with the resource (instance)
   connection {
