@@ -19,12 +19,6 @@ from network import load_or_create_model, schedule_learn_rate
 # Checkpoint every "CHEKCPOINT" updates
 CHECKPOINT = 100_000
 
-
-p1 = 0.5
-p2 = 0.3
-
-c = (p1 / p2) ** (1/20)
-
 class Node:
 
     def __init__(self):
@@ -53,7 +47,7 @@ def stats(step_output):
     loss = step_output[0]
     moves_loss = step_output[1]
     score_loss = step_output[2]
-    reg_loss = loss - moves_loss - score_loss
+    reg_loss = abs(loss - moves_loss - score_loss)
 
     moves_accuracy = step_output[3]
     score_mae = step_output[6]
@@ -153,7 +147,7 @@ def pos_generator(filename, elo_diff, skip_games):
 
 def shuffling_pos_generator(generator):
 
-    buf_size = 171329
+    buf_size = 371329
     data = []
 
     for sample in generator():
