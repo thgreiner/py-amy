@@ -33,9 +33,9 @@ class Repr2D:
                 self.underpromo_indexes[piece][delta] = idx
                 idx += 1
 
-        self.num_planes = 17
+        self.num_planes = 16
 
-        print("Generated {} indexes for moves.".format(idx))
+        # print("Generated {} indexes for moves.".format(idx))
 
 
     def _is_knight_move(self, move):
@@ -71,16 +71,16 @@ class Repr2D:
             for sq in squares:
                 rank, file = self._coords(sq ^ xor)
                 buf[rank, file, offset + 1] = 1
-        
+
     def board_to_array(self, board):
         buf = np.zeros((8, 8, self.num_planes), np.int8)
 
         turn = board.turn
 
         self._store_board(board, buf, turn, 0)
-        
+
         offset = 12
-        
+
         if board.ep_square:
             xor = 0 if turn else 0x38
             rank, file = self._coords(board.ep_square ^ xor)
@@ -95,11 +95,8 @@ class Repr2D:
         if board.has_queenside_castling_rights(not board.turn):
             buf[7, 2, offset + 2] = 1
 
-        # One plane indicating the non-progress count
-        buf[:, :, offset + 3] = board.halfmove_clock
-
         # One plane just ones so the network can detect the board edge
-        buf[:, :, offset + 4] = 1
+        buf[:, :, offset + 3] = 1
 
         return buf
 

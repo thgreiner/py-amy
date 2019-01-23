@@ -11,6 +11,8 @@ REGULARIZATION_WEIGHT=1e-4
 
 L2_REGULARIZER = keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
+RECTIFIER='relu'
+
 def residual_block(y, dim, index, factor=3):
     shortcut = y
 
@@ -19,12 +21,12 @@ def residual_block(y, dim, index, factor=3):
                             padding='same',
                             name="residual-block-{}-expand".format(index),
                             kernel_initializer='lecun_normal',
-                            activation='elu')(y)
+                            activation=RECTIFIER)(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
                                              name="residual-block-{}-depthwise".format(index),
                                              kernel_initializer='lecun_normal',
-                                             activation='elu')(y)
+                                             activation=RECTIFIER)(y)
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-contract".format(index),
@@ -47,11 +49,11 @@ def create_model():
                                             name="initial-conv",
                                             kernel_regularizer=L2_REGULARIZER,
                                             kernel_initializer='lecun_normal',
-                                            activation='elu')(board_input)
+                                            activation=RECTIFIER)(board_input)
 
     index = 1
     for i in range(5):
-        temp = residual_block(temp, dim, index, 5)
+        temp = residual_block(temp, dim, index)
         index += 1
 
     dim = 96
@@ -61,10 +63,10 @@ def create_model():
     temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                             name="scale-up-1-conv",
                                             kernel_initializer='lecun_normal',
-                                            activation='elu')(temp)
+                                            activation=RECTIFIER)(temp)
 
     for i in range(5):
-        temp = residual_block(temp, dim, index, 4)
+        temp = residual_block(temp, dim, index)
         index += 1
 
     dim = 128
@@ -74,7 +76,7 @@ def create_model():
     temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                             name="scale-up-2-conv",
                                             kernel_initializer='lecun_normal',
-                                            activation='elu')(temp)
+                                            activation=RECTIFIER)(temp)
 
     for i in range(5):
         temp = residual_block(temp, dim, index)
@@ -95,18 +97,18 @@ def create_model():
 
     # Create the value head
     temp = keras.layers.BatchNormalization(name="pre-value-bn")(temp)
-    temp = keras.layers.Conv2D(32, (1, 1), padding='same',
-                                           name="pre-value-conv",
-                                           kernel_regularizer=L2_REGULARIZER,
-                                           kernel_initializer='lecun_normal',
-                                           activation='elu')(temp)
+    temp = keras.layers.Conv2D(9, (1, 1), padding='same',
+                                          name="pre-value-conv",
+                                          kernel_regularizer=L2_REGULARIZER,
+                                          kernel_initializer='lecun_normal',
+                                          activation=RECTIFIER)(temp)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
     temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
     temp = keras.layers.Dense(128,
                               name="value-dense",
                               kernel_regularizer=L2_REGULARIZER,
                               kernel_initializer='lecun_normal',
-                              activation='elu')(temp)
+                              activation=RECTIFIER)(temp)
 
     temp = keras.layers.BatchNormalization(name="value-bn")(temp)
     value_output = keras.layers.Dense(1, activation='tanh',
