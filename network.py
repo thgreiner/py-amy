@@ -42,6 +42,7 @@ def create_model():
 
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
     moves_input = keras.layers.Input(shape = (4672,), name='moves-input')
+    non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
     dim = 64
 
@@ -103,6 +104,7 @@ def create_model():
                                           kernel_initializer='lecun_normal',
                                           activation=RECTIFIER)(temp)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
+    temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
     temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
     temp = keras.layers.Dense(128,
                               name="value-dense",
@@ -116,8 +118,8 @@ def create_model():
                                          name='value')(temp)
 
     return keras.Model(
-        name = "MobileNet V2-like (with BN + L2)",
-        inputs = [board_input, moves_input],
+        name = "MobileNet V2-like (with BN)",
+        inputs = [board_input, moves_input, non_progress_input],
         outputs = [move_output, value_output])
 
 

@@ -59,9 +59,8 @@ def stats(step_output):
     )
 
 
-def pos_generator(filename, elo_diff, skip_games):
+def pos_generator(filename, elo_diff, skip_games, game_counter):
 
-    game_counter = Counter('training_game_total', "Games seen by training", [ "result" ])
     root = Node()
 
     with open(filename) as pgn:
@@ -122,13 +121,18 @@ def pos_generator(filename, elo_diff, skip_games):
                 if not skip_training:
                     train_data_board = repr.board_to_array(b)
                     train_data_moves = repr.legal_moves_mask(b)
+                    train_data_non_progress = b.halfmove_clock / 100.0
                     train_labels1 = repr.move_to_array(b, move)
                     if node:
                         train_labels2 = node.result / node.visit_count
                     else:
                         train_labels2 = label_for_result(result, b.turn)
 
-                    yield (train_data_board, train_data_moves, train_labels1, train_labels2)
+                    yield (train_data_board, 
+                           train_data_moves, 
+                           train_data_non_progress,
+                           train_labels1,
+                           train_labels2)
 
 
                 if node:
@@ -161,10 +165,9 @@ def shuffling_pos_generator(generator):
             for x in to_yield:
                 yield x
 
-    if len(data) > 0:
-        data = random.shuffle(data)
-        for x in data:
-            yield x
+    random.shuffle(data)
+    for x in data:
+        yield x
 
 
 if __name__ == "__main__":
@@ -186,6 +189,7 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
     train_data_moves = np.zeros((batch_size, 4672), np.int8)
+    train_data_non_progress = np.zeros((batch_size, 1), np.float32)
     train_labels1 = np.zeros((batch_size, 4672), np.int8)
     train_labels2 = np.zeros((batch_size, 1), np.float32)
 
@@ -194,6 +198,7 @@ if __name__ == "__main__":
     start_http_server(9099)
     pos_counter = Counter('training_position_total', "Positions seen by training")
     batch_no_counter = Counter('training_batch_total', "Training batches")
+    game_counter = Counter('training_game_total', "Games seen by training", [ "result" ])
     loss_gauge = Gauge('training_loss', "Training loss")
     moves_accuracy_gauge = Gauge('training_move_accuracy', "Move accuracy")
     score_mae_gauge = Gauge('training_score_mae', "Score mean absolute error")
@@ -207,7 +212,7 @@ if __name__ == "__main__":
         checkpoint_next = CHECKPOINT
         batch_no = 0
 
-        pos_gen = partial(pos_generator, args.filename, args.diff, args.skip)
+        pos_gen = partial(pos_generator, args.filename, args.diff, args.skip, game_counter)
 
         if not args.test:
             pos_gen = partial(shuffling_pos_generator, pos_gen)
@@ -215,15 +220,16 @@ if __name__ == "__main__":
         for sample in pos_gen():
             train_data_board[cnt] = sample[0]
             train_data_moves[cnt] = sample[1]
-            train_labels1[cnt] = sample[2]
-            train_labels2[cnt, 0] = sample[3]
+            train_data_non_progress[cnt, 0] = sample[2]
+            train_labels1[cnt] = sample[3]
+            train_labels2[cnt, 0] = sample[4]
             cnt += 1
 
             pos_counter.inc()
 
             if cnt >= batch_size:
                 # print(train_labels2)
-                train_data = [ train_data_board, train_data_moves]
+                train_data = [ train_data_board, train_data_moves, train_data_non_progress]
                 train_labels = [ train_labels1, train_labels2 ]
 
                 lr = schedule_learn_rate(model, batch_no)
@@ -258,7 +264,7 @@ if __name__ == "__main__":
 
 
         # Train on the remainder of the dataset
-        train_data = [ train_data_board[:cnt], train_data_moves[:cnt]]
+        train_data = [ train_data_board[:cnt], train_data_moves[:cnt], train_data_non_progress[:cnt] ]
         train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
 
         start_time = time.perf_counter()

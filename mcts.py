@@ -67,7 +67,9 @@ def evaluate(node, board):
 
     input_board = repr.board_to_array(board).reshape(1, 8, 8, repr.num_planes)
     input_moves = repr.legal_moves_mask(board).reshape(1, 4672)
-    prediction = model.predict([input_board, input_moves])
+    input_non_progress = np.array([ board.halfmove_clock / 100.0 ])
+
+    prediction = model.predict([input_board, input_moves, input_non_progress])
 
     value = (prediction[1].flatten())[0]
     # Transform [-1, 1] range to [0, 1]
