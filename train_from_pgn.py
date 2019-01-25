@@ -12,12 +12,27 @@ import random
 import argparse
 from functools import partial
 
+from threading import Thread
+from queue import PriorityQueue
+
 from prometheus_client import start_http_server, Counter, Gauge
 
 from network import load_or_create_model, schedule_learn_rate
 
+from dataclasses import dataclass, field
+from typing import Any
+
 # Checkpoint every "CHEKCPOINT" updates
 CHECKPOINT = 100_000
+
+# Maximum priority to assign an item in the position queue
+MAX_PRIO = 1_000_000
+
+@dataclass(order=True)
+class PrioritizedItem:
+    priority: int
+    item: Any=field(compare=False)
+
 
 class Node:
 
@@ -59,7 +74,7 @@ def stats(step_output):
     )
 
 
-def pos_generator(filename, elo_diff, skip_games, game_counter):
+def pos_generator(filename, elo_diff, skip_games, game_counter, queue):
 
     root = Node()
 
@@ -128,12 +143,14 @@ def pos_generator(filename, elo_diff, skip_games, game_counter):
                     else:
                         train_labels2 = label_for_result(result, b.turn)
 
-                    yield (train_data_board, 
-                           train_data_moves, 
-                           train_data_non_progress,
-                           train_labels1,
-                           train_labels2)
-
+                    item = PrioritizedItem(
+                        random.randint(0, MAX_PRIO),
+                        ( train_data_board, 
+                          train_data_moves, 
+                          train_data_non_progress,
+                          train_labels1,
+                          train_labels2 ))
+                    queue.put(item)
 
                 if node:
                   if move in node.children:
@@ -147,28 +164,7 @@ def pos_generator(filename, elo_diff, skip_games, game_counter):
                           node = None
 
                 b.push(move)
-
-
-def shuffling_pos_generator(generator):
-
-    buf_size = 371329
-    data = []
-
-    for sample in generator():
-        data.append(sample)
-        if len(data) >= buf_size:
-            random.shuffle(data)
-            barrier = buf_size // 2
-
-            to_yield = data[0:barrier]
-            data = data[barrier:]
-            for x in to_yield:
-                yield x
-
-    random.shuffle(data)
-    for x in data:
-        yield x
-
+    queue.put(PrioritizedItem(MAX_PRIO, None))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
@@ -204,6 +200,8 @@ if __name__ == "__main__":
     score_mae_gauge = Gauge('training_score_mae', "Score mean absolute error")
     learn_rate_gauge = Gauge('training_learn_rate', "Learn rate")
 
+    queue = PriorityQueue(maxsize = 50000)
+
     for iteration in range(100):
 
         cnt = 0
@@ -212,12 +210,18 @@ if __name__ == "__main__":
         checkpoint_next = CHECKPOINT
         batch_no = 0
 
-        pos_gen = partial(pos_generator, args.filename, args.diff, args.skip, game_counter)
+        pos_gen = partial(pos_generator, args.filename, args.diff, args.skip, game_counter, queue)
 
-        if not args.test:
-            pos_gen = partial(shuffling_pos_generator, pos_gen)
+        t = Thread(target = pos_gen)
+        t.start()
 
-        for sample in pos_gen():
+        while True:
+            item = queue.get()
+            sample = item.item
+            
+            if sample is None:
+                break
+
             train_data_board[cnt] = sample[0]
             train_data_moves[cnt] = sample[1]
             train_data_non_progress[cnt, 0] = sample[2]
