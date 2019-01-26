@@ -199,6 +199,7 @@ if __name__ == "__main__":
     moves_accuracy_gauge = Gauge('training_move_accuracy', "Move accuracy")
     score_mae_gauge = Gauge('training_score_mae', "Score mean absolute error")
     learn_rate_gauge = Gauge('training_learn_rate', "Learn rate")
+    qsize_gauge = Gauge("training_qsize", "Queue size")
 
     queue = PriorityQueue(maxsize = 50000)
 
@@ -221,6 +222,8 @@ if __name__ == "__main__":
             
             if sample is None:
                 break
+
+            qsize_gauge.set(queue.qsize())
 
             train_data_board[cnt] = sample[0]
             train_data_moves[cnt] = sample[1]
