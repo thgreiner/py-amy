@@ -1,3 +1,4 @@
 python-chess >= 0.24.2
 click >= 6.7
 prometheus_client >= 0.5.0
+dataclasses;python_version<"3.7"
