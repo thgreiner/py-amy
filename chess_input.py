@@ -35,7 +35,7 @@ class Repr2D:
 
         self.num_planes = 16
 
-        print("Generated {} indexes for moves.".format(idx))
+        # print("Generated {} indexes for moves.".format(idx))
 
 
     def _is_knight_move(self, move):
@@ -71,28 +71,28 @@ class Repr2D:
             for sq in squares:
                 rank, file = self._coords(sq ^ xor)
                 buf[rank, file, offset + 1] = 1
-        
-    def board_to_array(self, b):
+
+    def board_to_array(self, board):
         buf = np.zeros((8, 8, self.num_planes), np.int8)
 
-        turn = b.turn
+        turn = board.turn
 
-        self._store_board(b, buf, turn, 0)
-        
+        self._store_board(board, buf, turn, 0)
+
         offset = 12
-        
-        if b.ep_square:
+
+        if board.ep_square:
             xor = 0 if turn else 0x38
-            rank, file = self._coords(b.ep_square ^ xor)
+            rank, file = self._coords(board.ep_square ^ xor)
             buf[rank, file, offset] = 1
 
-        if b.has_kingside_castling_rights(b.turn):
+        if board.has_kingside_castling_rights(board.turn):
             buf[0, 6, offset + 1] = 1
-        if b.has_queenside_castling_rights(b.turn):
+        if board.has_queenside_castling_rights(board.turn):
             buf[0, 2, offset + 1] = 1
-        if b.has_kingside_castling_rights(not b.turn):
+        if board.has_kingside_castling_rights(not board.turn):
             buf[7, 6, offset + 2] = 1
-        if b.has_queenside_castling_rights(not b.turn):
+        if board.has_queenside_castling_rights(not board.turn):
             buf[7, 2, offset + 2] = 1
 
         # One plane just ones so the network can detect the board edge

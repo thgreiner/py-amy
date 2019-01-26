@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from chess import Board
 import chess.pgn
 import random
@@ -65,7 +67,9 @@ def evaluate(node, board):
 
     input_board = repr.board_to_array(board).reshape(1, 8, 8, repr.num_planes)
     input_moves = repr.legal_moves_mask(board).reshape(1, 4672)
-    prediction = model.predict([input_board, input_moves])
+    input_non_progress = np.array([ board.halfmove_clock / 100.0 ])
+
+    prediction = model.predict([input_board, input_moves, input_non_progress])
 
     value = (prediction[1].flatten())[0]
     # Transform [-1, 1] range to [0, 1]
@@ -175,7 +179,7 @@ def select_child(node: Node):
 # the prior.
 def ucb_score(parent: Node, child: Node):
     pb_c_base = 19652
-    pb_c_init = 3.5 # 1.25
+    pb_c_init = 2.5 # 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -206,7 +210,7 @@ max_depth = None
 sum_depth = None
 depth_list = None
 
-def mcts(board):
+def mcts(board, tree=None):
     global start_time, num_simulations, max_depth, sum_depth, depth_list
 
     start_time = time.perf_counter()
@@ -215,17 +219,20 @@ def mcts(board):
     sum_depth = 0
     depth_list = []
 
-    root = Node(0)
-    evaluate(root, board)
+    if tree:
+        root = tree
+    else:
+        root = Node(0)
+        evaluate(root, board)
 
     if len(root.children) == 1:
         for best_move in root.children.keys():
-            return board.san(best_move)
+            return board.san(best_move), root
 
     # add_exploration_noise(root)
 
     best_move = None
-    for iteration in range(80000):
+    for iteration in range(800):
         num_simulations += 1
         depth = 0
 
@@ -245,11 +252,19 @@ def mcts(board):
         sum_depth += depth
         depth_list.append(depth)
 
-        if iteration % 100 == 0:
+        if iteration > 0 and iteration % 100 == 0:
             statistics(root, board)
 
     best_move = statistics(root, board)
-    return best_move
+    return best_move, root
+
+
+def new_root(tree, move):
+    if tree is not None and move in tree.children:
+        return tree.children[move]
+    else:
+        return None
+
 
 if __name__ == "__main__":
 
@@ -258,6 +273,8 @@ if __name__ == "__main__":
 
     total_positions = 0
     while total_positions < 4096:
+
+        tree = None
         # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
 
         board = Board()
@@ -266,8 +283,9 @@ if __name__ == "__main__":
 
         opening = None
         opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
-        opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5 Bd3 h6 Bf4 b4 Ne4 Nxe4 Bxe4 Ba6 Qa4 Bb5"
+        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5 Bd3 h6 Bf4 b4 Ne4 Nxe4 Bxe4 Ba6 Qa4 Bb5"
         # opening = "d4 d5"
+        opening = "d4 d5 c4 e6 Nc3 Nf6"
         # opening = "e4 c5 Nf3 Nc6"
         if opening:
             for move in opening.split(" "):
@@ -279,14 +297,16 @@ if __name__ == "__main__":
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             if board.turn:
-                best_move = mcts(board)
+                best_move, tree = mcts(board, tree)
                 # best_move = board.san(amy_searcher.select_move(board))
             else:
                 # best_move = mcts(board)
                 best_move = board.san(black_searcher.select_move(board))
+
             m = board.parse_san(best_move)
             board.push(m)
             total_positions += 1
+            tree = new_root(tree, m)
 
         game = chess.pgn.Game.from_board(board)
         game.headers["Event"] = "Test Game"
