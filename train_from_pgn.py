@@ -74,7 +74,7 @@ def stats(step_output):
     )
 
 
-def pos_generator(filename, elo_diff, skip_games, game_counter, queue):
+def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
 
     root = Node()
 
@@ -102,6 +102,8 @@ def pos_generator(filename, elo_diff, skip_games, game_counter, queue):
                 b = int(black_elo)
                 if abs(w - b) < elo_diff:
                     # print("Skipping game - Elo diff less than {}}.".format(elo_diff))
+                    continue
+                if min(w, b) < min_elo:
                     continue
             elif elo_diff > 0:
                 # print("Skipping game, one side has no Elo.")
@@ -169,11 +171,12 @@ def pos_generator(filename, elo_diff, skip_games, game_counter, queue):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
     parser.add_argument("filename")
-    parser.add_argument('--diff', type=int, help="minimum elo barrier", default=0)
+    parser.add_argument('--diff', type=int, help="minimum elo diff", default=0)
     parser.add_argument('--model', help="model file name")
     parser.add_argument('--skip', type=int, help="games to skip", default=0)
     parser.add_argument('--test', action='store_const', const=True, default=False, help="run test instead of training")
     parser.add_argument('--batch_size', type=int, help="batch size", default=256)
+    parser.add_argument('--min_elo', type=int, help='minimum elo threshold', default=0)
 
     args = parser.parse_args()
 
@@ -211,7 +214,8 @@ if __name__ == "__main__":
         checkpoint_next = CHECKPOINT
         batch_no = 0
 
-        pos_gen = partial(pos_generator, args.filename, args.diff, args.skip, game_counter, queue)
+        pos_gen = partial(pos_generator, args.filename, args.diff, args.min_elo,
+                          args.skip, game_counter, queue)
 
         t = Thread(target = pos_gen)
         t.start()
