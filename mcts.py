@@ -223,7 +223,7 @@ def select_root_move(tree, move_count):
             moves.append(key)
             visits.append(val.visit_count ** k)
 
-    if move_count < 30:
+    if move_count < 15:
         idx = sample_gumbel(visits)
     else:
         idx = np.argmax(visits)
@@ -259,7 +259,9 @@ def mcts(board, tree=None):
     add_exploration_noise(root)
 
     best_move = None
-    for iteration in range(800):
+    max_visit_count = 800
+
+    for iteration in range(max_visit_count):
         num_simulations += 1
         depth = 0
 
@@ -281,6 +283,9 @@ def mcts(board, tree=None):
 
         if iteration > 0 and iteration % 100 == 0:
             statistics(root, board)
+        
+        if root.visit_count >= max_visit_count:
+            break
 
     best_move = statistics(root, board)
     return best_move, root
