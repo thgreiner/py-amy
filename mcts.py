@@ -283,7 +283,7 @@ def mcts(board, tree=None):
 
         if iteration > 0 and iteration % 100 == 0:
             statistics(root, board)
-        
+
         if root.visit_count >= max_visit_count:
             break
 
@@ -298,6 +298,21 @@ def new_root(tree, move):
         return None
 
 
+def format_root_moves(root, board):
+    if root.visit_count == 0:
+        return None
+
+    root_moves = []
+    for key, val in root.children.items():
+        prop = val.visit_count / root.visit_count
+        if prop >= 1e-3:
+            root_moves.append("{}:{:.3f}".format(board.san(key), prop))
+
+    return "q={:.3f}; p=[{}]".format(
+        1.0 - root.value_sum / root.visit_count,
+        ", ".join(root_moves))
+
+
 if __name__ == "__main__":
 
     model = load_or_create_model("combined-model.h5")
@@ -305,6 +320,12 @@ if __name__ == "__main__":
 
     total_positions = 0
     while total_positions < 4096:
+
+        game = chess.pgn.Game()
+        game.headers["Event"] = "Test Game"
+        game.headers["White"] = "Amy Zero"
+        game.headers["Black"] = "Amy Zero"
+        game.headers["Date"] = date.today().strftime("%Y.%m.%d")
 
         tree = None
         # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
@@ -319,10 +340,13 @@ if __name__ == "__main__":
         # opening = "d4 d5"
         #opening = "d4 d5 c4 e6 Nc3 Nf6"
         # opening = "e4 c5 Nf3 Nc6"
+
+        node = game
         if opening:
             for move in opening.split(" "):
                 m = board.parse_san(move)
                 board.push(m)
+                node = node.add_variation(m)
 
         black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
         amy_searcher = AmySearcher()
@@ -330,21 +354,20 @@ if __name__ == "__main__":
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             if True or board.turn:
                 best_move, tree = mcts(board, tree)
+                node = node.add_variation(best_move)
+                node.comment = format_root_moves(tree, board)
                 # best_move = board.san(amy_searcher.select_move(board))
             else:
                 # best_move = mcts(board)
                 best_move = black_searcher.select_move(board)
+                node = node.add_variation(best_move)
 
             board.push(best_move)
             total_positions += 1
             tree = new_root(tree, best_move)
 
-        game = chess.pgn.Game.from_board(board)
-        game.headers["Event"] = "Test Game"
-        game.headers["White"] = "Amy 0.9.1"
-        game.headers["Black"] = "Amy Zero"
-        game.headers["Date"] = date.today().strftime("%Y.%m.%d")
         game.headers["Result"] = board.result(claim_draw=True)
 
         with open("LearnGames.pgn", "a") as f:
-            print(game, file=f, end="\n\n")
+            exporter = chess.pgn.FileExporter(f)
+            game.accept(exporter)
