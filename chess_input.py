@@ -124,3 +124,19 @@ class Repr2D:
 
         # return buf.reshape(8, 8, 7)
         return buf.reshape(4672)
+
+
+    def policy_to_array(self, b, policy):
+        # buf = np.zeros((64, 7), np.int8)
+        buf = np.zeros((64, 73), np.float32)
+
+        xor = 0 if b.turn else 0x38
+
+        for san, value in policy.items():
+            move = b.parse_san(san)
+            # buf[move.from_square ^ xor][0] = 1
+            # buf[move.to_square ^ xor][piece] = 1
+            buf[move.from_square ^ xor, self.plane_index(move, xor)] = value
+
+        # return buf.reshape(8, 8, 7)
+        return buf.reshape(4672)
