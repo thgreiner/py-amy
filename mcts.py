@@ -180,7 +180,7 @@ def select_child(node: Node):
 # the prior.
 def ucb_score(parent: Node, child: Node):
     pb_c_base = 19652
-    pb_c_init = 2.5 # 1.25
+    pb_c_init = 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -203,7 +203,7 @@ def add_exploration_noise(node: Node):
 
     actions = node.children.keys()
     noise = np.random.gamma(root_dirichlet_alpha, 1, len(actions))
-    noise /= math.sqrt(np.sum(noise) ** 2)
+    noise /= np.sum(noise)
     frac = root_exploration_fraction
     for a, n in zip(actions, noise):
         node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
