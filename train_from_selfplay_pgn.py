@@ -10,6 +10,7 @@ import sys
 import time
 import random
 import argparse
+import re
 from functools import partial
 
 from threading import Thread
@@ -32,15 +33,6 @@ MAX_PRIO = 1_000_000
 class PrioritizedItem:
     priority: int
     item: Any=field(compare=False)
-
-
-class Node:
-
-    def __init__(self):
-        self.visit_count = 0
-        self.learn_count = 0
-        self.result = 0
-        self.children = {}
 
 
 def label_for_result(result, turn):
@@ -74,9 +66,26 @@ def stats(step_output):
     )
 
 
-def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
+re1 = re.compile("q=(.*); p=\[(.*)\]")
+re2 = re.compile("(.*):(.*)")
 
-    root = Node()
+def parse_mcts_result(input):
+    m = re1.match(input)
+
+    if m is None:
+        return None, None
+
+    q = float(m.group(1))
+
+    variations = m.group(2).split(", ")
+    v = {}
+    for variation in variations:
+        m2 = re2.match(variation)
+        v[m2.group(1)] = float(m2.group(2))
+
+    return q, v
+
+def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
 
     with open(filename) as pgn:
         while True:
@@ -123,47 +132,28 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
 
             b = game.board()
 
-            if game.headers.get("SetUp", "0") == "1":
-                node = None
-            else:
-                node = root
-            out_of_book = 0
+            for node in game.mainline():
 
-            for move in game.mainline_moves():
+                move = node.move
 
-                if node:
-                    node.visit_count += 1
-                    node.result += label_for_result(result, b.turn)
+                if node.comment:
+                    q, policy = parse_mcts_result(node.comment)
+                    q = q * 2 - 1.0
 
-                if not skip_training:
-                    train_data_board = repr.board_to_array(b)
-                    train_data_moves = repr.legal_moves_mask(b)
-                    train_data_non_progress = b.halfmove_clock / 100.0
-                    train_labels1 = repr.move_to_array(b, move)
-                    if node:
-                        train_labels2 = node.result / node.visit_count
-                    else:
-                        train_labels2 = label_for_result(result, b.turn)
-
-                    item = PrioritizedItem(
-                        random.randint(0, MAX_PRIO),
-                        ( train_data_board, 
-                          train_data_moves, 
-                          train_data_non_progress,
-                          train_labels1,
-                          train_labels2 ))
-                    queue.put(item)
-
-                if node:
-                  if move in node.children:
-                      node = node.children[move]
-                  else:
-                      out_of_book += 1
-                      if out_of_book <= 10:
-                          child_node = Node()
-                          node.children[move] = child_node
-                      else:
-                          node = None
+                    if not skip_training:
+                        train_data_board = repr.board_to_array(b)
+                        train_data_moves = repr.legal_moves_mask(b)
+                        train_data_non_progress = b.halfmove_clock / 100.0
+                        train_labels1 = repr.policy_to_array(b, policy)
+                        train_labels2 = q
+                        item = PrioritizedItem(
+                            random.randint(0, MAX_PRIO),
+                            ( train_data_board,
+                              train_data_moves,
+                              train_data_non_progress,
+                              train_labels1,
+                              train_labels2 ))
+                        queue.put(item)
 
                 b.push(move)
     queue.put(PrioritizedItem(MAX_PRIO, None))
@@ -189,7 +179,7 @@ if __name__ == "__main__":
     train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
     train_data_moves = np.zeros((batch_size, 4672), np.int8)
     train_data_non_progress = np.zeros((batch_size, 1), np.float32)
-    train_labels1 = np.zeros((batch_size, 4672), np.int8)
+    train_labels1 = np.zeros((batch_size, 4672), np.float32)
     train_labels2 = np.zeros((batch_size, 1), np.float32)
 
     start_time = time.perf_counter()
@@ -223,7 +213,7 @@ if __name__ == "__main__":
         while True:
             item = queue.get()
             sample = item.item
-            
+
             if sample is None:
                 break
 
