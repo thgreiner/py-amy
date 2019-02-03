@@ -139,13 +139,15 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
                 if node.comment:
                     q, policy = parse_mcts_result(node.comment)
                     q = q * 2 - 1.0
+                    z = label_for_result(result, b.turn)
 
                     if not skip_training:
                         train_data_board = repr.board_to_array(b)
                         train_data_moves = repr.legal_moves_mask(b)
                         train_data_non_progress = b.halfmove_clock / 100.0
                         train_labels1 = repr.policy_to_array(b, policy)
-                        train_labels2 = q
+                        train_labels2 = (q + z) * 0.5
+
                         item = PrioritizedItem(
                             random.randint(0, MAX_PRIO),
                             ( train_data_board,

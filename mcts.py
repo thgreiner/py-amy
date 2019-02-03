@@ -6,6 +6,7 @@ import random
 import math
 import numpy as np
 import time
+import uuid
 
 from datetime import date
 
@@ -18,11 +19,6 @@ import piece_square_eval
 from pos_generator import generate_kxk
 
 from network import load_or_create_model
-
-MAX_HALFMOVES_IN_GAME = 200
-
-# For KQK training
-# MAX_HALFMOVES_IN_GAME = 60
 
 class Node(object):
 
@@ -180,7 +176,7 @@ def select_child(node: Node):
 # the prior.
 def ucb_score(parent: Node, child: Node):
     pb_c_base = 19652
-    pb_c_init = 1.25
+    pb_c_init = 2.2 # 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -246,7 +242,7 @@ def mcts(board, tree=None):
     sum_depth = 0
     depth_list = []
 
-    if tree:
+    if False and tree:
         root = tree
     else:
         root = Node(0)
@@ -259,7 +255,7 @@ def mcts(board, tree=None):
     add_exploration_noise(root)
 
     best_move = None
-    max_visit_count = 800
+    max_visit_count = 200
 
     for iteration in range(max_visit_count):
         num_simulations += 1
@@ -291,83 +287,8 @@ def mcts(board, tree=None):
     return best_move, root
 
 
-def new_root(tree, move):
-    if tree is not None and move in tree.children:
-        return tree.children[move]
-    else:
-        return None
 
 
-def format_root_moves(root, board):
-    if root.visit_count == 0:
-        return None
+model = load_or_create_model("combined-model.h5")
+repr = Repr2D()
 
-    root_moves = []
-    for key, val in root.children.items():
-        prop = val.visit_count / root.visit_count
-        if prop >= 1e-3:
-            root_moves.append("{}:{:.3f}".format(board.san(key), prop))
-
-    return "q={:.3f}; p=[{}]".format(
-        1.0 - root.value_sum / root.visit_count,
-        ", ".join(root_moves))
-
-
-if __name__ == "__main__":
-
-    model = load_or_create_model("combined-model.h5")
-    repr = Repr2D()
-
-    total_positions = 0
-    while total_positions < 4096:
-
-        game = chess.pgn.Game()
-        game.headers["Event"] = "Test Game"
-        game.headers["White"] = "Amy Zero"
-        game.headers["Black"] = "Amy Zero"
-        game.headers["Date"] = date.today().strftime("%Y.%m.%d")
-
-        tree = None
-        # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
-
-        board = Board()
-        # board = generate_kxk()
-        # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
-
-        opening = None
-        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
-        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5 Bd3 h6 Bf4 b4 Ne4 Nxe4 Bxe4 Ba6 Qa4 Bb5"
-        # opening = "d4 d5"
-        #opening = "d4 d5 c4 e6 Nc3 Nf6"
-        # opening = "e4 c5 Nf3 Nc6"
-
-        node = game
-        if opening:
-            for move in opening.split(" "):
-                m = board.parse_san(move)
-                board.push(m)
-                node = node.add_variation(m)
-
-        black_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
-        amy_searcher = AmySearcher()
-
-        while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
-            if True or board.turn:
-                best_move, tree = mcts(board, tree)
-                node = node.add_variation(best_move)
-                node.comment = format_root_moves(tree, board)
-                # best_move = board.san(amy_searcher.select_move(board))
-            else:
-                # best_move = mcts(board)
-                best_move = black_searcher.select_move(board)
-                node = node.add_variation(best_move)
-
-            board.push(best_move)
-            total_positions += 1
-            tree = new_root(tree, best_move)
-
-        game.headers["Result"] = board.result(claim_draw=True)
-
-        with open("LearnGames.pgn", "a") as f:
-            exporter = chess.pgn.FileExporter(f)
-            game.accept(exporter)
