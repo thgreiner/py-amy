@@ -37,6 +37,18 @@ def residual_block(y, dim, index, factor=3):
     return y
 
 
+def conv_block(y, dim, index):
+    y = keras.layers.Conv2D(5 * dim, (1, 1), padding='same',
+                                             activation=RECTIFIER,
+                                             name="conv-block-{}-expand".format(index))(y)
+    y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
+                                             activation=RECTIFIER,
+                                             name="conv-block-{}-depthwise".format(index))(y)
+    y = keras.layers.Conv2D(dim, (1, 1), padding='same',
+                                         activation='linear',
+                                         name="conv-block-{}-contract".format(index))(y)
+    return y
+
 def create_model():
     repr = Repr2D()
 
@@ -44,7 +56,7 @@ def create_model():
     moves_input = keras.layers.Input(shape = (4672,), name='moves-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    dim = 64
+    dim = 128
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
@@ -52,40 +64,43 @@ def create_model():
                                             kernel_initializer='lecun_normal',
                                             activation=RECTIFIER)(board_input)
 
+    k = 32
     index = 1
-    for i in range(7):
-        temp = residual_block(temp, dim, index)
+    for block in range(6):
+        block_input = temp
+        temp = conv_block(temp, k, index)
+        temp = keras.layers.concatenate([block_input, temp], name="concat-layers-{}".format(index))
         index += 1
 
-    dim = 96
+    temp = keras.layers.Conv2D(128, (1, 1), padding='same',
+                                            activation=RECTIFIER,
+                                            name='bottle-neck-1',
+                                            kernel_regularizer=L2_REGULARIZER)(temp)
 
-    # Scale up to new layer size
-    # temp = keras.layers.BatchNormalization(name="scale-up-1-bn")(temp)
-    temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                            name="scale-up-1-conv",
-                                            kernel_initializer='lecun_normal',
-                                            activation=RECTIFIER)(temp)
-
-    for i in range(5):
-        temp = residual_block(temp, dim, index)
+    for block in range(6):
+        block_input = temp
+        temp = conv_block(temp, k, index)
+        temp = keras.layers.concatenate([block_input, temp], name="concat-layers-{}".format(index))
         index += 1
 
-    dim = 128
+    temp = keras.layers.Conv2D(128, (1, 1), padding='same',
+                                            activation=RECTIFIER,
+                                            name='bottle-neck-2',
+                                            kernel_regularizer=L2_REGULARIZER)(temp)
 
-    # Scale up to new layer size
-    # temp = keras.layers.BatchNormalization(name="scale-up-2-bn")(temp)
-    temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                            name="scale-up-2-conv",
-                                            kernel_initializer='lecun_normal',
-                                            activation=RECTIFIER)(temp)
-
-    for i in range(5):
-        temp = residual_block(temp, dim, index)
+    for block in range(6):
+        block_input = temp
+        temp = conv_block(temp, k, index)
+        temp = keras.layers.concatenate([block_input, temp], name="concat-layers-{}".format(index))
         index += 1
 
+    temp = keras.layers.Conv2D(128, (1, 1), padding='same',
+                                            activation=RECTIFIER,
+                                            name='bottle-neck-3',
+                                            kernel_regularizer=L2_REGULARIZER)(temp)
 
     # Create the policy head
-    t2 = residual_block(temp, dim, index)
+    t2 = residual_block(temp, 128, index)
     index += 1
 
     # t2 = keras.layers.BatchNormalization(name="pre-moves-bn")(t2)
@@ -119,7 +134,7 @@ def create_model():
                                          name='value')(temp)
 
     return keras.Model(
-        name = "MobileNet V2-like (ELU, no BN)",
+        name = "DenseNet-like (ELU, no BN)",
         inputs = [board_input, moves_input, non_progress_input],
         outputs = [move_output, value_output])
 
@@ -138,8 +153,8 @@ def load_or_create_model(model_name):
 
 
 
-    # optimizer = keras.optimizers.Adam(lr = 0.001)
-    optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True)
+    optimizer = keras.optimizers.Adam(lr = 0.001)
+    # optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': 'categorical_crossentropy', 'value': 'mean_squared_error' },
