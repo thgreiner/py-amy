@@ -53,7 +53,7 @@ def create_model():
                                             activation=RECTIFIER)(board_input)
 
     index = 1
-    for i in range(12):
+    for i in range(7):
         temp = residual_block(temp, dim, index)
         index += 1
 
@@ -66,26 +66,27 @@ def create_model():
                                             kernel_initializer='lecun_normal',
                                             activation=RECTIFIER)(temp)
 
-    for i in range(4):
+    for i in range(5):
         temp = residual_block(temp, dim, index)
         index += 1
 
-    # dim = 128
-    #
-    # # Scale up to new layer size
+    dim = 128
+
+    # Scale up to new layer size
     # temp = keras.layers.BatchNormalization(name="scale-up-2-bn")(temp)
-    # temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
-    #                                         name="scale-up-2-conv",
-    #                                         kernel_initializer='lecun_normal',
-    #                                         activation=RECTIFIER)(temp)
-    #
-    # for i in range(5):
-    #     temp = residual_block(temp, dim, index)
-    #     index += 1
-    #
+    temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
+                                            name="scale-up-2-conv",
+                                            kernel_initializer='lecun_normal',
+                                            activation=RECTIFIER)(temp)
+
+    for i in range(5):
+        temp = residual_block(temp, dim, index)
+        index += 1
+
 
     # Create the policy head
     t2 = residual_block(temp, dim, index)
+    index += 1
 
     # t2 = keras.layers.BatchNormalization(name="pre-moves-bn")(t2)
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
@@ -137,8 +138,8 @@ def load_or_create_model(model_name):
 
 
 
-    optimizer = keras.optimizers.Adam(lr = 0.001)
-    # optimizer = keras.optimizers.SGD(lr=0.002, momentum=0.9, nesterov=True)
+    # optimizer = keras.optimizers.Adam(lr = 0.001)
+    optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': 'categorical_crossentropy', 'value': 'mean_squared_error' },
