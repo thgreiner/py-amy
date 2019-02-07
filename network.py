@@ -38,15 +38,9 @@ def residual_block(y, dim, index, factor=3):
 
 
 def conv_block(y, dim, index):
-    y = keras.layers.Conv2D(5 * dim, (1, 1), padding='same',
-                                             activation=RECTIFIER,
-                                             name="conv-block-{}-expand".format(index))(y)
-    y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
-                                             activation=RECTIFIER,
-                                             name="conv-block-{}-depthwise".format(index))(y)
-    y = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                         activation='linear',
-                                         name="conv-block-{}-contract".format(index))(y)
+    y = keras.layers.Conv2D(dim, (3, 3), padding='same',
+                                         activation=RECTIFIER,
+                                         name="conv-block-{}".format(index))(y)
     return y
 
 def create_model():
@@ -66,7 +60,7 @@ def create_model():
 
     k = 32
     index = 1
-    for block in range(6):
+    for block in range(5):
         block_input = temp
         temp = conv_block(temp, k, index)
         temp = keras.layers.concatenate([block_input, temp], name="concat-layers-{}".format(index))
@@ -77,7 +71,7 @@ def create_model():
                                             name='bottle-neck-1',
                                             kernel_regularizer=L2_REGULARIZER)(temp)
 
-    for block in range(6):
+    for block in range(5):
         block_input = temp
         temp = conv_block(temp, k, index)
         temp = keras.layers.concatenate([block_input, temp], name="concat-layers-{}".format(index))
@@ -88,7 +82,7 @@ def create_model():
                                             name='bottle-neck-2',
                                             kernel_regularizer=L2_REGULARIZER)(temp)
 
-    for block in range(6):
+    for block in range(5):
         block_input = temp
         temp = conv_block(temp, k, index)
         temp = keras.layers.concatenate([block_input, temp], name="concat-layers-{}".format(index))
