@@ -9,7 +9,7 @@ from chess_input import Repr2D
 # We really need almost no regularization as the model has so few params
 REGULARIZATION_WEIGHT=1e-4
 
-L2_REGULARIZER = None # keras.regularizers.l2(REGULARIZATION_WEIGHT)
+L2_REGULARIZER = keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
 RECTIFIER='elu'
 
@@ -48,6 +48,7 @@ def create_model():
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
                                             kernel_regularizer=L2_REGULARIZER,
+                                            bias_regularizer=L2_REGULARIZER,
                                             kernel_initializer='lecun_normal',
                                             activation=RECTIFIER)(board_input)
 
@@ -96,6 +97,7 @@ def create_model():
     temp = keras.layers.Conv2D(9, (1, 1), padding='same',
                                           name="pre-value-conv",
                                           kernel_regularizer=L2_REGULARIZER,
+                                          bias_regularizer=L2_REGULARIZER,
                                           kernel_initializer='lecun_normal',
                                           activation=RECTIFIER)(temp)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
@@ -103,11 +105,13 @@ def create_model():
     temp = keras.layers.Dense(128,
                               name="value-dense",
                               kernel_regularizer=L2_REGULARIZER,
+                              bias_regularizer=L2_REGULARIZER,
                               kernel_initializer='lecun_normal',
                               activation=RECTIFIER)(temp)
 
     value_output = keras.layers.Dense(1, activation='tanh',
                                          kernel_regularizer=L2_REGULARIZER,
+                                         bias_regularizer=L2_REGULARIZER,
                                          name='value')(temp)
 
     return keras.Model(
