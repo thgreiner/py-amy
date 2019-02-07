@@ -21,7 +21,7 @@ from pos_generator import generate_kxk
 
 from network import load_or_create_model
 
-from mcts import mcts
+from mcts import MCTS
 
 MAX_HALFMOVES_IN_GAME = 200
 
@@ -53,6 +53,8 @@ def format_root_moves(root, board):
 if __name__ == "__main__":
 
     suffix = str(uuid.uuid4())
+    model = load_or_create_model("combined-model.h5")
+    mcts = MCTS(model)
 
     total_positions = 0
     while total_positions < 16384:
@@ -63,7 +65,6 @@ if __name__ == "__main__":
         game.headers["Black"] = "Amy Zero"
         game.headers["Date"] = date.today().strftime("%Y.%m.%d")
 
-        tree = None
         # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
 
         board = Board()
@@ -85,13 +86,12 @@ if __name__ == "__main__":
                 node = node.add_variation(m)
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
-            best_move, tree = mcts(board, tree)
+            best_move, tree = mcts.mcts(board)
             node = node.add_variation(best_move)
             node.comment = format_root_moves(tree, board)
 
             board.push(best_move)
             total_positions += 1
-            tree = new_root(tree, best_move)
 
         game.headers["Result"] = board.result(claim_draw=True)
 
