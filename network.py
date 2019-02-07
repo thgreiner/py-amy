@@ -28,6 +28,11 @@ def residual_block(y, dim, index, factor=3):
                                              kernel_initializer='lecun_normal',
                                              activation=RECTIFIER)(y)
 
+    y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
+                                             name="residual-block-{}-depthwise-2".format(index),
+                                             kernel_initializer='lecun_normal',
+                                             activation=RECTIFIER)(y)
+
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-contract".format(index),
                                          kernel_initializer='lecun_normal',
@@ -137,8 +142,8 @@ def load_or_create_model(model_name):
 
 
 
-    optimizer = keras.optimizers.Adam(lr = 0.001)
-    # optimizer = keras.optimizers.SGD(lr=0.002, momentum=0.9, nesterov=True)
+    # optimizer = keras.optimizers.Adam(lr = 0.001)
+    optimizer = keras.optimizers.SGD(lr=0.002, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': 'categorical_crossentropy', 'value': 'mean_squared_error' },
