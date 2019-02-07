@@ -111,7 +111,7 @@ def create_model():
                                          name='value')(temp)
 
     return keras.Model(
-        name = "MobileNet V2-like (with BN)",
+        name = "MobileNet V2-like (No BN, ELU)",
         inputs = [board_input, moves_input, non_progress_input],
         outputs = [move_output, value_output])
 
