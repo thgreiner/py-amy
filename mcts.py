@@ -128,9 +128,11 @@ def select_root_move(tree, move_count):
 
 class MCTS:
     
-    def __init__(self, model):
+    def __init__(self, model, verbose=True, prefix=None):
         self.model = model
         self.repr = Repr2D()
+        self.verbose = verbose
+        self.prefix = prefix
         
 
     def move_prob(self, logits, board, move, xor):
@@ -173,50 +175,52 @@ class MCTS:
 
     def statistics(self, root, board):
 
-        click.clear()
-        print(board)
-        print()
-        print(board.fen())
-
-        print()
         principal_variation = []
         pv(board, root, principal_variation)
-        print(board.variation_san(principal_variation))
-        print()
         elapsed = time.perf_counter() - self.start_time
-        print("{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
-            self.num_simulations,
-            elapsed,
-            self.num_simulations / elapsed
-        ))
-        print()
+        if self.verbose:
+            avg_depth = self.sum_depth / self.num_simulations
+            tmp = np.array(self.depth_list)
+            median_depth = np.median(tmp, overwrite_input=True)
 
-        avg_depth = self.sum_depth / self.num_simulations
-        tmp = np.array(self.depth_list)
-        median_depth = np.median(tmp, overwrite_input=True)
-        print("Max depth: {} Median depth: {} Avg depth: {:.1f}".format(
-            self.max_depth, median_depth, avg_depth))
-        print()
+            click.clear()
+            print(board)
+            print()
+            print(board.fen())
+            print()
+            print(board.variation_san(principal_variation))
+            print()
+            print("{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
+                self.num_simulations,
+                elapsed,
+                self.num_simulations / elapsed
+            ))
+            print()
+            print("Max depth: {} Median depth: {} Avg depth: {:.1f}".format(
+                self.max_depth, median_depth, avg_depth))
+            print()
 
-        best_move = None
+            stats = []
+            for key, val in root.children.items():
+                if val.visit_count > 0:
+                    stats.append((board.san(key), val.value(), val.visit_count, val.prior))
 
-        stats = []
-        for key, val in root.children.items():
-            if val.visit_count > 0:
-                stats.append((board.san(key), val.value(), val.visit_count, val.prior))
+            stats = sorted(stats, key = lambda e: e[2], reverse=True)
 
-        stats = sorted(stats, key = lambda e: e[2], reverse=True)
-
-        cnt = 0
-        for s1 in stats:
-            print("{:5s} {:5.1f}% {:5.0f} visits  [{:4.1f}%]".format(
-                s1[0], 100 * s1[1], s1[2], 100 * s1[3]))
-            cnt += 1
-            if cnt >= 10:
-                break
-
-        # return stats[0][0]
-
+            cnt = 0
+            for s1 in stats:
+                print("{:5s} {:5.1f}% {:5.0f} visits  [{:4.1f}%]".format(
+                    s1[0], 100 * s1[1], s1[2], 100 * s1[3]))
+                cnt += 1
+                if cnt >= 10:
+                    break
+        else:
+            print("{} - {}: {:4.1f}% {} [{:.1f} sims/s]".format(
+                self.prefix,
+                self.num_simulations,
+                100 * root.children.get(principal_variation[0]).value(),
+                board.variation_san(principal_variation),
+                self.num_simulations / elapsed))
 
 
     def mcts(self, board):

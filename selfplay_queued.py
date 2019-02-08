@@ -17,6 +17,6 @@ if __name__ == "__main__":
 
     for i in range(8):
         qe = QueuedEvaluator(input_queue)
-        play_thread = Thread(target = lambda: selfplay(qe))
+        play_thread = Thread(target = lambda: selfplay(qe, False, i))
         play_thread.start()
 

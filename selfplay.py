@@ -50,9 +50,9 @@ def format_root_moves(root, board):
         1.0 - root.value_sum / root.visit_count,
         ", ".join(root_moves))
 
-def selfplay(model):
+def selfplay(model, verbose=True, prefix=None):
     suffix = str(uuid.uuid4())
-    mcts = MCTS(model)
+    mcts = MCTS(model, verbose, prefix)
 
     total_positions = 0
     while total_positions < 16384:
