@@ -50,10 +50,8 @@ def format_root_moves(root, board):
         1.0 - root.value_sum / root.visit_count,
         ", ".join(root_moves))
 
-if __name__ == "__main__":
-
+def selfplay(model):
     suffix = str(uuid.uuid4())
-    model = load_or_create_model("combined-model.h5")
     mcts = MCTS(model)
 
     total_positions = 0
@@ -98,3 +96,9 @@ if __name__ == "__main__":
         with open("LearnGames-{}.pgn".format(suffix), "a") as f:
             exporter = chess.pgn.FileExporter(f)
             game.accept(exporter)
+
+
+if __name__ == "__main__":
+
+    model = load_or_create_model("combined-model.h5")
+    selfplay(model)
