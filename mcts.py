@@ -240,7 +240,7 @@ class MCTS:
         add_exploration_noise(root)
 
         best_move = None
-        max_visit_count = 800
+        max_visit_count = 500
 
         for iteration in range(max_visit_count):
             self.num_simulations += 1
