@@ -9,7 +9,7 @@ from chess_input import Repr2D
 # We really need almost no regularization as the model has so few params
 REGULARIZATION_WEIGHT=1e-4
 
-L2_REGULARIZER = keras.regularizers.l2(REGULARIZATION_WEIGHT)
+L2_REGULARIZER = None # keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
 RECTIFIER='elu'
 

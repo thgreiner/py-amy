@@ -112,8 +112,9 @@ resource "aws_key_pair" "auth" {
 
 resource "aws_spot_instance_request" "web" {
     
-  spot_price = "0.25"
+  spot_price = "0.07"
   spot_type = "one-time"
+  wait_for_fulfillment = "true"
 
   # The connection block tells our provisioner how to
   # communicate with the resource (instance)
@@ -124,7 +125,7 @@ resource "aws_spot_instance_request" "web" {
     # The connection will use the local SSH agent for authentication.
   }
 
-  instance_type = "g3s.xlarge"
+  instance_type = "c5n.xlarge"
 
   # Lookup the correct AMI based on the region
   # we specified

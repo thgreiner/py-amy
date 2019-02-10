@@ -14,12 +14,6 @@ from chess_input import Repr2D
 
 import click
 
-from searcher import Searcher, AmySearcher
-import piece_square_eval
-from pos_generator import generate_kxk
-
-from network import load_or_create_model
-
 class Node(object):
 
     def __init__(self, prior: float):
@@ -38,12 +32,6 @@ class Node(object):
         return self.value_sum / self.visit_count
 
 
-def move_prob(logits, board, move, xor):
-    fr = move.from_square ^ xor
-    plane = repr.plane_index(move, xor)
-    return logits[fr, plane]
-
-
 def score(board, winner):
     if board.turn and (winner == "1-0"):
         return 1
@@ -54,46 +42,24 @@ def score(board, winner):
     return 0
 
 
-def evaluate(node, board):
-    if board.is_game_over(claim_draw = True):
-        winner = board.result(claim_draw = True)
-        # print(winner)
-        node.turn = board.turn
-        return score(board, winner)
+def add_exploration_noise(node: Node):
+    root_dirichlet_alpha = 0.3
+    root_exploration_fraction = 0.25
 
-    input_board = repr.board_to_array(board).reshape(1, 8, 8, repr.num_planes)
-    input_moves = repr.legal_moves_mask(board).reshape(1, 4672)
-    input_non_progress = np.array([ board.halfmove_clock / 100.0 ])
-
-    prediction = model.predict([input_board, input_moves, input_non_progress])
-
-    value = (prediction[1].flatten())[0]
-    # Transform [-1, 1] range to [0, 1]
-    value = (value + 1) * 0.5
-
-    logits = prediction[0].reshape(64, 73)
-
-    xor = 0 if board.turn else 0x38
-
-    # Expand the node.
-    node.turn = board.turn
-    policy = {a: move_prob(logits, board, a, xor) for a in board.generate_legal_moves()}
-    # We don't need to normalize - softmax does this for us
-    # policy_sum = sum(policy.values())
-    for action, p in policy.items():
-        node.children[action] = Node(p)
-
-    return value
+    actions = node.children.keys()
+    noise = np.random.gamma(root_dirichlet_alpha, 1, len(actions))
+    noise /= np.sum(noise)
+    frac = root_exploration_fraction
+    for a, n in zip(actions, noise):
+        node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
 
 
-def score(board, winner):
-    if board.turn and (winner == "1-0"):
-        return 1
-    if (not board.turn) and (winner == "0-1"):
-        return 1
-    if winner == "1/2-1/2" or winner == "*":
-        return 0.5
-    return 0
+# Select the child with the highest UCB score.
+def select_child(node: Node):
+    _, action, child = max(((ucb_score(node, child), action, child)
+                           for action, child in node.children.items()),
+                           key = lambda e: e[0])
+    return action, child
 
 
 def pv(board, node, variation):
@@ -116,64 +82,8 @@ def pv(board, node, variation):
     board.pop()
 
 
-def statistics(root, board):
-    global start_time, num_simulations, max_depth, sum_depth, depth_list
-
-    click.clear()
-    print(board)
-    print()
-    print(board.fen())
-
-    print()
-    principal_variation = []
-    pv(board, root, principal_variation)
-    print(board.variation_san(principal_variation))
-    print()
-    elapsed = time.perf_counter() - start_time
-    print("{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
-        num_simulations,
-        elapsed,
-        num_simulations / elapsed
-    ))
-    print()
-
-    avg_depth = sum_depth / num_simulations
-    tmp = np.array(depth_list)
-    median_depth = np.median(tmp, overwrite_input=True)
-    print("Max depth: {} Median depth: {} Avg depth: {:.1f}".format(
-        max_depth, median_depth, avg_depth))
-    print()
-
-    best_move = None
-
-    stats = []
-    for key, val in root.children.items():
-        if val.visit_count > 0:
-            stats.append((board.san(key), val.value(), val.visit_count, val.prior))
-
-    stats = sorted(stats, key = lambda e: e[2], reverse=True)
-
-    cnt = 0
-    for s1 in stats:
-        print("{:5s} {:5.1f}% {:5.0f} visits  [{:4.1f}%]".format(
-            s1[0], 100 * s1[1], s1[2], 100 * s1[3]))
-        cnt += 1
-        if cnt >= 10:
-            break
-
-    # return stats[0][0]
-    return select_root_move(root, board.fullmove_number)
-
-# Select the child with the highest UCB score.
-def select_child(node: Node):
-    _, action, child = max(((ucb_score(node, child), action, child)
-                           for action, child in node.children.items()),
-                           key = lambda e: e[0])
-    return action, child
-
-
-# The score for a node is based on its value, plus an exploration bonus based on
-# the prior.
+# The score for a node is based on its value, plus an exploration bonus
+# based on  the prior.
 def ucb_score(parent: Node, child: Node):
     pb_c_base = 19652
     pb_c_init = 2.2 # 1.25
@@ -191,18 +101,6 @@ def backpropagate(search_path, value: float, to_play):
     for node in search_path:
         node.value_sum += (value if node.turn != to_play else (1 - value))
         node.visit_count += 1
-
-
-def add_exploration_noise(node: Node):
-    root_dirichlet_alpha = 0.3
-    root_exploration_fraction = 0.25
-
-    actions = node.children.keys()
-    noise = np.random.gamma(root_dirichlet_alpha, 1, len(actions))
-    noise /= np.sum(noise)
-    frac = root_exploration_fraction
-    for a, n in zip(actions, noise):
-        node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
 
 
 def sample_gumbel(a):
@@ -227,68 +125,148 @@ def select_root_move(tree, move_count):
     return moves[idx]
 
 
-start_time = None
-num_simulations = None
-max_depth = None
-sum_depth = None
-depth_list = None
 
-def mcts(board, tree=None):
-    global start_time, num_simulations, max_depth, sum_depth, depth_list
+class MCTS:
+    
+    def __init__(self, model, verbose=True, prefix=None):
+        self.model = model
+        self.repr = Repr2D()
+        self.verbose = verbose
+        self.prefix = prefix
+        
 
-    start_time = time.perf_counter()
-    num_simulations = 0
-    max_depth = 0
-    sum_depth = 0
-    depth_list = []
+    def move_prob(self, logits, board, move, xor):
+        fr = move.from_square ^ xor
+        plane = self.repr.plane_index(move, xor)
+        return logits[fr, plane]
 
-    if False and tree:
-        root = tree
-    else:
+
+    def evaluate(self, node, board):
+        if board.is_game_over(claim_draw = True):
+            winner = board.result(claim_draw = True)
+            # print(winner)
+            node.turn = board.turn
+            return score(board, winner)
+
+        input_board = self.repr.board_to_array(board).reshape(1, 8, 8, self.repr.num_planes)
+        input_moves = self.repr.legal_moves_mask(board).reshape(1, 4672)
+        input_non_progress = np.array([ board.halfmove_clock / 100.0 ])
+
+        prediction = self.model.predict([input_board, input_moves, input_non_progress])
+
+        value = (prediction[1].flatten())[0]
+        # Transform [-1, 1] range to [0, 1]
+        value = (value + 1) * 0.5
+
+        logits = prediction[0].reshape(64, 73)
+
+        xor = 0 if board.turn else 0x38
+
+        # Expand the node.
+        node.turn = board.turn
+        policy = {a: self.move_prob(logits, board, a, xor) for a in board.generate_legal_moves()}
+        # We don't need to normalize - softmax does this for us
+        # policy_sum = sum(policy.values())
+        for action, p in policy.items():
+            node.children[action] = Node(p)
+
+        return value
+
+
+    def statistics(self, root, board):
+
+        principal_variation = []
+        pv(board, root, principal_variation)
+        elapsed = time.perf_counter() - self.start_time
+        if self.verbose:
+            avg_depth = self.sum_depth / self.num_simulations
+            tmp = np.array(self.depth_list)
+            median_depth = np.median(tmp, overwrite_input=True)
+
+            click.clear()
+            print(board)
+            print()
+            print(board.fen())
+            print()
+            print(board.variation_san(principal_variation))
+            print()
+            print("{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
+                self.num_simulations,
+                elapsed,
+                self.num_simulations / elapsed
+            ))
+            print()
+            print("Max depth: {} Median depth: {} Avg depth: {:.1f}".format(
+                self.max_depth, median_depth, avg_depth))
+            print()
+
+            stats = []
+            for key, val in root.children.items():
+                if val.visit_count > 0:
+                    stats.append((board.san(key), val.value(), val.visit_count, val.prior))
+
+            stats = sorted(stats, key = lambda e: e[2], reverse=True)
+
+            cnt = 0
+            for s1 in stats:
+                print("{:5s} {:5.1f}% {:5.0f} visits  [{:4.1f}%]".format(
+                    s1[0], 100 * s1[1], s1[2], 100 * s1[3]))
+                cnt += 1
+                if cnt >= 10:
+                    break
+        else:
+            print("{} - {}: {:4.1f}% {} [{:.1f} sims/s]".format(
+                self.prefix,
+                self.num_simulations,
+                100 * root.children.get(principal_variation[0]).value(),
+                board.variation_san(principal_variation),
+                self.num_simulations / elapsed))
+
+
+    def mcts(self, board):
+        self.start_time = time.perf_counter()
+        self.num_simulations = 0
+        self.max_depth = 0
+        self.sum_depth = 0
+        self.depth_list = []
+
         root = Node(0)
-        evaluate(root, board)
+        self.evaluate(root, board)
 
-    if len(root.children) == 1:
-        for best_move in root.children.keys():
-            return best_move, root
+        if len(root.children) == 1:
+            for best_move in root.children.keys():
+                return best_move, root
 
-    add_exploration_noise(root)
+        add_exploration_noise(root)
 
-    best_move = None
-    max_visit_count = 200
+        best_move = None
+        max_visit_count = 500
 
-    for iteration in range(max_visit_count):
-        num_simulations += 1
-        depth = 0
+        for iteration in range(max_visit_count):
+            self.num_simulations += 1
+            depth = 0
 
-        node = root
-        search_path = [ node ]
-        scratch_board = board.copy()
-        while node.expanded():
-            move, node = select_child(node)
-            scratch_board.push(move)
-            search_path.append(node)
-            depth += 1
+            node = root
+            search_path = [ node ]
+            scratch_board = board.copy()
+            while node.expanded():
+                move, node = select_child(node)
+                scratch_board.push(move)
+                search_path.append(node)
+                depth += 1
 
-        value = evaluate(node, scratch_board)
-        backpropagate(search_path, value, scratch_board.turn)
+            value = self.evaluate(node, scratch_board)
+            backpropagate(search_path, value, scratch_board.turn)
 
-        max_depth = max(max_depth, depth)
-        sum_depth += depth
-        depth_list.append(depth)
+            self.max_depth = max(self.max_depth, depth)
+            self.sum_depth += depth
+            self.depth_list.append(depth)
 
-        if iteration > 0 and iteration % 100 == 0:
-            statistics(root, board)
+            if iteration > 0 and iteration % 100 == 0:
+                self.statistics(root, board)
 
-        if root.visit_count >= max_visit_count:
-            break
+            if root.visit_count >= max_visit_count:
+                break
 
-    best_move = statistics(root, board)
-    return best_move, root
-
-
-
-
-model = load_or_create_model("combined-model.h5")
-repr = Repr2D()
-
+        self.statistics(root, board)
+        return select_root_move(root, board.fullmove_number), root
