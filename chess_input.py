@@ -113,17 +113,26 @@ class Repr2D:
 
 
     def move_to_array(self, b, move):
-        # buf = np.zeros((64, 7), np.int8)
         buf = np.zeros((64, 73), np.int8)
+        xor = 0 if b.turn else 0x38
+        buf[move.from_square ^ xor, self.plane_index(move, xor)] = 1
+        return buf.reshape(4672)
 
+
+    def moves_to_array(self, b, children, current_move):
+        buf = np.zeros((64, 73), np.float32)
         xor = 0 if b.turn else 0x38
 
-        # buf[move.from_square ^ xor][0] = 1
-        # buf[move.to_square ^ xor][piece] = 1
-        buf[move.from_square ^ xor, self.plane_index(move, xor)] = 1
+        if children:
+            for move, child in children.items():
+                buf[move.from_square ^ xor, self.plane_index(move, xor)] = child.visit_count
 
-        # return buf.reshape(8, 8, 7)
-        return buf.reshape(4672)
+        buf[current_move.from_square ^ xor, self.plane_index(current_move, xor)] += 1
+
+        buf = buf.reshape(4672)
+        buf /= np.sum(buf)
+        
+        return buf
 
 
     def policy_to_array(self, b, policy):
