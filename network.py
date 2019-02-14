@@ -11,9 +11,10 @@ REGULARIZATION_WEIGHT=1e-4
 
 L2_REGULARIZER = None # keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
-RECTIFIER='elu'
+RECTIFIER='relu'
 
-BN=False
+BN=True
+
 def residual_block(y, dim, index):
     shortcut = y
 
@@ -44,9 +45,11 @@ def residual_block(y, dim, index):
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-mix".format(index),
                                          use_bias=False,
-                                         activation=RECTIFIER)(y)
+                                         activation='linear')(y)
 
     y = keras.layers.add([y, shortcut], name="residual-block-{}-add".format(index))
+    y = keras.layers.Activation(RECTIFIER, name="residual-block-{}-activation".format(index))(y)
+
     return y
 
 
@@ -103,7 +106,7 @@ def create_model():
                               name="value-dense",
                               activation=RECTIFIER)(temp)
 
-    if BN or True:
+    if BN:
         temp = keras.layers.BatchNormalization()(temp)
 
     value_output = keras.layers.Dense(1, activation='tanh',
@@ -115,7 +118,7 @@ def create_model():
         bn_prefix = "No "
 
     return keras.Model(
-        name = "Grouped Convs ({}BN, ELU)".format(bn_prefix),
+        name = "Grouped Convs ({}BN, {})".format(bn_prefix, RECTIFIER),
         inputs = [board_input, moves_input, non_progress_input],
         outputs = [move_output, value_output])
 
@@ -133,7 +136,7 @@ def load_or_create_model(model_name):
     print()
 
     optimizer = keras.optimizers.Adam(lr = 0.001)
-    # optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
+    # optimizer = keras.optimizers.SGD(lr=0.002, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': 'categorical_crossentropy', 'value': 'mean_squared_error' },
