@@ -13,12 +13,22 @@ L2_REGULARIZER = None # keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
 RECTIFIER='elu'
 
+BN=False
 def residual_block(y, dim, index):
     shortcut = y
 
-    y = keras.layers.BatchNormalization()(y)
+    dim2 = dim // 2
+
+    if BN:
+        y = keras.layers.BatchNormalization()(y)
+
     cardinality = 4
-    _d = dim // cardinality
+    _d = dim2 // cardinality
+
+    y = keras.layers.Conv2D(dim2, (1, 1), padding='same',
+                                          name="residual-block-{}-bottleneck".format(index),
+                                          use_bias=False,
+                                          activation=RECTIFIER)(y)
 
     groups = []
     for j in range(cardinality):
@@ -29,7 +39,7 @@ def residual_block(y, dim, index):
             activation=RECTIFIER, padding='same',
             name="residual-block-{}-group-{}-conv2d".format(index, j))(group))
 
-    y = keras.layers.concatenate(groups)
+    y = keras.layers.concatenate(groups, name="residual-block-{}-concat".format(index))
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-mix".format(index),
@@ -47,7 +57,7 @@ def create_model():
     moves_input = keras.layers.Input(shape = (4672,), name='moves-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    dim = 128
+    dim = 160
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
@@ -61,7 +71,11 @@ def create_model():
 
 
     # Create the policy head
-    t2 = keras.layers.BatchNormalization()(temp)
+    if BN:
+        t2 = keras.layers.BatchNormalization()(temp)
+    else:
+        t2 = temp
+
     t2 = keras.layers.Conv2D(dim, (3, 3), name="policy-head-conv",
                                           activation=RECTIFIER,
                                           padding='same')(t2)
@@ -74,23 +88,34 @@ def create_model():
     move_output = keras.layers.Activation("softmax", name='moves')(t2)
 
     # Create the value head
-    temp = keras.layers.BatchNormalization()(temp)
+    if BN:
+        temp = keras.layers.BatchNormalization()(temp)
+
     temp = keras.layers.Conv2D(9, (1, 1), padding='same',
                                           name="pre-value-conv",
                                           activation=RECTIFIER)(temp)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
     temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
-    temp = keras.layers.BatchNormalization()(temp)
+    if BN:
+        temp = keras.layers.BatchNormalization()(temp)
+
     temp = keras.layers.Dense(128,
                               name="value-dense",
                               activation=RECTIFIER)(temp)
 
-    temp = keras.layers.BatchNormalization()(temp)
+    if BN or True:
+        temp = keras.layers.BatchNormalization()(temp)
+
     value_output = keras.layers.Dense(1, activation='tanh',
                                          name='value')(temp)
 
+    if BN:
+        bn_prefix = ""
+    else:
+        bn_prefix = "No "
+
     return keras.Model(
-        name = "Grouped Convs (BN, ELU)",
+        name = "Grouped Convs ({}BN, ELU)".format(bn_prefix),
         inputs = [board_input, moves_input, non_progress_input],
         outputs = [move_output, value_output])
 
