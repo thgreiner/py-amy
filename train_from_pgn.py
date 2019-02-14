@@ -131,18 +131,26 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
 
             for move in game.mainline_moves():
 
+                skip = skip_training
                 if node:
                     node.visit_count += 1
                     node.result += label_for_result(result, b.turn)
+                    
+                    if node.learn_count * node.learn_count < node.visit_count:
+                        node.learn_count += 1
+                    else:
+                        skip = True
+                    
 
-                if not skip_training:
+                if not skip:
                     train_data_board = repr.board_to_array(b)
                     train_data_moves = repr.legal_moves_mask(b)
                     train_data_non_progress = b.halfmove_clock / 100.0
-                    train_labels1 = repr.move_to_array(b, move)
                     if node:
+                        train_labels1 = repr.moves_to_array(b, node.children, move)
                         train_labels2 = node.result / node.visit_count
                     else:
+                        train_labels1 = repr.move_to_array(b, move)
                         train_labels2 = label_for_result(result, b.turn)
 
                     item = PrioritizedItem(
