@@ -11,9 +11,9 @@ REGULARIZATION_WEIGHT=1e-4
 
 L2_REGULARIZER = None # keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
-RECTIFIER='relu'
+RECTIFIER='elu'
 
-BN=True
+BN=False
 
 def residual_block(y, dim, index):
     shortcut = y
@@ -110,6 +110,7 @@ def create_model():
         temp = keras.layers.BatchNormalization()(temp)
 
     value_output = keras.layers.Dense(1, activation='tanh',
+                                         kernel_initializer='random_uniform',
                                          name='value')(temp)
 
     if BN:
@@ -135,8 +136,8 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.Adam(lr = 0.001)
-    # optimizer = keras.optimizers.SGD(lr=0.002, momentum=0.9, nesterov=True)
+    # optimizer = keras.optimizers.Adam(lr = 0.001)
+    optimizer = keras.optimizers.SGD(lr=0.002, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': 'categorical_crossentropy', 'value': 'mean_squared_error' },
