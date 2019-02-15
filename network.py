@@ -20,18 +20,15 @@ def residual_block(y, dim, index, factor=3):
                             padding='same',
                             name="residual-block-{}-expand".format(index),
                             kernel_initializer='lecun_normal',
-                            kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
                             activation=RECTIFIER)(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
                                              name="residual-block-{}-depthwise".format(index),
-                                             kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
                                              kernel_initializer='lecun_normal',
                                              activation=RECTIFIER)(y)
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-contract".format(index),
-                                         kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
                                          kernel_initializer='lecun_normal',
                                          activation='linear')(y)
 
@@ -46,44 +43,18 @@ def create_model():
     moves_input = keras.layers.Input(shape = (4672,), name='moves-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    dim = 64
+    dim = 112
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
                                             kernel_regularizer=L2_REGULARIZER,
                                             bias_regularizer=L2_REGULARIZER,
-                                            kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
                                             kernel_initializer='lecun_normal',
                                             activation=RECTIFIER)(board_input)
 
     index = 1
-    for i in range(5):
-        temp = residual_block(temp, dim, index)
-        index += 1
 
-    dim = 96
-
-    # Scale up to new layer size
-    temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                            name="scale-up-1-conv",
-                                            kernel_initializer='lecun_normal',
-                                            kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                                            activation=RECTIFIER)(temp)
-
-    for i in range(5):
-        temp = residual_block(temp, dim, index)
-        index += 1
-
-    dim = 128
-
-    # Scale up to new layer size
-    temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                            name="scale-up-2-conv",
-                                            kernel_initializer='lecun_normal',
-                                            kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                                            activation=RECTIFIER)(temp)
-
-    for i in range(5):
+    for i in range(13):
         temp = residual_block(temp, dim, index)
         index += 1
 
@@ -93,7 +64,6 @@ def create_model():
 
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                          name="pre-moves-conv",
-                                         kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
                                          padding='same')(t2)
 
     t2 = keras.layers.Flatten(name='flatten-moves')(t2)
@@ -105,7 +75,6 @@ def create_model():
                                           name="pre-value-conv",
                                           kernel_regularizer=L2_REGULARIZER,
                                           bias_regularizer=L2_REGULARIZER,
-                                          kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
                                           kernel_initializer='lecun_normal',
                                           activation=RECTIFIER)(temp)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
@@ -115,16 +84,16 @@ def create_model():
                               kernel_regularizer=L2_REGULARIZER,
                               bias_regularizer=L2_REGULARIZER,
                               kernel_initializer='lecun_normal',
-                              kernel_constraint=keras.constraints.UnitNorm(axis=0),
                               activation=RECTIFIER)(temp)
 
     value_output = keras.layers.Dense(1, activation='tanh',
                                          kernel_regularizer=L2_REGULARIZER,
                                          bias_regularizer=L2_REGULARIZER,
+                                         kernel_initializer='random_uniform',
                                          name='value')(temp)
 
     return keras.Model(
-        name = "MobileNet V2-like (No BN, ELU, UnitNorm)",
+        name = "MobileNet V2-like (No BN, ELU)",
         inputs = [board_input, moves_input, non_progress_input],
         outputs = [move_output, value_output])
 
