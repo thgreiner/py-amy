@@ -16,22 +16,19 @@ RECTIFIER='elu'
 def residual_block(y, dim, index, residual=True, factor=3):
     shortcut = y
 
-    y = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(y)
+    # y = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(y)
 
     y = keras.layers.Conv2D(factor * dim, (1, 1),
                             padding='same',
                             name="residual-block-{}-expand".format(index),
-                            kernel_initializer='lecun_normal',
                             activation=RECTIFIER)(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
                                              name="residual-block-{}-depthwise".format(index),
-                                             kernel_initializer='lecun_normal',
                                              activation=RECTIFIER)(y)
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-contract".format(index),
-                                         kernel_initializer='lecun_normal',
                                          activation='linear')(y)
 
     if residual:
@@ -47,32 +44,26 @@ def create_model():
     moves_input = keras.layers.Input(shape = (4672,), name='moves-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    dim = 48
+    dim = 64
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
                                             kernel_regularizer=L2_REGULARIZER,
                                             bias_regularizer=L2_REGULARIZER,
-                                            kernel_initializer='lecun_normal',
                                             activation=RECTIFIER)(board_input)
 
+
     index = 1
-    for i in range(5):
-        temp = residual_block(temp, dim, index, factor=6)
+    temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
+    for i in range(6):
+        temp = residual_block(temp, dim, index)
         index += 1
-
-    dim = 64
-    residual = False
-
-    for i in range(5):
-        temp = residual_block(temp, dim, index, residual, factor=4)
-        index += 1
-        residual = True
 
     dim = 96
     residual = False
 
-    for i in range(4):
+    temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
+    for i in range(6):
         temp = residual_block(temp, dim, index, residual)
         index += 1
         residual = True
@@ -80,16 +71,18 @@ def create_model():
     dim = 128
     residual = False
 
-    for i in range(4):
+    temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
+    for i in range(6):
         temp = residual_block(temp, dim, index, residual)
         index += 1
         residual = True
 
 
-    # Create the policy head
-    t2 = residual_block(temp, dim, index)
+    temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
 
-    t2 = keras.layers.BatchNormalization(name="pre-moves-bn")(t2)
+    # Create the policy head
+    t2 = residual_block(temp, dim, index, factor=4)
+
     t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                          name="pre-moves-conv",
                                          padding='same')(t2)
@@ -99,12 +92,10 @@ def create_model():
     move_output = keras.layers.Activation("softmax", name='moves')(t2)
 
     # Create the value head
-    temp = keras.layers.BatchNormalization(name="pre-value-bn")(temp)
     temp = keras.layers.Conv2D(9, (1, 1), padding='same',
                                           name="pre-value-conv",
                                           kernel_regularizer=L2_REGULARIZER,
                                           bias_regularizer=L2_REGULARIZER,
-                                          kernel_initializer='lecun_normal',
                                           activation=RECTIFIER)(temp)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
     temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
@@ -113,7 +104,6 @@ def create_model():
                               name="value-dense",
                               kernel_regularizer=L2_REGULARIZER,
                               bias_regularizer=L2_REGULARIZER,
-                              kernel_initializer='lecun_normal',
                               activation=RECTIFIER)(temp)
 
     temp = keras.layers.BatchNormalization(name="value-bn")(temp)
@@ -140,8 +130,8 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.Adam(lr = 0.001)
-    # optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
+    # optimizer = keras.optimizers.Adam(lr = 0.002)
+    optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': 'categorical_crossentropy', 'value': 'mean_squared_error' },
@@ -151,17 +141,9 @@ def load_or_create_model(model_name):
 
 def schedule_learn_rate(model, batch_no):
 
-    min_rate = 0.02
-    max_rate = 0.2
-
-    peak = 1200
-
-    if batch_no < peak // 2:
-        learn_rate = min_rate + (batch_no / (peak // 2)) * (max_rate - min_rate)
-    elif batch_no < peak:
-        learn_rate = min_rate + ((peak - batch_no) / (peak // 2)) * (max_rate - min_rate)
-    else:
-        learn_rate = min_rate / (1 + (batch_no - 900) / 500)
-
-    # K.set_value(model.optimizer.lr, learn_rate)
+    initial_learn_rate = 0.02
+    
+    learn_rate = initial_learn_rate * 0.95 ** (batch_no / 1000)
+    
+    K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate
