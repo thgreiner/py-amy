@@ -127,13 +127,13 @@ def select_root_move(tree, move_count):
 
 
 class MCTS:
-    
+
     def __init__(self, model, verbose=True, prefix=None):
         self.model = model
         self.repr = Repr2D()
         self.verbose = verbose
         self.prefix = prefix
-        
+
 
     def move_prob(self, logits, board, move, xor):
         fr = move.from_square ^ xor
@@ -246,19 +246,21 @@ class MCTS:
 
             node = root
             search_path = [ node ]
-            scratch_board = board.copy()
             while node.expanded():
                 move, node = select_child(node)
-                scratch_board.push(move)
+                board.push(move)
                 search_path.append(node)
                 depth += 1
 
-            value = self.evaluate(node, scratch_board)
-            backpropagate(search_path, value, scratch_board.turn)
+            value = self.evaluate(node, board)
+            backpropagate(search_path, value, board.turn)
 
             self.max_depth = max(self.max_depth, depth)
             self.sum_depth += depth
             self.depth_list.append(depth)
+
+            for i in range(depth):
+                board.pop()
 
             if iteration > 0 and iteration % 100 == 0:
                 self.statistics(root, board)
