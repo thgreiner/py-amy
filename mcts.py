@@ -86,7 +86,7 @@ def pv(board, node, variation):
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
     pb_c_base = 19652
-    pb_c_init = 2.2 # 1.25
+    pb_c_init = 1.25 # 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -117,7 +117,7 @@ def select_root_move(tree, move_count):
             moves.append(key)
             visits.append(val.visit_count ** k)
 
-    if move_count < 15:
+    if move_count < 5:
         idx = sample_gumbel(visits)
     else:
         idx = np.argmax(visits)
@@ -138,7 +138,7 @@ class MCTS:
     def move_prob(self, logits, board, move, xor):
         fr = move.from_square ^ xor
         plane = self.repr.plane_index(move, xor)
-        return logits[fr, plane]
+        return math.exp(logits[fr, plane])
 
 
     def evaluate(self, node, board):
@@ -149,10 +149,9 @@ class MCTS:
             return score(board, winner)
 
         input_board = self.repr.board_to_array(board).reshape(1, 8, 8, self.repr.num_planes)
-        input_moves = self.repr.legal_moves_mask(board).reshape(1, 4672)
         input_non_progress = np.array([ board.halfmove_clock / 100.0 ])
 
-        prediction = self.model.predict([input_board, input_moves, input_non_progress])
+        prediction = self.model.predict([input_board, input_non_progress])
 
         value = (prediction[1].flatten())[0]
         # Transform [-1, 1] range to [0, 1]
@@ -165,10 +164,9 @@ class MCTS:
         # Expand the node.
         node.turn = board.turn
         policy = {a: self.move_prob(logits, board, a, xor) for a in board.generate_legal_moves()}
-        # We don't need to normalize - softmax does this for us
-        # policy_sum = sum(policy.values())
+        policy_sum = sum(policy.values())
         for action, p in policy.items():
-            node.children[action] = Node(p)
+            node.children[action] = Node(p / policy_sum)
 
         return value
 
@@ -240,7 +238,7 @@ class MCTS:
         add_exploration_noise(root)
 
         best_move = None
-        max_visit_count = 500
+        max_visit_count = 800
 
         for iteration in range(max_visit_count):
             self.num_simulations += 1

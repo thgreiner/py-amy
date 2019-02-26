@@ -13,6 +13,10 @@ L2_REGULARIZER = None # keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
 RECTIFIER='elu'
 
+def categorical_crossentropy_from_logits(target, output):
+    return K.categorical_crossentropy(target, output, from_logits=True)
+
+
 def residual_block(y, dim, index, residual=True, factor=3):
     shortcut = y
 
@@ -41,7 +45,6 @@ def create_model():
     repr = Repr2D()
 
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
-    moves_input = keras.layers.Input(shape = (4672,), name='moves-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
     dim = 64
@@ -87,9 +90,8 @@ def create_model():
                                          name="pre-moves-conv",
                                          padding='same')(t2)
 
-    t2 = keras.layers.Flatten(name='flatten-moves')(t2)
-    t2 = keras.layers.multiply([t2, moves_input], name='limit-to-legal-moves')
-    move_output = keras.layers.Activation("softmax", name='moves')(t2)
+    move_output = keras.layers.Flatten(name='moves')(t2)
+
 
     # Create the value head
     temp = keras.layers.Conv2D(9, (1, 1), padding='same',
@@ -114,7 +116,7 @@ def create_model():
 
     return keras.Model(
         name = "MobileNet V2-like (BN, ELU, Improved Scale-Up layer)",
-        inputs = [board_input, moves_input, non_progress_input],
+        inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output])
 
 
@@ -123,18 +125,18 @@ def load_or_create_model(model_name):
         model = create_model()
     else:
         print("Loading model from \"{}\"".format(model_name))
-        model = load_model(model_name)
+        model = load_model(model_name, custom_objects={'categorical_crossentropy_from_logits': categorical_crossentropy_from_logits})
 
     model.summary()
     print()
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    # optimizer = keras.optimizers.Adam(lr = 0.002)
-    optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
+    optimizer = keras.optimizers.Adam(lr = 0.002)
+    # optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
-                  loss={'moves': 'categorical_crossentropy', 'value': 'mean_squared_error' },
+                  loss={'moves': categorical_crossentropy_from_logits, 'value': 'mean_squared_error' },
                   metrics=['accuracy', 'mae'])
     return model
 
@@ -145,5 +147,5 @@ def schedule_learn_rate(model, batch_no):
     
     learn_rate = initial_learn_rate * 0.95 ** (batch_no / 1000)
     
-    K.set_value(model.optimizer.lr, learn_rate)
+    #  K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate
