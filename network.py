@@ -40,6 +40,41 @@ def residual_block(y, dim, index, residual=True, factor=3):
 
     return y
 
+def create_policy_head(input):
+    dim = input.shape.as_list()[-1]
+
+    temp = keras.layers.Conv2D(dim, (3, 3), activation='linear',
+                                            name="pre-moves-conv",
+                                            padding='same')(input)
+    temp = keras.layers.add([temp, input], name="pre-moves-conv-add")
+    temp = keras.layers.Activation(name='pre-moves-activation', activation=RECTIFIER)(temp)
+
+    temp = keras.layers.Conv2D(73, (3, 3), activation='linear',
+                                           name="moves-conv",
+                                           padding='same')(temp)
+
+    return keras.layers.Flatten(name='moves')(temp)
+
+def create_value_head(input, non_progress_input):
+    temp = keras.layers.Conv2D(9, (1, 1), padding='same',
+                                          name="pre-value-conv",
+                                          kernel_regularizer=L2_REGULARIZER,
+                                          bias_regularizer=L2_REGULARIZER,
+                                          activation=RECTIFIER)(input)
+    temp = keras.layers.Flatten(name="flatten-value")(temp)
+    temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
+    temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
+    temp = keras.layers.Dense(128,
+                              name="value-dense",
+                              kernel_regularizer=L2_REGULARIZER,
+                              bias_regularizer=L2_REGULARIZER,
+                              activation=RECTIFIER)(temp)
+
+    temp = keras.layers.BatchNormalization(name="value-bn")(temp)
+    return keras.layers.Dense(1, activation='tanh',
+                                 kernel_regularizer=L2_REGULARIZER,
+                                 bias_regularizer=L2_REGULARIZER,
+                                 name='value')(temp)
 
 def create_model():
     repr = Repr2D()
@@ -83,36 +118,8 @@ def create_model():
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
 
-    # Create the policy head
-    t2 = residual_block(temp, dim, index, factor=4)
-
-    t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
-                                         name="pre-moves-conv",
-                                         padding='same')(t2)
-
-    move_output = keras.layers.Flatten(name='moves')(t2)
-
-
-    # Create the value head
-    temp = keras.layers.Conv2D(9, (1, 1), padding='same',
-                                          name="pre-value-conv",
-                                          kernel_regularizer=L2_REGULARIZER,
-                                          bias_regularizer=L2_REGULARIZER,
-                                          activation=RECTIFIER)(temp)
-    temp = keras.layers.Flatten(name="flatten-value")(temp)
-    temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
-    temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
-    temp = keras.layers.Dense(128,
-                              name="value-dense",
-                              kernel_regularizer=L2_REGULARIZER,
-                              bias_regularizer=L2_REGULARIZER,
-                              activation=RECTIFIER)(temp)
-
-    temp = keras.layers.BatchNormalization(name="value-bn")(temp)
-    value_output = keras.layers.Dense(1, activation='tanh',
-                                         kernel_regularizer=L2_REGULARIZER,
-                                         bias_regularizer=L2_REGULARIZER,
-                                         name='value')(temp)
+    move_output = create_policy_head(temp)
+    value_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
         name = "MobileNet V2-like (BN, ELU, Improved Scale-Up layer)",
@@ -132,8 +139,8 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.Adam(lr = 0.002)
-    # optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
+    # optimizer = keras.optimizers.Adam(lr = 0.002)
+    optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': categorical_crossentropy_from_logits, 'value': 'mean_squared_error' },
@@ -144,8 +151,8 @@ def load_or_create_model(model_name):
 def schedule_learn_rate(model, batch_no):
 
     initial_learn_rate = 0.02
-    
+
     learn_rate = initial_learn_rate * 0.95 ** (batch_no / 1000)
-    
-    #  K.set_value(model.optimizer.lr, learn_rate)
+
+    K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate
