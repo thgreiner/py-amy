@@ -143,7 +143,6 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
 
                     if not skip_training:
                         train_data_board = repr.board_to_array(b)
-                        train_data_moves = repr.legal_moves_mask(b)
                         train_data_non_progress = b.halfmove_clock / 100.0
                         train_labels1 = repr.policy_to_array(b, policy)
                         train_labels2 = (q + z) * 0.5
@@ -151,7 +150,6 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
                         item = PrioritizedItem(
                             random.randint(0, MAX_PRIO),
                             ( train_data_board,
-                              train_data_moves,
                               train_data_non_progress,
                               train_labels1,
                               train_labels2 ))
@@ -179,7 +177,6 @@ if __name__ == "__main__":
 
     batch_size = args.batch_size
     train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
-    train_data_moves = np.zeros((batch_size, 4672), np.int8)
     train_data_non_progress = np.zeros((batch_size, 1), np.float32)
     train_labels1 = np.zeros((batch_size, 4672), np.float32)
     train_labels2 = np.zeros((batch_size, 1), np.float32)
@@ -222,17 +219,16 @@ if __name__ == "__main__":
             qsize_gauge.set(queue.qsize())
 
             train_data_board[cnt] = sample[0]
-            train_data_moves[cnt] = sample[1]
-            train_data_non_progress[cnt, 0] = sample[2]
-            train_labels1[cnt] = sample[3]
-            train_labels2[cnt, 0] = sample[4]
+            train_data_non_progress[cnt, 0] = sample[1]
+            train_labels1[cnt] = sample[2]
+            train_labels2[cnt, 0] = sample[3]
             cnt += 1
 
             pos_counter.inc()
 
             if cnt >= batch_size:
                 # print(train_labels2)
-                train_data = [ train_data_board, train_data_moves, train_data_non_progress]
+                train_data = [ train_data_board, train_data_non_progress]
                 train_labels = [ train_labels1, train_labels2 ]
 
                 lr = schedule_learn_rate(model, batch_no)
@@ -267,7 +263,7 @@ if __name__ == "__main__":
 
 
         # Train on the remainder of the dataset
-        train_data = [ train_data_board[:cnt], train_data_moves[:cnt], train_data_non_progress[:cnt] ]
+        train_data = [ train_data_board[:cnt], train_data_non_progress[:cnt] ]
         train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
 
         start_time = time.perf_counter()

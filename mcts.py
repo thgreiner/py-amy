@@ -86,7 +86,7 @@ def pv(board, node, variation):
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
     pb_c_base = 19652
-    pb_c_init = 1.25 # 1.25
+    pb_c_init = 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -117,7 +117,7 @@ def select_root_move(tree, move_count):
             moves.append(key)
             visits.append(val.visit_count ** k)
 
-    if move_count < 5:
+    if move_count < 15:
         idx = sample_gumbel(visits)
     else:
         idx = np.argmax(visits)
