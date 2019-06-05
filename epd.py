@@ -21,18 +21,21 @@ from pos_generator import generate_kxk
 
 from network import load_or_create_model
 
-from mcts import mcts
+from mcts import MCTS
 
 if __name__ == "__main__":
 
     name = sys.argv[1]
-    
+
+    model = load_or_create_model("combined-model.h5")
+    mcts = MCTS(model, True, None)
+
     with open(name, "r") as f:
-        
+
         while True:
             l = f.readline()
-        
+
             b = Board()
             b.set_epd(l)
-        
-            mcts(b)
+
+            mcts.mcts(b)
