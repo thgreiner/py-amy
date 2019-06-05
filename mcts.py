@@ -207,8 +207,8 @@ class MCTS:
 
             cnt = 0
             for s1 in stats:
-                print("{:5s} {:5.1f}% {:5.0f} visits  [{:4.1f}%]".format(
-                    s1[0], 100 * s1[1], s1[2], 100 * s1[3]))
+                print("{:5s} {:5.1f}% {:5.0f} visits = {:4.1f}% [{:4.1f}%]".format(
+                    s1[0], 100 * s1[1], s1[2], 100 * s1[2] / self.num_simulations, 100 * s1[3]))
                 cnt += 1
                 if cnt >= 10:
                     break
