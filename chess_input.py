@@ -33,7 +33,7 @@ class Repr2D:
                 self.underpromo_indexes[piece][delta] = idx
                 idx += 1
 
-        self.num_planes = 16
+        self.num_planes = 18
 
         # print("Generated {} indexes for moves.".format(idx))
 
@@ -87,16 +87,16 @@ class Repr2D:
             buf[rank, file, offset] = 1
 
         if board.has_kingside_castling_rights(board.turn):
-            buf[0, 6, offset + 1] = 1
+            buf[:, :, offset + 1] = 1
         if board.has_queenside_castling_rights(board.turn):
-            buf[0, 2, offset + 1] = 1
+            buf[:, :, offset + 2] = 1
         if board.has_kingside_castling_rights(not board.turn):
-            buf[7, 6, offset + 2] = 1
+            buf[:, :, offset + 3] = 1
         if board.has_queenside_castling_rights(not board.turn):
-            buf[7, 2, offset + 2] = 1
+            buf[:, :, offset + 4] = 1
 
         # One plane just ones so the network can detect the board edge
-        buf[:, :, offset + 3] = 1
+        buf[:, :, offset + 5] = 1
 
         return buf
 
@@ -131,7 +131,7 @@ class Repr2D:
 
         buf = buf.reshape(4672)
         buf /= np.sum(buf)
-        
+
         return buf
 
 
