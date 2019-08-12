@@ -67,7 +67,9 @@ def pv(board, node, variation):
     if len(node.children) == 0:
         return
 
-    _, best_move = max(((child.visit_count, action) for action, child in node.children.items()), key = lambda e: e[0])
+    _, best_move = max(((child.visit_count, action)
+                       for action, child in node.children.items()),
+                       key = lambda e: e[0])
 
     variation.append(best_move)
     board.push(best_move)
