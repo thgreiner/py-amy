@@ -64,17 +64,10 @@ def select_child(node: Node):
 
 def pv(board, node, variation):
 
-    best_move = None
-    best_visits = 0
-
-    for key, val in node.children.items():
-        if val.visit_count > 0:
-            if best_move is None or val.visit_count > best_visits:
-                best_move = key
-                best_visits = val.visit_count
-
-    if best_move is None:
+    if len(node.children) == 0:
         return
+
+    _, best_move = max(((child.visit_count, action) for action, child in node.children.items()), key = lambda e: e[0])
 
     variation.append(best_move)
     board.push(best_move)
