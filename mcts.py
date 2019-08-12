@@ -120,6 +120,9 @@ def select_root_move(tree, move_count):
     return moves[idx]
 
 
+def is_singular_move(search_path, threshold):
+    return len(search_path) >= 1 and search_path[1].visit_count > threshold
+
 
 class MCTS:
 
@@ -215,9 +218,6 @@ class MCTS:
                 board.variation_san(principal_variation),
                 self.num_simulations / elapsed))
 
-    def is_singular_move(self, search_path, threshold):
-        return len(search_path) >= 1 and search_path[1].visit_count > threshold
-
     def mcts(self, board):
         self.start_time = time.perf_counter()
         self.num_simulations = 0
@@ -265,7 +265,7 @@ class MCTS:
             if root.visit_count >= max_visit_count:
                 break
 
-            if self.is_singular_move(search_path, max_visit_count / 2):
+            if is_singular_move(search_path, max_visit_count / 2):
                 break
 
         self.statistics(root, board)
