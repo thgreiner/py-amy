@@ -62,10 +62,13 @@ def select_child(node: Node):
     return action, child
 
 
-def pv(board, node, variation):
+def pv(board, node, variation=None):
+
+    if variation == None:
+        variation = []
 
     if len(node.children) == 0:
-        return
+        return variation
 
     _, best_move = max(((child.visit_count, action)
                        for action, child in node.children.items()),
@@ -75,6 +78,7 @@ def pv(board, node, variation):
     board.push(best_move)
     pv(board, node.children[best_move], variation)
     board.pop()
+    return variation
 
 
 # The score for a node is based on its value, plus an exploration bonus
@@ -124,13 +128,38 @@ def is_singular_move(search_path, threshold):
     return len(search_path) >= 1 and search_path[1].visit_count > threshold
 
 
+def variations(board, move, child, count):
+
+    vars = []
+
+    board.push(move)
+    stats = [ (key, val.visit_count, val)
+        for key, val in child.children.items()
+        if val.visit_count > 0 ]
+    stats = sorted(stats, key = lambda e: e[1], reverse=True)
+
+    for m, _, grand_child in stats:
+        line = [ m ]
+        board.push(m)
+        pv(board, grand_child, line)
+        board.pop()
+
+        vars.append(board.variation_san(line))
+        count -= 1
+        if count <= 0:
+            break
+
+    board.pop()
+    return vars
+
 class MCTS:
 
-    def __init__(self, model, verbose=True, prefix=None):
+    def __init__(self, model, verbose=True, prefix=None, max_simulations=800):
         self.model = model
         self.repr = Repr2D()
         self.verbose = verbose
         self.prefix = prefix
+        self.max_simulations = max_simulations
 
 
     def move_prob(self, logits, board, move, xor):
@@ -171,8 +200,7 @@ class MCTS:
 
     def statistics(self, root, board):
 
-        principal_variation = []
-        pv(board, root, principal_variation)
+        principal_variation = pv(board, root)
         elapsed = time.perf_counter() - self.start_time
         if self.verbose:
             avg_depth = self.sum_depth / self.num_simulations
@@ -196,17 +224,26 @@ class MCTS:
                 self.max_depth, median_depth, avg_depth))
             print()
 
-            stats = []
-            for key, val in root.children.items():
-                if val.visit_count > 0:
-                    stats.append((board.san(key), val.value(), val.visit_count, val.prior))
-
+            stats = [ (key, val, val.visit_count)
+                for key, val in root.children.items()
+                if val.visit_count > 0 ]
             stats = sorted(stats, key = lambda e: e[2], reverse=True)
 
             cnt = 0
+            variations_cnt = 3
             for s1 in stats:
-                print("{:5s} {:5.1f}% {:5.0f} visits = {:4.1f}% [{:4.1f}%]".format(
-                    s1[0], 100 * s1[1], s1[2], 100 * s1[2] / self.num_simulations, 100 * s1[3]))
+                print("{:6s} {:5.1f}% {:5.0f} visits = {:4.1f}% [{:4.1f}%]".format(
+                    board.san(s1[0]),
+                    100 * s1[1].value(),
+                    s1[2],
+                    100 * s1[2] / self.num_simulations,
+                    100 * s1[1].prior))
+                if variations_cnt > 0:
+                    variations_list = variations(board, s1[0], s1[1], variations_cnt)
+                    for variation in variations_list:
+                        print("    {}".format(variation))
+                    print()
+                    variations_cnt -= 1
                 cnt += 1
                 if cnt >= 10:
                     break
@@ -235,7 +272,7 @@ class MCTS:
         add_exploration_noise(root)
 
         best_move = None
-        max_visit_count = 800
+        max_visit_count = self.max_simulations
 
         for iteration in range(max_visit_count):
             self.num_simulations += 1
