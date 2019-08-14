@@ -7,9 +7,9 @@ from tensorflow.keras import backend as K
 from chess_input import Repr2D
 
 # We really need almost no regularization as the model has so few params
-REGULARIZATION_WEIGHT=1e-4
+REGULARIZATION_WEIGHT=1e-5
 
-L2_REGULARIZER = None # keras.regularizers.l2(REGULARIZATION_WEIGHT)
+L2_REGULARIZER = keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
 RECTIFIER='elu'
 
@@ -27,14 +27,20 @@ def residual_block(y, dim, index, residual=True, factor=3):
     y = keras.layers.Conv2D(factor * dim, (1, 1),
                             padding='same',
                             name="residual-block-{}-expand".format(index),
+                            kernel_regularizer=L2_REGULARIZER,
+                            bias_regularizer=L2_REGULARIZER,
                             activation=RECTIFIER)(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
                                              name="residual-block-{}-depthwise".format(index),
+                                             kernel_regularizer=L2_REGULARIZER,
+                                             bias_regularizer=L2_REGULARIZER,
                                              activation=RECTIFIER)(y)
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-contract".format(index),
+                                         kernel_regularizer=L2_REGULARIZER,
+                                         bias_regularizer=L2_REGULARIZER,
                                          activation='linear')(y)
 
     if residual:
@@ -47,12 +53,16 @@ def create_policy_head(input):
 
     temp = keras.layers.Conv2D(dim, (3, 3), activation='linear',
                                             name="pre-moves-conv",
+                                            kernel_regularizer=L2_REGULARIZER,
+                                            bias_regularizer=L2_REGULARIZER,
                                             padding='same')(input)
     temp = keras.layers.add([temp, input], name="pre-moves-conv-add")
     temp = keras.layers.Activation(name='pre-moves-activation', activation=RECTIFIER)(temp)
 
     temp = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                            name="moves-conv",
+                                           kernel_regularizer=L2_REGULARIZER,
+                                           bias_regularizer=L2_REGULARIZER,
                                            padding='same')(temp)
 
     return keras.layers.Flatten(name='moves')(temp)
