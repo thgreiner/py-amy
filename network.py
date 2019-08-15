@@ -7,7 +7,7 @@ from tensorflow.keras import backend as K
 from chess_input import Repr2D
 
 # We really need almost no regularization as the model has so few params
-REGULARIZATION_WEIGHT=1e-5
+REGULARIZATION_WEIGHT=2e-5
 
 L2_REGULARIZER = keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
@@ -28,19 +28,16 @@ def residual_block(y, dim, index, residual=True, factor=3):
                             padding='same',
                             name="residual-block-{}-expand".format(index),
                             kernel_regularizer=L2_REGULARIZER,
-                            bias_regularizer=L2_REGULARIZER,
                             activation=RECTIFIER)(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
                                              name="residual-block-{}-depthwise".format(index),
                                              kernel_regularizer=L2_REGULARIZER,
-                                             bias_regularizer=L2_REGULARIZER,
                                              activation=RECTIFIER)(y)
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-contract".format(index),
                                          kernel_regularizer=L2_REGULARIZER,
-                                         bias_regularizer=L2_REGULARIZER,
                                          activation='linear')(y)
 
     if residual:
@@ -54,7 +51,6 @@ def create_policy_head(input):
     temp = keras.layers.Conv2D(dim, (3, 3), activation='linear',
                                             name="pre-moves-conv",
                                             kernel_regularizer=L2_REGULARIZER,
-                                            bias_regularizer=L2_REGULARIZER,
                                             padding='same')(input)
     temp = keras.layers.add([temp, input], name="pre-moves-conv-add")
     temp = keras.layers.Activation(name='pre-moves-activation', activation=RECTIFIER)(temp)
@@ -62,7 +58,6 @@ def create_policy_head(input):
     temp = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                            name="moves-conv",
                                            kernel_regularizer=L2_REGULARIZER,
-                                           bias_regularizer=L2_REGULARIZER,
                                            padding='same')(temp)
 
     return keras.layers.Flatten(name='moves')(temp)
@@ -71,7 +66,6 @@ def create_value_head(input, non_progress_input):
     temp = keras.layers.Conv2D(9, (1, 1), padding='same',
                                           name="pre-value-conv",
                                           kernel_regularizer=L2_REGULARIZER,
-                                          bias_regularizer=L2_REGULARIZER,
                                           activation=RECTIFIER)(input)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
     temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
@@ -79,13 +73,11 @@ def create_value_head(input, non_progress_input):
     temp = keras.layers.Dense(128,
                               name="value-dense",
                               kernel_regularizer=L2_REGULARIZER,
-                              bias_regularizer=L2_REGULARIZER,
                               activation=RECTIFIER)(temp)
 
     temp = keras.layers.BatchNormalization(name="value-bn")(temp)
     return keras.layers.Dense(1, activation='tanh',
                                  kernel_regularizer=L2_REGULARIZER,
-                                 bias_regularizer=L2_REGULARIZER,
                                  name='value')(temp)
 
 def create_model():
@@ -99,7 +91,6 @@ def create_model():
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
                                             kernel_regularizer=L2_REGULARIZER,
-                                            bias_regularizer=L2_REGULARIZER,
                                             activation=RECTIFIER)(board_input)
 
 
