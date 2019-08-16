@@ -28,7 +28,7 @@ if __name__ == "__main__":
     name = sys.argv[1]
 
     model = load_or_create_model("combined-model.h5")
-    mcts = MCTS(model, True, None, max_simulations = 80000)
+    mcts = MCTS(model, True, None, max_simulations = 20000, exploration_noise=False)
 
     with open(name, "r") as f:
 

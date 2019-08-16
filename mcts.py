@@ -154,12 +154,13 @@ def variations(board, move, child, count):
 
 class MCTS:
 
-    def __init__(self, model, verbose=True, prefix=None, max_simulations=800):
+    def __init__(self, model, verbose=True, prefix=None, max_simulations=800, exploration_noise=True):
         self.model = model
         self.repr = Repr2D()
         self.verbose = verbose
         self.prefix = prefix
         self.max_simulations = max_simulations
+        self.exploration_noise = exploration_noise
 
 
     def move_prob(self, logits, board, move, xor):
@@ -200,7 +201,6 @@ class MCTS:
 
     def statistics(self, root, board):
 
-        principal_variation = pv(board, root)
         elapsed = time.perf_counter() - self.start_time
         if self.verbose:
             avg_depth = self.sum_depth / self.num_simulations
@@ -211,8 +211,8 @@ class MCTS:
             print(board)
             print()
             print(board.fen())
-            print()
-            print(board.variation_san(principal_variation))
+            # print()
+            # print(board.variation_san(principal_variation))
             print()
             print("{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
                 self.num_simulations,
@@ -231,17 +231,20 @@ class MCTS:
 
             cnt = 0
             variations_cnt = 3
+            print(" Score Line    Visit-% [prior]")
+            print()
+
             for s1 in stats:
-                print("{:6s} {:5.1f}% {:5.0f} visits = {:4.1f}% [{:4.1f}%]".format(
-                    board.san(s1[0]),
+                print("{:5.1f}% {:8s} {:5.1f}% [{:4.1f}%] {:6d} visits".format(
                     100 * s1[1].value(),
-                    s1[2],
+                    board.variation_san([s1[0]]),
                     100 * s1[2] / self.num_simulations,
-                    100 * s1[1].prior))
+                    100 * s1[1].prior,
+                    s1[2]))
                 if variations_cnt > 0:
                     variations_list = variations(board, s1[0], s1[1], variations_cnt)
                     for variation in variations_list:
-                        print("    {}".format(variation))
+                        print("         {}".format(variation))
                     print()
                     variations_cnt -= 1
                 cnt += 1
@@ -269,7 +272,8 @@ class MCTS:
             for best_move in root.children.keys():
                 return best_move, root
 
-        add_exploration_noise(root)
+        if self.exploration_noise:
+            add_exploration_noise(root)
 
         best_move = None
         max_visit_count = self.max_simulations
