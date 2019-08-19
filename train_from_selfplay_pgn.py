@@ -193,9 +193,9 @@ if __name__ == "__main__":
     learn_rate_gauge = Gauge('training_learn_rate', "Learn rate")
     qsize_gauge = Gauge("training_qsize", "Queue size")
 
-    queue = PriorityQueue(maxsize = 50000)
+    queue = PriorityQueue(maxsize = 200000)
 
-    for iteration in range(100):
+    for iteration in range(2):
 
         cnt = 0
         samples = 0

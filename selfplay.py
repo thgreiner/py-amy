@@ -1,40 +1,15 @@
 #!/usr/bin/env python3
 
-from chess import Board
 import chess.pgn
-import random
-import math
-import numpy as np
-import time
 import uuid
-import sys
 
+from chess import Board
 from datetime import date
-
-from chess_input import Repr2D
-
-import click
-
-from searcher import Searcher, AmySearcher
-import piece_square_eval
 from pos_generator import generate_kxk
-
 from network import load_or_create_model
-
 from mcts import MCTS
 
 MAX_HALFMOVES_IN_GAME = 200
-
-# For KQK training
-# MAX_HALFMOVES_IN_GAME = 60
-
-
-def new_root(tree, move):
-    if tree is not None and move in tree.children:
-        return tree.children[move]
-    else:
-        return None
-
 
 def format_root_moves(root, board):
     if root.visit_count == 0:
@@ -50,6 +25,7 @@ def format_root_moves(root, board):
         1.0 - root.value_sum / root.visit_count,
         ", ".join(root_moves))
 
+
 def selfplay(model, verbose=True, prefix=None):
     suffix = str(uuid.uuid4())
     mcts = MCTS(model, verbose, prefix)
@@ -62,26 +38,9 @@ def selfplay(model, verbose=True, prefix=None):
         game.headers["White"] = "Amy Zero"
         game.headers["Black"] = "Amy Zero"
         game.headers["Date"] = date.today().strftime("%Y.%m.%d")
-
-        # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
+        node = game
 
         board = Board()
-        # board = generate_kxk()
-        # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
-
-        opening = None
-        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
-        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5 Bd3 h6 Bf4 b4 Ne4 Nxe4 Bxe4 Ba6 Qa4 Bb5"
-        # opening = "d4 d5"
-        #opening = "d4 d5 c4 e6 Nc3 Nf6"
-        # opening = "e4 c5 Nf3 Nc6"
-
-        node = game
-        if opening:
-            for move in opening.split(" "):
-                m = board.parse_san(move)
-                board.push(m)
-                node = node.add_variation(m)
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             best_move, tree = mcts.mcts(board)

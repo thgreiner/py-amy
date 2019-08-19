@@ -13,7 +13,7 @@ L2_REGULARIZER = keras.regularizers.l2(REGULARIZATION_WEIGHT)
 
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 0.01
+INITIAL_LEARN_RATE = 0.02
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -142,7 +142,6 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    # optimizer = keras.optimizers.Adam(lr = 0.002)
     optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True)
 
     model.compile(optimizer=optimizer,
