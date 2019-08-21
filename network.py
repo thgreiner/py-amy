@@ -22,26 +22,23 @@ def categorical_crossentropy_from_logits(target, output):
 def residual_block(y, dim, index, residual=True, factor=3):
     shortcut = y
 
-    # y = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(y)
-
-    y = keras.layers.Conv2D(factor * dim, (1, 1),
+    y = keras.layers.Conv2D(dim, (3, 3),
                             padding='same',
-                            name="residual-block-{}-expand".format(index),
+                            name="residual-block-{}-convolution".format(index),
                             kernel_regularizer=L2_REGULARIZER,
                             activation=RECTIFIER)(y)
 
-    y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
-                                             name="residual-block-{}-depthwise".format(index),
-                                             kernel_regularizer=L2_REGULARIZER,
-                                             activation=RECTIFIER)(y)
-
-    y = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                         name="residual-block-{}-contract".format(index),
-                                         kernel_regularizer=L2_REGULARIZER,
-                                         activation='linear')(y)
+    y = keras.layers.Conv2D(dim, (3, 3),
+                            padding='same',
+                            name="residual-block-{}-convolution-linear".format(index),
+                            kernel_regularizer=L2_REGULARIZER,
+                            activation='linear')(y)
 
     if residual:
         y = keras.layers.add([y, shortcut], name="residual-block-{}-add".format(index))
+
+    y = keras.layers.Activation(name="residual-block-{}-activation".format(index),
+                                activation=RECTIFIER)(y)
 
     return y
 
@@ -125,7 +122,7 @@ def create_model():
     value_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
-        name = "MobileNet V2-like (BN, ELU, Improved Scale-Up layer)",
+        name = "Full CNN (BN, ELU, Improved Scale-Up layer)",
         inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output])
 
@@ -142,7 +139,7 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True)
+    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=0.9)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': categorical_crossentropy_from_logits, 'value': 'mean_squared_error' },
