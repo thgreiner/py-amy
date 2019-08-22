@@ -7,6 +7,7 @@ import math
 import numpy as np
 import time
 import uuid
+import textwrap
 
 from datetime import date
 
@@ -161,6 +162,10 @@ class MCTS:
         self.prefix = prefix
         self.max_simulations = max_simulations
         self.exploration_noise = exploration_noise
+        self.wrapper = wrapper = textwrap.TextWrapper(
+            initial_indent = 9 * " ",
+            subsequent_indent = 11 * " ",
+            width=119)
 
 
     def move_prob(self, logits, board, move, xor):
@@ -231,11 +236,11 @@ class MCTS:
 
             cnt = 0
             variations_cnt = 3
-            print(" Score Line    Visit-% [prior]")
+            print(" Score Line      Visit-% [prior]")
             print()
 
             for s1 in stats:
-                print("{:5.1f}% {:8s} {:5.1f}% [{:4.1f}%] {:6d} visits".format(
+                print("{:5.1f}% {:10s} {:5.1f}% [{:4.1f}%] {:6d} visits".format(
                     100 * s1[1].value(),
                     board.variation_san([s1[0]]),
                     100 * s1[2] / self.num_simulations,
@@ -244,7 +249,8 @@ class MCTS:
                 if variations_cnt > 0:
                     variations_list = variations(board, s1[0], s1[1], variations_cnt)
                     for variation in variations_list:
-                        print("         {}".format(variation))
+                        for line in self.wrapper.wrap(variation):
+                            print(line)
                     print()
                     variations_cnt -= 1
                 cnt += 1
