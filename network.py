@@ -6,10 +6,8 @@ from tensorflow.keras import backend as K
 
 from chess_input import Repr2D
 
-# We really need almost no regularization as the model has so few params
-REGULARIZATION_WEIGHT=2e-5
-
-L2_REGULARIZER = keras.regularizers.l2(REGULARIZATION_WEIGHT)
+WEIGHT_REGULARIZER = None #
+ACTIVITY_REGULARIZER = keras.regularizers.l2(1e-5)
 
 RECTIFIER='elu'
 
@@ -19,25 +17,24 @@ def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
 
 
-def residual_block(y, dim, index, residual=True, factor=3):
+def residual_block(y, dim, index, residual=True, factor=5):
     shortcut = y
-
-    # y = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(y)
 
     y = keras.layers.Conv2D(factor * dim, (1, 1),
                             padding='same',
                             name="residual-block-{}-expand".format(index),
-                            kernel_regularizer=L2_REGULARIZER,
+                            kernel_regularizer=WEIGHT_REGULARIZER,
+                            activity_regularizer=ACTIVITY_REGULARIZER,
                             activation=RECTIFIER)(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
                                              name="residual-block-{}-depthwise".format(index),
-                                             kernel_regularizer=L2_REGULARIZER,
+                                             kernel_regularizer=WEIGHT_REGULARIZER,
                                              activation=RECTIFIER)(y)
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-contract".format(index),
-                                         kernel_regularizer=L2_REGULARIZER,
+                                         kernel_regularizer=WEIGHT_REGULARIZER,
                                          activation='linear')(y)
 
     if residual:
@@ -50,14 +47,14 @@ def create_policy_head(input):
 
     temp = keras.layers.Conv2D(dim, (3, 3), activation='linear',
                                             name="pre-moves-conv",
-                                            kernel_regularizer=L2_REGULARIZER,
+                                            kernel_regularizer=WEIGHT_REGULARIZER,
                                             padding='same')(input)
     temp = keras.layers.add([temp, input], name="pre-moves-conv-add")
     temp = keras.layers.Activation(name='pre-moves-activation', activation=RECTIFIER)(temp)
 
     temp = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                            name="moves-conv",
-                                           kernel_regularizer=L2_REGULARIZER,
+                                           kernel_regularizer=WEIGHT_REGULARIZER,
                                            padding='same')(temp)
 
     return keras.layers.Flatten(name='moves')(temp)
@@ -65,19 +62,20 @@ def create_policy_head(input):
 def create_value_head(input, non_progress_input):
     temp = keras.layers.Conv2D(9, (1, 1), padding='same',
                                           name="pre-value-conv",
-                                          kernel_regularizer=L2_REGULARIZER,
+                                          kernel_regularizer=WEIGHT_REGULARIZER,
                                           activation=RECTIFIER)(input)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
     temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
     temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
     temp = keras.layers.Dense(128,
                               name="value-dense",
-                              kernel_regularizer=L2_REGULARIZER,
+                              kernel_regularizer=WEIGHT_REGULARIZER,
+                              activity_regularizer=ACTIVITY_REGULARIZER,
                               activation=RECTIFIER)(temp)
 
     temp = keras.layers.BatchNormalization(name="value-bn")(temp)
     return keras.layers.Dense(1, activation='tanh',
-                                 kernel_regularizer=L2_REGULARIZER,
+                                 kernel_regularizer=WEIGHT_REGULARIZER,
                                  name='value')(temp)
 
 def create_model():
@@ -90,7 +88,8 @@ def create_model():
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
-                                            kernel_regularizer=L2_REGULARIZER,
+                                            kernel_regularizer=WEIGHT_REGULARIZER,
+                                            activity_regularizer=ACTIVITY_REGULARIZER,
                                             activation=RECTIFIER)(board_input)
 
 
@@ -125,7 +124,7 @@ def create_model():
     value_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
-        name = "MobileNet V2-like (BN, ELU, Improved Scale-Up layer)",
+        name = "MobileNet V2-like (BN, ELU, Improved Scale-Up layer, k=5)",
         inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output])
 
@@ -142,7 +141,7 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True)
+    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': categorical_crossentropy_from_logits, 'value': 'mean_squared_error' },
