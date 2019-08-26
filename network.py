@@ -6,7 +6,7 @@ from tensorflow.keras import backend as K
 
 from chess_input import Repr2D
 
-WEIGHT_REGULARIZER = None #
+WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = keras.regularizers.l2(2e-7)
 
 RECTIFIER='elu'
