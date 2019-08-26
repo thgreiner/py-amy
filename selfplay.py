@@ -33,10 +33,12 @@ def selfplay(model, verbose=True, prefix=None):
     total_positions = 0
     while total_positions < 16384:
 
+        player = "Amy Zero [{}]".format(model.name)
+
         game = chess.pgn.Game()
         game.headers["Event"] = "Test Game"
-        game.headers["White"] = "Amy Zero"
-        game.headers["Black"] = "Amy Zero"
+        game.headers["White"] = player
+        game.headers["Black"] = player
         game.headers["Date"] = date.today().strftime("%Y.%m.%d")
         node = game
 
