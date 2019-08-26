@@ -7,7 +7,7 @@ from tensorflow.keras import backend as K
 from chess_input import Repr2D
 
 WEIGHT_REGULARIZER = None #
-ACTIVITY_REGULARIZER = keras.regularizers.l2(1e-5)
+ACTIVITY_REGULARIZER = keras.regularizers.l2(2e-7)
 
 RECTIFIER='elu'
 
@@ -17,14 +17,14 @@ def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
 
 
-def residual_block(y, dim, index, residual=True, factor=5):
+def residual_block(y, dim, index, residual=True, factor=4):
     shortcut = y
 
     y = keras.layers.Conv2D(factor * dim, (1, 1),
                             padding='same',
                             name="residual-block-{}-expand".format(index),
                             kernel_regularizer=WEIGHT_REGULARIZER,
-                            activity_regularizer=ACTIVITY_REGULARIZER,
+                            # activity_regularizer=ACTIVITY_REGULARIZER,
                             activation=RECTIFIER)(y)
 
     y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
@@ -84,12 +84,12 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    dim = 64
+    dim = 48
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
                                             kernel_regularizer=WEIGHT_REGULARIZER,
-                                            activity_regularizer=ACTIVITY_REGULARIZER,
+                                            # activity_regularizer=ACTIVITY_REGULARIZER,
                                             activation=RECTIFIER)(board_input)
 
 
@@ -99,7 +99,7 @@ def create_model():
         temp = residual_block(temp, dim, index)
         index += 1
 
-    dim = 96
+    dim = 64
     residual = False
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
@@ -108,7 +108,7 @@ def create_model():
         index += 1
         residual = True
 
-    dim = 128
+    dim = 96
     residual = False
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
@@ -124,7 +124,7 @@ def create_model():
     value_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
-        name = "MobileNet V2-like (BN, ELU, Improved Scale-Up layer, k=5)",
+        name = "MobileNet V2-like (BN, ELU, Improved Scale-Up layer, k=4)",
         inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output])
 
