@@ -262,21 +262,22 @@ if __name__ == "__main__":
                     checkpoint_next += CHECKPOINT
 
 
-        # Train on the remainder of the dataset
-        train_data = [ train_data_board[:cnt], train_data_non_progress[:cnt] ]
-        train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
+        # Train on the remainder of the dataset if enough data is remaining
+        if cnt >= 16:
+            train_data = [ train_data_board[:cnt], train_data_non_progress[:cnt] ]
+            train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
 
-        start_time = time.perf_counter()
-        if args.test:
-            results = model.test_on_batch(train_data, train_labels)
-        else:
-            results = model.train_on_batch(train_data, train_labels)
+            start_time = time.perf_counter()
+            if args.test:
+                results = model.test_on_batch(train_data, train_labels)
+            else:
+                results = model.train_on_batch(train_data, train_labels)
 
-        elapsed = time.perf_counter() - start_time
+            elapsed = time.perf_counter() - start_time
 
-        samples += cnt
-        print("{}.{}: {} in {:.1f}s]".format(
-            iteration, samples, stats(results), elapsed))
+            samples += cnt
+            print("{}.{}: {} in {:.1f}s]".format(
+                iteration, samples, stats(results), elapsed))
 
         if not args.test:
             if model_name is None:
