@@ -134,21 +134,18 @@ def variations(board, move, child, count):
     vars = []
 
     board.push(move)
-    stats = [ (key, val.visit_count, val)
+    stats = [ (key, val)
         for key, val in child.children.items()
         if val.visit_count > 0 ]
-    stats = sorted(stats, key = lambda e: e[1], reverse=True)
+    stats = sorted(stats, key = lambda e: e[1].visit_count, reverse=True)
 
-    for m, _, grand_child in stats:
+    for m, grand_child in stats[:count]:
         line = [ m ]
         board.push(m)
         pv(board, grand_child, line)
         board.pop()
 
         vars.append(board.variation_san(line))
-        count -= 1
-        if count <= 0:
-            break
 
     board.pop()
     return vars
@@ -168,7 +165,7 @@ class MCTS:
             width=119)
 
 
-    def move_prob(self, logits, board, move, xor):
+    def move_prob(self, logits, move, xor):
         fr = move.from_square ^ xor
         plane = self.repr.plane_index(move, xor)
         return math.exp(logits[fr, plane])
@@ -196,7 +193,7 @@ class MCTS:
 
         # Expand the node.
         node.turn = board.turn
-        policy = {a: self.move_prob(logits, board, a, xor) for a in board.generate_legal_moves()}
+        policy = {move: self.move_prob(logits, move, xor) for move in board.generate_legal_moves()}
         policy_sum = sum(policy.values())
         for action, p in policy.items():
             node.children[action] = Node(p / policy_sum)
@@ -229,33 +226,30 @@ class MCTS:
                 self.max_depth, median_depth, avg_depth))
             print()
 
-            stats = [ (key, val, val.visit_count)
+            stats = [ (key, val)
                 for key, val in root.children.items()
                 if val.visit_count > 0 ]
-            stats = sorted(stats, key = lambda e: e[2], reverse=True)
+            stats = sorted(stats, key = lambda e: e[1].visit_count, reverse=True)
 
-            cnt = 0
             variations_cnt = 3
             print(" Score Line      Visit-% [prior]")
             print()
 
-            for s1 in stats:
+            for move, child_node in stats[:10]:
                 print("{:5.1f}% {:10s} {:5.1f}% [{:4.1f}%] {:6d} visits".format(
-                    100 * s1[1].value(),
-                    board.variation_san([s1[0]]),
-                    100 * s1[2] / self.num_simulations,
-                    100 * s1[1].prior,
-                    s1[2]))
+                    100 * child_node.value(),
+                    board.variation_san([move]),
+                    100 * child_node.visit_count / self.num_simulations,
+                    100 * child_node.prior,
+                    child_node.visit_count))
                 if variations_cnt > 0:
-                    variations_list = variations(board, s1[0], s1[1], variations_cnt)
+                    variations_list = variations(board, move, child_node, variations_cnt)
                     for variation in variations_list:
                         for line in self.wrapper.wrap(variation):
                             print(line)
                     print()
                     variations_cnt -= 1
-                cnt += 1
-                if cnt >= 10:
-                    break
+
         else:
             print("{} - {}: {:4.1f}% {} [{:.1f} sims/s]".format(
                 self.prefix,
@@ -312,7 +306,7 @@ class MCTS:
             if root.visit_count >= max_visit_count:
                 break
 
-            if is_singular_move(search_path, max_visit_count / 2):
+            if is_singular_move(search_path, 2 * max_visit_count / 3):
                 break
 
         self.statistics(root, board)
