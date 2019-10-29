@@ -7,11 +7,11 @@ from tensorflow.keras import backend as K
 from chess_input import Repr2D
 
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
-ACTIVITY_REGULARIZER = keras.regularizers.l2(2e-7)
+ACTIVITY_REGULARIZER = None # keras.regularizers.l2(2e-7)
 
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 0.02
+INITIAL_LEARN_RATE = 0.001
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -95,7 +95,7 @@ def create_model():
 
     index = 1
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
-    for i in range(6):
+    for i in range(7):
         temp = residual_block(temp, dim, index)
         index += 1
 
@@ -103,7 +103,7 @@ def create_model():
     residual = False
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
-    for i in range(6):
+    for i in range(7):
         temp = residual_block(temp, dim, index, residual)
         index += 1
         residual = True
@@ -112,7 +112,7 @@ def create_model():
     residual = False
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
-    for i in range(6):
+    for i in range(7):
         temp = residual_block(temp, dim, index, residual)
         index += 1
         residual = True
@@ -142,6 +142,7 @@ def load_or_create_model(model_name):
     print()
 
     optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0)
+    # optimizer = keras.optimizers.Adam(lr=0.001)
 
     model.compile(optimizer=optimizer,
                   loss={'moves': categorical_crossentropy_from_logits, 'value': 'mean_squared_error' },
