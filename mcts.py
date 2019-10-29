@@ -15,6 +15,8 @@ from chess_input import Repr2D
 
 import click
 
+from prometheus_client import Counter, Gauge
+
 class Node(object):
 
     def __init__(self, prior: float):
@@ -85,7 +87,7 @@ def pv(board, node, variation=None):
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
-    pb_c_base = 19652
+    pb_c_base = 100
     pb_c_init = 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
@@ -164,6 +166,9 @@ class MCTS:
             subsequent_indent = 11 * " ",
             width=119)
 
+        self.white_prop_gauge = Gauge('white_prob', "Win probability white")
+        self.black_prop_gauge = Gauge('black_prob', "Win probability black")
+        self.nps_gauge = Gauge('nps', 'Nodes per second')
 
     def move_prob(self, logits, move, xor):
         fr = move.from_square ^ xor
@@ -249,7 +254,6 @@ class MCTS:
                             print(line)
                     print()
                     variations_cnt -= 1
-
         else:
             print("{} - {}: {:4.1f}% {} [{:.1f} sims/s]".format(
                 self.prefix,
@@ -310,4 +314,11 @@ class MCTS:
                 break
 
         self.statistics(root, board)
+        if board.turn:
+            self.black_prop_gauge.set(root.value_sum / root.visit_count)
+        else:
+            self.white_prop_gauge.set(root.value_sum / root.visit_count)
+        elapsed = time.perf_counter() - self.start_time
+        self.nps_gauge.set(self.num_simulations / elapsed)
+
         return select_root_move(root, board.fullmove_number), root
