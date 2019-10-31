@@ -267,6 +267,23 @@ class MCTS:
                 board.variation_san(principal_variation),
                 self.num_simulations / elapsed))
 
+    def mcts_recursive(self, board, node, depth=0):
+        if node.expanded():
+            move, child = select_child(node)
+            board.push(move)
+            value = self.mcts_recursive(board, child, depth+1)
+            board.pop()
+            node.value_sum += value
+            node.visit_count += 1
+            return 1.0 - value
+        else:
+            self.max_depth = max(self.max_depth, depth)
+            self.sum_depth += depth
+            self.depth_list.append(depth)
+            # print(node.turn != board.turn)
+            value = self.evaluate(node, board)
+            return 1.0 - value if node.turn != board.turn else value
+
     def mcts(self, board):
         self.start_time = time.perf_counter()
         self.num_simulations = 0
@@ -292,23 +309,26 @@ class MCTS:
             self.num_simulations += 1
             depth = 0
 
-            node = root
-            search_path = [ node ]
-            while node.expanded():
-                move, node = select_child(node)
-                board.push(move)
-                search_path.append(node)
-                depth += 1
+            if True:
+                self.mcts_recursive(board, root)
+            else:
+                node = root
+                search_path = [ node ]
+                while node.expanded():
+                    move, node = select_child(node)
+                    board.push(move)
+                    search_path.append(node)
+                    depth += 1
 
-            value = self.evaluate(node, board)
-            backpropagate(search_path, value, board.turn)
+                value = self.evaluate(node, board)
+                backpropagate(search_path, value, board.turn)
 
-            self.max_depth = max(self.max_depth, depth)
-            self.sum_depth += depth
-            self.depth_list.append(depth)
+                self.max_depth = max(self.max_depth, depth)
+                self.sum_depth += depth
+                self.depth_list.append(depth)
 
-            for i in range(depth):
-                board.pop()
+                for i in range(depth):
+                    board.pop()
 
             if iteration > 0 and iteration % 100 == 0:
                 self.statistics(root, board)
@@ -316,8 +336,8 @@ class MCTS:
             if root.visit_count >= max_visit_count:
                 break
 
-            if is_singular_move(search_path, 2 * max_visit_count / 3):
-                break
+            # if is_singular_move(search_path, 2 * max_visit_count / 3):
+            #     break
 
         self.statistics(root, board)
 
