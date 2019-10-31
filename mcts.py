@@ -169,6 +169,10 @@ class MCTS:
         self.white_prop_gauge = Gauge('white_prob', "Win probability white")
         self.black_prop_gauge = Gauge('black_prob', "Win probability black")
         self.nps_gauge = Gauge('nps', 'Nodes per second')
+        self.avg_depth_gauge = Gauge('avg_depth', 'Average search depth')
+        self.median_depth_gauge = Gauge('median_depth', 'Median search depth')
+        self.max_depth_gauge = Gauge('max_depth', 'Max search depth')
+        self.terminal_node_gauge = Gauge('terminal_nodes', 'Number of terminal nodes encountered by search')
 
     def move_prob(self, logits, move, xor):
         fr = move.from_square ^ xor
@@ -178,6 +182,7 @@ class MCTS:
 
     def evaluate(self, node, board):
         if board.is_game_over(claim_draw = True):
+            self.terminal_nodes += 1
             winner = board.result(claim_draw = True)
             # print(winner)
             node.turn = board.turn
@@ -210,9 +215,9 @@ class MCTS:
 
         elapsed = time.perf_counter() - self.start_time
         if self.verbose:
-            avg_depth = self.sum_depth / self.num_simulations
+            self.avg_depth = self.sum_depth / self.num_simulations
             tmp = np.array(self.depth_list)
-            median_depth = np.median(tmp, overwrite_input=True)
+            self.median_depth = np.median(tmp, overwrite_input=True)
 
             click.clear()
             print(board)
@@ -228,7 +233,7 @@ class MCTS:
             ))
             print()
             print("Max depth: {} Median depth: {} Avg depth: {:.1f}".format(
-                self.max_depth, median_depth, avg_depth))
+                self.max_depth, self.median_depth, self.avg_depth))
             print()
 
             stats = [ (key, val)
@@ -265,6 +270,7 @@ class MCTS:
     def mcts(self, board):
         self.start_time = time.perf_counter()
         self.num_simulations = 0
+        self.terminal_nodes = 0
         self.max_depth = 0
         self.sum_depth = 0
         self.depth_list = []
@@ -314,11 +320,18 @@ class MCTS:
                 break
 
         self.statistics(root, board)
+
+        selected_move = select_root_move(root, board.fullmove_number)
+        selected_move_child = root.children.get(selected_move)
         if board.turn:
-            self.black_prop_gauge.set(root.value_sum / root.visit_count)
+            self.white_prop_gauge.set(selected_move_child.value())
         else:
-            self.white_prop_gauge.set(root.value_sum / root.visit_count)
+            self.black_prop_gauge.set(selected_move_child.value())
         elapsed = time.perf_counter() - self.start_time
         self.nps_gauge.set(self.num_simulations / elapsed)
+        self.avg_depth_gauge.set(self.avg_depth)
+        self.median_depth_gauge.set(self.median_depth)
+        self.max_depth_gauge.set(self.max_depth)
+        self.terminal_node_gauge.set(self.terminal_nodes)
 
-        return select_root_move(root, board.fullmove_number), root
+        return selected_move, root
