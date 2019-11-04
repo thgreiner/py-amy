@@ -17,6 +17,8 @@ import click
 
 from prometheus_client import Counter, Gauge
 
+INF=1000000
+
 class Node(object):
 
     def __init__(self, prior: float):
@@ -32,18 +34,28 @@ class Node(object):
     def value(self):
         if self.visit_count == 0:
             return 0
+        if self.value_sum <= -INF:
+            return 0
+        elif self.value_sum >= INF:
+            return 1
         return self.value_sum / self.visit_count
 
 
-def score(board, winner):
+def score(board: Board, winner: str):
     if board.turn and (winner == "1-0"):
-        return 1
+        return INF
     if (not board.turn) and (winner == "0-1"):
-        return 1
+        return INF
     if winner == "1/2-1/2" or winner == "*":
         return 0.5
-    return 0
+    return -INF
 
+
+def negate(score: int):
+    if score >= 0 and score <= 1.0:
+        return 1.0 - score
+    else:
+        return -score
 
 def add_exploration_noise(node: Node):
     root_dirichlet_alpha = 0.3
@@ -87,6 +99,9 @@ def pv(board, node, variation=None):
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
+    if child.value_sum <= -INF:
+        return -INF
+
     pb_c_base = 100
     pb_c_init = 1.25
 
@@ -232,8 +247,8 @@ class MCTS:
                 self.num_simulations / elapsed
             ))
             print()
-            print("Max depth: {} Median depth: {} Avg depth: {:.1f}".format(
-                self.max_depth, self.median_depth, self.avg_depth))
+            print("Max depth: {} Median depth: {} Avg depth: {:.1f} Terminal nodes: {}".format(
+                self.max_depth, self.median_depth, self.avg_depth, self.terminal_nodes))
             print()
 
             stats = [ (key, val)
@@ -270,21 +285,39 @@ class MCTS:
     def mcts_recursive(self, board, node, depth=0):
         if node.expanded():
             move, child = select_child(node)
+            # print(move, child)
             board.push(move)
             value = self.mcts_recursive(board, child, depth+1)
             board.pop()
-            node.value_sum += value
+
+            if value <= -INF:
+                # print(board)
+                # print(board.san(move))
+                node.value_sum = -INF
+            elif value >= INF:
+                # print(board)
+                # print(board.san(move))
+                has_none_loosing_siblings = sum([1 if sibling.value_sum >= 0 else 0 for sibling in node.children.values()])
+                if has_none_loosing_siblings:
+                    value = 1
+                    node.value_sum += value
+                else:
+                    node.value_sum = INF
+            else:
+                node.value_sum += value
+
             node.visit_count += 1
-            return 1.0 - value
+            return negate(value)
         else:
             self.max_depth = max(self.max_depth, depth)
             self.sum_depth += depth
             self.depth_list.append(depth)
-            # print(node.turn != board.turn)
             value = self.evaluate(node, board)
-            return 1.0 - value if node.turn != board.turn else value
+            node.value_sum = negate(value)
+            node.visit_count += 1
+            return value
 
-    def mcts(self, board):
+    def mcts(self, board, recursive=True):
         self.start_time = time.perf_counter()
         self.num_simulations = 0
         self.terminal_nodes = 0
@@ -309,7 +342,7 @@ class MCTS:
             self.num_simulations += 1
             depth = 0
 
-            if True:
+            if recursive:
                 self.mcts_recursive(board, root)
             else:
                 node = root
@@ -331,6 +364,7 @@ class MCTS:
                     board.pop()
 
             if iteration > 0 and iteration % 100 == 0:
+                pass
                 self.statistics(root, board)
 
             if root.visit_count >= max_visit_count:
