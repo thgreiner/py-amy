@@ -193,7 +193,7 @@ if __name__ == "__main__":
     learn_rate_gauge = Gauge('training_learn_rate', "Learn rate")
     qsize_gauge = Gauge("training_qsize", "Queue size")
 
-    queue = PriorityQueue(maxsize = 200000)
+    queue = PriorityQueue(maxsize = 400000)
 
     for iteration in range(2):
 
