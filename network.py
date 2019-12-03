@@ -7,11 +7,11 @@ from tensorflow.keras import backend as K
 from chess_input import Repr2D
 
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
-ACTIVITY_REGULARIZER = None # keras.regularizers.l2(2e-7)
+ACTIVITY_REGULARIZER = keras.regularizers.l1(1e-6)
 
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 0.001
+INITIAL_LEARN_RATE = 0.02
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -55,6 +55,7 @@ def create_policy_head(input):
     temp = keras.layers.Conv2D(73, (3, 3), activation='linear',
                                            name="moves-conv",
                                            kernel_regularizer=WEIGHT_REGULARIZER,
+                                           activity_regularizer=ACTIVITY_REGULARIZER,
                                            padding='same')(temp)
 
     return keras.layers.Flatten(name='moves')(temp)
@@ -116,7 +117,6 @@ def create_model():
         temp = residual_block(temp, dim, index, residual)
         index += 1
         residual = True
-
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
 
