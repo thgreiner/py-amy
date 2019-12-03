@@ -23,12 +23,17 @@ from network import load_or_create_model
 
 from mcts import MCTS
 
+from prometheus_client import start_http_server, Counter
+
 if __name__ == "__main__":
+
+    start_http_server(9099)
 
     name = sys.argv[1]
 
     model = load_or_create_model("combined-model.h5")
-    mcts = MCTS(model, True, None, max_simulations = 20000, exploration_noise=False)
+    mcts = MCTS(model, True, None, max_simulations = 5000000, exploration_noise=False)
+
 
     with open(name, "r") as f:
 
