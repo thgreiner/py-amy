@@ -74,7 +74,7 @@ def stats(step_output):
     )
 
 
-def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
+def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue, test_mode):
 
     root = Node()
 
@@ -129,13 +129,16 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
                 node = root
             out_of_book = 0
 
+            if not test_mode and random.randint(0, 5) > 0:
+                skip_training = True
+
             for move in game.mainline_moves():
 
                 if node:
                     node.visit_count += 1
                     node.result += label_for_result(result, b.turn)
-                    
-                if not skip_training:
+
+                if (not skip_training) and (random.randint(0, 10) > 0):
                     train_data_board = repr.board_to_array(b)
                     # train_data_moves = repr.legal_moves_mask(b)
                     train_data_non_progress = b.halfmove_clock / 100.0
@@ -148,8 +151,8 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
 
                     item = PrioritizedItem(
                         random.randint(0, MAX_PRIO),
-                        ( train_data_board, 
-                          # train_data_moves, 
+                        ( train_data_board,
+                          # train_data_moves,
                           train_data_non_progress,
                           train_labels1,
                           train_labels2 ))
@@ -205,7 +208,7 @@ if __name__ == "__main__":
     learn_rate_gauge = Gauge('training_learn_rate', "Learn rate")
     qsize_gauge = Gauge("training_qsize", "Queue size")
 
-    queue = PriorityQueue(maxsize = 50000)
+    queue = PriorityQueue(maxsize = 200000)
 
     for iteration in range(100):
 
@@ -216,7 +219,7 @@ if __name__ == "__main__":
         batch_no = 0
 
         pos_gen = partial(pos_generator, args.filename, args.diff, args.min_elo,
-                          args.skip, game_counter, queue)
+                          args.skip, game_counter, queue, args.test)
 
         t = Thread(target = pos_gen)
         t.start()
@@ -224,7 +227,7 @@ if __name__ == "__main__":
         while True:
             item = queue.get()
             sample = item.item
-            
+
             if sample is None:
                 break
 

@@ -8,6 +8,7 @@ import numpy as np
 import time
 import uuid
 import textwrap
+from non_blocking_console import NonBlockingConsole
 
 from datetime import date
 
@@ -87,13 +88,13 @@ def pv(board, node, variation=None):
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
-    pb_c_base = 100
+    pb_c_base = 19652
     pb_c_init = 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
 
-    prior_score = pb_c * child.prior
+    prior_score = pb_c * max(child.prior, .02)
     value_score = child.value()
 
     return prior_score + value_score
@@ -173,11 +174,12 @@ class MCTS:
         self.median_depth_gauge = Gauge('median_depth', 'Median search depth')
         self.max_depth_gauge = Gauge('max_depth', 'Max search depth')
         self.terminal_node_gauge = Gauge('terminal_nodes', 'Number of terminal nodes encountered by search')
+        self.best_move = None
 
     def move_prob(self, logits, move, xor):
-        fr = move.from_square ^ xor
+        sq = move.to_square ^ xor
         plane = self.repr.plane_index(move, xor)
-        return math.exp(logits[fr, plane])
+        return math.exp(logits[sq, plane])
 
 
     def evaluate(self, node, board):
@@ -245,13 +247,25 @@ class MCTS:
             print(" Score Line      Visit-% [prior]")
             print()
 
+            if len(stats) > 0:
+                current_best_move = stats[0][0]
+                if self.best_move is None or self.best_move != current_best_move:
+                    self.best_move = current_best_move
+                    self.best_move_found = self.num_simulations
+
+            message = ""
+            if self.best_move is not None:
+                message = "   (since iteration {})".format(self.best_move_found)
+
             for move, child_node in stats[:10]:
-                print("{:5.1f}% {:10s} {:5.1f}% [{:4.1f}%] {:6d} visits".format(
+                print("{:5.1f}% {:10s} {:5.1f}% [{:4.1f}%] {:6d} visits {}".format(
                     100 * child_node.value(),
                     board.variation_san([move]),
                     100 * child_node.visit_count / self.num_simulations,
                     100 * child_node.prior,
-                    child_node.visit_count))
+                    child_node.visit_count,
+                    message))
+                message = ""
                 if variations_cnt > 0:
                     variations_list = variations(board, move, child_node, variations_cnt)
                     for variation in variations_list:
@@ -259,6 +273,18 @@ class MCTS:
                             print(line)
                     print()
                     variations_cnt -= 1
+
+            if len(stats) > 10:
+                print()
+                remaining_moves = []
+                for move, child_node in stats[10:]:
+                    remaining_moves.append("{} ({:.1f}%, {})".format(
+                        board.san(move),
+                        100 * child_node.value(),
+                        child_node.visit_count))
+                for line in self.wrapper.wrap(", ".join(remaining_moves)):
+                    print(line)
+
         else:
             print("{} - {}: {:4.1f}% {} [{:.1f} sims/s]".format(
                 self.prefix,
@@ -288,36 +314,40 @@ class MCTS:
         best_move = None
         max_visit_count = self.max_simulations
 
-        for iteration in range(max_visit_count):
-            self.num_simulations += 1
-            depth = 0
+        with NonBlockingConsole() as nbc:
+            for iteration in range(max_visit_count):
+                self.num_simulations += 1
+                depth = 0
 
-            node = root
-            search_path = [ node ]
-            while node.expanded():
-                move, node = select_child(node)
-                board.push(move)
-                search_path.append(node)
-                depth += 1
+                node = root
+                search_path = [ node ]
+                while node.expanded():
+                    move, node = select_child(node)
+                    board.push(move)
+                    search_path.append(node)
+                    depth += 1
 
-            value = self.evaluate(node, board)
-            backpropagate(search_path, value, board.turn)
+                value = self.evaluate(node, board)
+                backpropagate(search_path, value, board.turn)
 
-            self.max_depth = max(self.max_depth, depth)
-            self.sum_depth += depth
-            self.depth_list.append(depth)
+                self.max_depth = max(self.max_depth, depth)
+                self.sum_depth += depth
+                self.depth_list.append(depth)
 
-            for i in range(depth):
-                board.pop()
+                for i in range(depth):
+                    board.pop()
 
-            if iteration > 0 and iteration % 100 == 0:
-                self.statistics(root, board)
+                if iteration > 0 and iteration % 100 == 0:
+                    self.statistics(root, board)
 
-            if root.visit_count >= max_visit_count:
-                break
+                if root.visit_count >= max_visit_count:
+                    break
 
-            if is_singular_move(search_path, 2 * max_visit_count / 3):
-                break
+                if is_singular_move(search_path, 2 * max_visit_count / 3):
+                    break
+
+                if nbc.get_data() == '\x1b':
+                    break
 
         self.statistics(root, board)
 

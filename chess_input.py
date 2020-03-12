@@ -107,7 +107,7 @@ class Repr2D:
         xor = 0 if b.turn else 0x38
 
         for move in b.generate_legal_moves():
-            buf[move.from_square ^ xor, self.plane_index(move, xor)] = 1
+            buf[move.to_square ^ xor, self.plane_index(move, xor)] = 1
 
         return buf.flatten()
 
@@ -115,24 +115,8 @@ class Repr2D:
     def move_to_array(self, b, move):
         buf = np.zeros((64, 73), np.int8)
         xor = 0 if b.turn else 0x38
-        buf[move.from_square ^ xor, self.plane_index(move, xor)] = 1
+        buf[move.to_square ^ xor, self.plane_index(move, xor)] = 1
         return buf.reshape(4672)
-
-
-    def moves_to_array(self, b, children, current_move):
-        buf = np.zeros((64, 73), np.float32)
-        xor = 0 if b.turn else 0x38
-
-        if children:
-            for move, child in children.items():
-                buf[move.from_square ^ xor, self.plane_index(move, xor)] = child.visit_count
-
-        buf[current_move.from_square ^ xor, self.plane_index(current_move, xor)] += 1
-
-        buf = buf.reshape(4672)
-        buf /= np.sum(buf)
-
-        return buf
 
 
     def policy_to_array(self, b, policy):
@@ -145,7 +129,7 @@ class Repr2D:
             move = b.parse_san(san)
             # buf[move.from_square ^ xor][0] = 1
             # buf[move.to_square ^ xor][piece] = 1
-            buf[move.from_square ^ xor, self.plane_index(move, xor)] = value
+            buf[move.to_square ^ xor, self.plane_index(move, xor)] = value
 
         # return buf.reshape(8, 8, 7)
         return buf.reshape(4672)
