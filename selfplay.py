@@ -2,6 +2,7 @@
 
 import chess.pgn
 import uuid
+import argparse
 
 from chess import Board
 from datetime import date
@@ -38,9 +39,9 @@ def compare_trees(t1, t2):
         for move, node in t1.children.items():
             compare_trees(node, t2.children[move])
 
-def selfplay(model, verbose=True, prefix=None):
+def selfplay(model, num_simulations, verbose=True, prefix=None, generator=None):
     suffix = str(uuid.uuid4())
-    mcts = MCTS(model, verbose, prefix, exploration_noise=True, max_simulations=800)
+    mcts = MCTS(model, verbose, prefix, exploration_noise=True, max_simulations=num_simulations)
 
     total_positions = 0
 
@@ -58,7 +59,11 @@ def selfplay(model, verbose=True, prefix=None):
         game.headers["Date"] = date.today().strftime("%Y.%m.%d")
         node = game
 
-        board = Board()
+        if generator:
+            board = generator()
+            game.setup(board)
+        else:
+            board = Board()
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             best_move, tree = mcts.mcts(board)
@@ -85,7 +90,20 @@ def selfplay(model, verbose=True, prefix=None):
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(description="Self play.")
+    parser.add_argument('--sims', type=int, help="number of simulations", default=800)
+    parser.add_argument('--kqk', action='store_const', const=True, default=False, help="only play K+Q vs K games")
+    parser.add_argument('--krk', action='store_const', const=True, default=False, help="only play K+R vs K games")
+
+    args = parser.parse_args()
+
     start_http_server(9099)
 
+    generator = None
+    if args.kqk:
+        generator = generate_kqk
+    if args.krk:
+        generator = generate_krk
+
     model = load_or_create_model("combined-model.h5")
-    selfplay(model)
+    selfplay(model, args.sims, generator=generator)
