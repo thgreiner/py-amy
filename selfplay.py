@@ -8,7 +8,7 @@ from chess import Board
 from datetime import date
 from pos_generator import generate_kxk, generate_kqk, generate_krk
 from network import load_or_create_model
-from mcts import MCTS
+from mcts import MCTS, select_root_move
 from prometheus_client import start_http_server, Counter
 
 MAX_HALFMOVES_IN_GAME = 200
@@ -27,17 +27,21 @@ def format_root_moves(root, board):
         1.0 - root.value(),
         ", ".join(root_moves))
 
+def create_node_with_comment(node, tree, best_move, board):
+    new_node = node.add_main_variation(best_move)
+    new_node.comment = format_root_moves(tree, board)
 
-def compare_trees(t1, t2):
-    assert t1.visit_count == t2.visit_count
-    if t1.value() != t2.value():
-        print("{} != {}".format(t1.value(), t2.value()))
-        for move, node in t1.children.items():
-            print("{}: {} {}    {} {}".format(move, node.value(), node.visit_count, t2.children[move].value(), t2.children[move].visit_count))
-        raise AssertionError("Values not equal.")
-    else:
-        for move, node in t1.children.items():
-            compare_trees(node, t2.children[move])
+    for move, subtree in tree.children.items():
+        if move == best_move: continue
+
+        if subtree.visit_count > 100 and len(subtree.children) > 1:  # arbitrary threshold
+            tmp_node = node.add_variation(move)
+            board.push(move)
+            tmp_best_move = select_root_move(subtree, board.fullmove_number, False)
+            create_node_with_comment(tmp_node, subtree, tmp_best_move, board)
+            board.pop()
+
+    return new_node
 
 def selfplay(model, num_simulations, verbose=True, prefix=None, generator=None):
     suffix = str(uuid.uuid4())
@@ -68,11 +72,7 @@ def selfplay(model, num_simulations, verbose=True, prefix=None, generator=None):
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             best_move, tree = mcts.mcts(board)
 
-            # bm2, tree2 = mcts.mcts(board)
-            # compare_trees(tree, tree2)
-
-            node = node.add_variation(best_move)
-            node.comment = format_root_moves(tree, board)
+            node = create_node_with_comment(node, tree, best_move, board)
 
             board.push(best_move)
 
