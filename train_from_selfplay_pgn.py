@@ -78,12 +78,50 @@ def parse_mcts_result(input):
     q = float(m.group(1))
 
     variations = m.group(2).split(", ")
+
     v = {}
     for variation in variations:
         m2 = re2.match(variation)
-        v[m2.group(1)] = float(m2.group(2))
+        if m2 is not None:
+            v[m2.group(1)] = float(m2.group(2))
 
     return q, v
+
+def traverse_game(node, board, queue, skip_training, result):
+    move = node.move
+
+    if node.comment:
+
+        q, policy = parse_mcts_result(node.comment)
+        q = q * 2 - 1.0
+        z = label_for_result(result, board.turn)
+
+        if not skip_training:
+            train_data_board = repr.board_to_array(board)
+            train_data_non_progress = board.halfmove_clock / 100.0
+            train_labels1 = repr.policy_to_array(board, policy)
+
+            if node.is_mainline():
+                train_labels2 = (q + z) * 0.5
+            else:
+                train_labels2 = q
+
+            item = PrioritizedItem(
+                random.randint(0, MAX_PRIO),
+                ( train_data_board,
+                  train_data_non_progress,
+                  train_labels1,
+                  train_labels2 ))
+            queue.put(item)
+
+    if move is not None:
+        board.push(move)
+
+    for sibling in node.variations:
+        traverse_game(sibling, board, queue, skip_training, result)
+
+    if move is not None:
+        board.pop()
 
 def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
 
@@ -130,32 +168,8 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
 
             game_counter.labels(result=result).inc()
 
-            b = game.board()
+            traverse_game(game, game.board(), queue, skip_training, result)
 
-            for node in game.mainline():
-
-                move = node.move
-
-                if node.comment:
-                    q, policy = parse_mcts_result(node.comment)
-                    q = q * 2 - 1.0
-                    z = label_for_result(result, b.turn)
-
-                    if not skip_training:
-                        train_data_board = repr.board_to_array(b)
-                        train_data_non_progress = b.halfmove_clock / 100.0
-                        train_labels1 = repr.policy_to_array(b, policy)
-                        train_labels2 = (q + z) * 0.5
-
-                        item = PrioritizedItem(
-                            random.randint(0, MAX_PRIO),
-                            ( train_data_board,
-                              train_data_non_progress,
-                              train_labels1,
-                              train_labels2 ))
-                        queue.put(item)
-
-                b.push(move)
     queue.put(PrioritizedItem(MAX_PRIO, None))
 
 if __name__ == "__main__":
@@ -195,7 +209,7 @@ if __name__ == "__main__":
 
     queue = PriorityQueue(maxsize = 400000)
 
-    for iteration in range(2):
+    for iteration in range(100):
 
         cnt = 0
         samples = 0
@@ -216,6 +230,7 @@ if __name__ == "__main__":
             if sample is None:
                 break
 
+            pos_counter.inc()
             qsize_gauge.set(queue.qsize())
 
             train_data_board[cnt] = sample[0]
@@ -224,7 +239,6 @@ if __name__ == "__main__":
             train_labels2[cnt, 0] = sample[3]
             cnt += 1
 
-            pos_counter.inc()
 
             if cnt >= batch_size:
                 # print(train_labels2)
