@@ -6,7 +6,7 @@ import argparse
 
 from chess import Board
 from datetime import date
-from pos_generator import generate_kxk, generate_kqk, generate_krk
+import pos_generator
 from network import load_or_create_model
 from mcts import MCTS, select_root_move
 from prometheus_client import start_http_server, Counter
@@ -27,18 +27,25 @@ def format_root_moves(root, board):
         1.0 - root.value(),
         ", ".join(root_moves))
 
-def create_node_with_comment(node, tree, best_move, board):
+def create_node_with_comment(node, tree, best_move, board, pos_counter ,follow_main_line=False):
     new_node = node.add_main_variation(best_move)
     new_node.comment = format_root_moves(tree, board)
 
-    for move, subtree in tree.children.items():
-        if move == best_move: continue
+    if new_node.comment:
+        pos_counter.inc()
 
-        if subtree.visit_count > 100 and len(subtree.children) > 1:  # arbitrary threshold
-            tmp_node = node.add_variation(move)
+    for move, subtree in tree.children.items():
+        if not follow_main_line and move == best_move: continue
+
+        if subtree.visit_count > 100:  # arbitrary threshold
+            if follow_main_line and move == best_move:
+                tmp_node = new_node
+            else:
+                tmp_node = node.add_variation(move)
             board.push(move)
             tmp_best_move = select_root_move(subtree, board.fullmove_number, False)
-            create_node_with_comment(tmp_node, subtree, tmp_best_move, board)
+            if tmp_best_move is not None:
+                create_node_with_comment(tmp_node, subtree, tmp_best_move, board, pos_counter, True)
             board.pop()
 
     return new_node
@@ -72,13 +79,12 @@ def selfplay(model, num_simulations, verbose=True, prefix=None, generator=None):
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             best_move, tree = mcts.mcts(board)
 
-            node = create_node_with_comment(node, tree, best_move, board)
+            node = create_node_with_comment(node, tree, best_move, board, pos_counter)
 
             board.push(best_move)
 
             if node.comment:
                 total_positions += 1
-                pos_counter.inc()
 
         game.headers["Result"] = board.result(claim_draw=True)
 
@@ -94,6 +100,9 @@ if __name__ == "__main__":
     parser.add_argument('--sims', type=int, help="number of simulations", default=800)
     parser.add_argument('--kqk', action='store_const', const=True, default=False, help="only play K+Q vs K games")
     parser.add_argument('--krk', action='store_const', const=True, default=False, help="only play K+R vs K games")
+    parser.add_argument('--kxk', action='store_const', const=True, default=False, help="only play K+X vs K games")
+    parser.add_argument('--kpkp', action='store_const', const=True, default=False, help="only play K+P vs K+P games")
+    parser.add_argument('--kqqk', action='store_const', const=True, default=False, help="only play K+Q+Q vs K games")
 
     args = parser.parse_args()
 
@@ -101,9 +110,15 @@ if __name__ == "__main__":
 
     generator = None
     if args.kqk:
-        generator = generate_kqk
+        generator = pos_generator.generate_kqk
     if args.krk:
-        generator = generate_krk
+        generator = pos_generator.generate_krk
+    if args.kxk:
+        generator = pos_generator.generate_kxk
+    if args.kpkp:
+        generator = pos_generator.generate_kpkp
+    if args.kqqk:
+        generator = pos_generator.generate_kqqk
 
     model = load_or_create_model("combined-model.h5")
     selfplay(model, args.sims, generator=generator)
