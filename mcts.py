@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 from chess import Board
-import chess.pgn
+
+from tablebase import get_optimal_move
+
 import random
 import math
 import numpy as np
@@ -88,13 +90,13 @@ def pv(board, node, variation=None):
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
-    pb_c_base = 19652
+    pb_c_base = 3000 #19652
     pb_c_init = 1.25
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
 
-    prior_score = pb_c * (child.prior + 0.02)
+    prior_score = pb_c * max(child.prior, 0.02)
     value_score = child.value()
 
     return prior_score + value_score
@@ -152,20 +154,18 @@ def variations(board, move, child, count):
         pv(board, grand_child, line)
         board.pop()
 
-        vars.append(
-            "{:5.1f}% [{:5.1f}%] {}".format(
-                100 * grand_child.value(),
-                100 * grand_child.visit_count / child.visit_count,
-                board.variation_san(line)))
+        vars.append(board.variation_san(line))
 
     board.pop()
     return vars
+
 
 class MCTS:
 
     def __init__(self, model, verbose=True, prefix=None, max_simulations=800, exploration_noise=True):
         self.model = model
         self.repr = Repr2D()
+
         self.verbose = verbose
         self.prefix = prefix
         self.max_simulations = max_simulations
@@ -211,19 +211,27 @@ class MCTS:
 
         xor = 0 if board.turn else 0x38
 
+        # Check endgame tablebase
+        tb_move, tb_value = get_optimal_move(board)
+
         # Expand the node.
         node.turn = board.turn
-        policy = {move: self.move_prob(logits, move, xor) for move in board.generate_legal_moves()}
+
+        if tb_value is not None and tb_value != "Draw":
+            policy = {move: (1 if move == tb_move else 0) for move in board.generate_legal_moves()}
+        else:
+            policy = {move: (self.move_prob(logits, move, xor)) for move in board.generate_legal_moves()}
+
         policy_sum = sum(policy.values())
         for action, p in policy.items():
             node.children[action] = Node(p / policy_sum)
 
         return value
 
-
     def statistics(self, root, board):
 
         elapsed = time.perf_counter() - self.start_time
+
         if self.verbose:
             self.avg_depth = self.sum_depth / self.num_simulations
             tmp = np.array(self.depth_list)
@@ -304,7 +312,13 @@ class MCTS:
                 board.variation_san(principal_variation),
                 self.num_simulations / elapsed))
 
-    def mcts(self, board):
+        self.nps_gauge.set(self.num_simulations / elapsed)
+        self.terminal_node_gauge.set(100 * self.terminal_nodes / self.num_simulations)
+        self.avg_depth_gauge.set(self.avg_depth)
+        self.median_depth_gauge.set(self.median_depth)
+        self.max_depth_gauge.set(self.max_depth)
+
+    def mcts(self, board, sample=True):
         self.start_time = time.perf_counter()
         self.num_simulations = 0
         self.terminal_nodes = 0
@@ -362,17 +376,12 @@ class MCTS:
 
         self.statistics(root, board)
 
-        selected_move = select_root_move(root, board.fullmove_number)
+        selected_move = select_root_move(root, board.fullmove_number, sample)
         selected_move_child = root.children.get(selected_move)
         if board.turn:
             self.white_prop_gauge.set(selected_move_child.value())
         else:
             self.black_prop_gauge.set(selected_move_child.value())
         elapsed = time.perf_counter() - self.start_time
-        self.nps_gauge.set(self.num_simulations / elapsed)
-        self.avg_depth_gauge.set(self.avg_depth)
-        self.median_depth_gauge.set(self.median_depth)
-        self.max_depth_gauge.set(self.max_depth)
-        self.terminal_node_gauge.set(100 * self.terminal_nodes / self.num_simulations)
 
         return selected_move, root
