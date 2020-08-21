@@ -7,14 +7,24 @@ from tensorflow.keras import backend as K
 from chess_input import Repr2D
 
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
-ACTIVITY_REGULARIZER = keras.regularizers.l1(1e-6)
+ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
 
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 0.02
+INITIAL_LEARN_RATE = 0.001
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
+
+
+def huber_loss(y_true, y_pred, clip_delta=1.0):
+    error = y_true - y_pred
+    cond  = K.abs(error) < clip_delta
+
+    squared_loss = 0.5 * K.square(error)
+    linear_loss  = clip_delta * (K.abs(error) - 0.5 * clip_delta)
+
+    return tf.where(cond, squared_loss, linear_loss)
 
 
 def residual_block(y, dim, index, residual=True, factor=4):
@@ -85,7 +95,7 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    dim = 48
+    dim = 64
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
@@ -96,24 +106,24 @@ def create_model():
 
     index = 1
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
-    for i in range(7):
+    for i in range(6):
         temp = residual_block(temp, dim, index)
         index += 1
-
-    dim = 64
-    residual = False
-
-    temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
-    for i in range(7):
-        temp = residual_block(temp, dim, index, residual)
-        index += 1
-        residual = True
 
     dim = 96
     residual = False
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
-    for i in range(7):
+    for i in range(6):
+        temp = residual_block(temp, dim, index, residual)
+        index += 1
+        residual = True
+
+    dim = 120
+    residual = False
+
+    temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
+    for i in range(6):
         temp = residual_block(temp, dim, index, residual)
         index += 1
         residual = True
@@ -124,7 +134,7 @@ def create_model():
     value_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
-        name = "MobileNet V2-like (BN, ELU, Improved Scale-Up layer, k=4)",
+        name = "MobileNet_V2-like",
         inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output])
 
@@ -134,7 +144,7 @@ def load_or_create_model(model_name):
         model = create_model()
     else:
         print("Loading model from \"{}\"".format(model_name))
-        model = load_model(model_name, custom_objects={'categorical_crossentropy_from_logits': categorical_crossentropy_from_logits})
+        model = load_model(model_name, custom_objects={ 'categorical_crossentropy_from_logits': categorical_crossentropy_from_logits, 'huber_loss': huber_loss })
 
     model.summary()
     print()
@@ -145,7 +155,7 @@ def load_or_create_model(model_name):
     # optimizer = keras.optimizers.Adam(lr=0.001)
 
     model.compile(optimizer=optimizer,
-                  loss={'moves': categorical_crossentropy_from_logits, 'value': 'mean_squared_error' },
+                  loss={'moves': categorical_crossentropy_from_logits, 'value': huber_loss },
                   metrics=['accuracy', 'mae'])
     return model
 
