@@ -3,14 +3,13 @@
 import chess
 from chess import Board
 import chess.pgn
+
 from chess_input import Repr2D
 
 import numpy as np
 import sys
 import time
-import random
 import argparse
-import re
 from functools import partial
 
 from threading import Thread
@@ -20,35 +19,10 @@ from prometheus_client import start_http_server, Counter, Gauge
 
 from network import load_or_create_model, schedule_learn_rate
 
-from dataclasses import dataclass, field
-from typing import Any
+from pgn_reader import pos_generator
 
 # Checkpoint every "CHEKCPOINT" updates
 CHECKPOINT = 100_000
-
-# Maximum priority to assign an item in the position queue
-MAX_PRIO = 1_000_000
-
-@dataclass(order=True)
-class PrioritizedItem:
-    priority: int
-    item: Any=field(compare=False)
-
-
-def label_for_result(result, turn):
-    if result == '1-0':
-        if turn:
-            return 1
-        else:
-            return -1
-    if result == '0-1':
-        if turn:
-            return -1
-        else:
-            return 1
-
-    return 0
-
 
 def stats(step_output):
     loss = step_output[0]
@@ -66,112 +40,6 @@ def stats(step_output):
     )
 
 
-re1 = re.compile("q=(.*); p=\[(.*)\]")
-re2 = re.compile("(.*):(.*)")
-
-def parse_mcts_result(input):
-    m = re1.match(input)
-
-    if m is None:
-        return None, None
-
-    q = float(m.group(1))
-
-    variations = m.group(2).split(", ")
-
-    v = {}
-    for variation in variations:
-        m2 = re2.match(variation)
-        if m2 is not None:
-            v[m2.group(1)] = float(m2.group(2))
-
-    return q, v
-
-def traverse_game(node, board, queue, skip_training, result):
-    move = node.move
-
-    if node.comment:
-
-        q, policy = parse_mcts_result(node.comment)
-        q = q * 2 - 1.0
-        z = label_for_result(result, board.turn)
-
-        if not skip_training:
-            train_data_board = repr.board_to_array(board)
-            train_data_non_progress = board.halfmove_clock / 100.0
-            train_labels1 = repr.policy_to_array(board, policy)
-
-            if node.is_mainline():
-                train_labels2 = (q + z) * 0.5
-            else:
-                train_labels2 = q
-
-            item = PrioritizedItem(
-                random.randint(0, MAX_PRIO),
-                ( train_data_board,
-                  train_data_non_progress,
-                  train_labels1,
-                  train_labels2 ))
-            queue.put(item)
-
-    if move is not None:
-        board.push(move)
-
-    for sibling in node.variations:
-        traverse_game(sibling, board, queue, skip_training, result)
-
-    if move is not None:
-        board.pop()
-
-def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
-
-    with open(filename) as pgn:
-        while True:
-            skip_training = False
-
-            try:
-                game = chess.pgn.read_game(pgn)
-            except UnicodeDecodeError or ValueError:
-                continue
-            if game is None:
-                break
-
-            result = game.headers["Result"]
-            white = game.headers["White"]
-            black = game.headers["Black"]
-            date_of_game = game.headers["Date"]
-
-            white_elo = game.headers.get("WhiteElo", "-")
-            black_elo = game.headers.get("BlackElo", "-")
-
-            if white_elo != "-" and black_elo != "-":
-                w = int(white_elo)
-                b = int(black_elo)
-                if abs(w - b) < elo_diff:
-                    # print("Skipping game - Elo diff less than {}}.".format(elo_diff))
-                    continue
-                if min(w, b) < min_elo:
-                    continue
-            elif elo_diff > 0:
-                # print("Skipping game, one side has no Elo.")
-                continue
-
-            print("{} ({}) - {} ({}), {} {}        ". format(
-                white, white_elo,
-                black, black_elo,
-                result, date_of_game), end='\r')
-
-            if skip_games > 0:
-                print("Skipping {} games...".format(skip_games), end='\r')
-                skip_games -= 1
-                skip_training = True
-
-            game_counter.labels(result=result).inc()
-
-            traverse_game(game, game.board(), queue, skip_training, result)
-
-    queue.put(PrioritizedItem(MAX_PRIO, None))
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
     parser.add_argument("filename")
@@ -184,16 +52,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    repr = Repr2D()
-
     model_name = args.model
     model = load_or_create_model(model_name)
 
+    repr = Repr2D()
+
     batch_size = args.batch_size
-    train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
-    train_data_non_progress = np.zeros((batch_size, 1), np.float32)
-    train_labels1 = np.zeros((batch_size, 4672), np.float32)
-    train_labels2 = np.zeros((batch_size, 1), np.float32)
 
     start_time = time.perf_counter()
 
@@ -211,6 +75,11 @@ if __name__ == "__main__":
 
     for iteration in range(100):
 
+        train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
+        train_data_non_progress = np.zeros((batch_size, 1), np.float32)
+        train_labels1 = np.zeros((batch_size, 4672), np.float32)
+        train_labels2 = np.zeros((batch_size, 1), np.float32)
+
         cnt = 0
         samples = 0
         checkpoint_no = 0
@@ -224,6 +93,7 @@ if __name__ == "__main__":
         t.start()
 
         while True:
+            
             item = queue.get()
             sample = item.item
 
@@ -298,3 +168,5 @@ if __name__ == "__main__":
                 model.save("combined-model.h5")
             else:
                 model.save(model_name)
+                
+        batch_size *= 2

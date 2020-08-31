@@ -11,7 +11,7 @@ ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
 
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 0.001
+INITIAL_LEARN_RATE = 0.002
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -27,7 +27,7 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
     return tf.where(cond, squared_loss, linear_loss)
 
 
-def residual_block(y, dim, index, residual=True, factor=4):
+def residual_block(y, dim, index, residual=True, factor=3):
     shortcut = y
 
     y = keras.layers.Conv2D(factor * dim, (1, 1),
@@ -95,7 +95,7 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    dim = 64
+    dim = 48
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
@@ -110,7 +110,7 @@ def create_model():
         temp = residual_block(temp, dim, index)
         index += 1
 
-    dim = 96
+    dim = 64
     residual = False
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
@@ -119,7 +119,7 @@ def create_model():
         index += 1
         residual = True
 
-    dim = 120
+    dim = 96
     residual = False
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
@@ -162,7 +162,7 @@ def load_or_create_model(model_name):
 
 def schedule_learn_rate(model, batch_no):
 
-    learn_rate = INITIAL_LEARN_RATE * 0.97 ** (batch_no / 1000)
+    learn_rate = INITIAL_LEARN_RATE # * 0.97 ** (batch_no / 1000)
 
     K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate
