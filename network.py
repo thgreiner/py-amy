@@ -11,7 +11,7 @@ ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
 
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 0.002
+INITIAL_LEARN_RATE = 0.02
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -27,7 +27,7 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
     return tf.where(cond, squared_loss, linear_loss)
 
 
-def residual_block(y, dim, index, residual=True, factor=3):
+def residual_block(y, dim, index, residual=True, factor=6):
     shortcut = y
 
     y = keras.layers.Conv2D(factor * dim, (1, 1),
@@ -41,6 +41,12 @@ def residual_block(y, dim, index, residual=True, factor=3):
                                              name="residual-block-{}-depthwise".format(index),
                                              kernel_regularizer=WEIGHT_REGULARIZER,
                                              activation=RECTIFIER)(y)
+                                             
+    t = keras.layers.GlobalAveragePooling2D(name="residual-block-{}-pooling".format(index))(y)
+    t = keras.layers.Dense(16, name="residual-block-{}-squeeze".format(index), activation=RECTIFIER)(t)
+    t = keras.layers.Dense(dim * factor, name="residual-block-{}-excite".format(index), activation='sigmoid')(t)
+    
+    y = keras.layers.Multiply(name="residual-block-{}-multiply".format(index))([y, t])
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
                                          name="residual-block-{}-contract".format(index),
