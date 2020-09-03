@@ -41,11 +41,11 @@ def residual_block(y, dim, index, residual=True, factor=6):
                                              name="residual-block-{}-depthwise".format(index),
                                              kernel_regularizer=WEIGHT_REGULARIZER,
                                              activation=RECTIFIER)(y)
-                                             
+
     t = keras.layers.GlobalAveragePooling2D(name="residual-block-{}-pooling".format(index))(y)
     t = keras.layers.Dense(16, name="residual-block-{}-squeeze".format(index), activation=RECTIFIER)(t)
     t = keras.layers.Dense(dim * factor, name="residual-block-{}-excite".format(index), activation='sigmoid')(t)
-    
+
     y = keras.layers.Multiply(name="residual-block-{}-multiply".format(index))([y, t])
 
     y = keras.layers.Conv2D(dim, (1, 1), padding='same',
@@ -65,6 +65,13 @@ def create_policy_head(input):
                                             name="pre-moves-conv",
                                             kernel_regularizer=WEIGHT_REGULARIZER,
                                             padding='same')(input)
+
+    t = keras.layers.GlobalAveragePooling2D(name="moves-pooling")(temp)
+    t = keras.layers.Dense(16, name="moves-squeeze", activation=RECTIFIER)(t)
+    t = keras.layers.Dense(dim, name="moves-excite", activation='sigmoid')(t)
+
+    temp = keras.layers.Multiply(name="moves-multiply")([temp, t])
+
     temp = keras.layers.add([temp, input], name="pre-moves-conv-add")
     temp = keras.layers.Activation(name='pre-moves-activation', activation=RECTIFIER)(temp)
 
@@ -77,10 +84,18 @@ def create_policy_head(input):
     return keras.layers.Flatten(name='moves')(temp)
 
 def create_value_head(input, non_progress_input):
+    dim = input.shape.as_list()[-1]
+
+    t = keras.layers.GlobalAveragePooling2D(name="value-pooling")(input)
+    t = keras.layers.Dense(16, name="value-squeeze", activation=RECTIFIER)(t)
+    t = keras.layers.Dense(dim, name="value-excite", activation='sigmoid')(t)
+
+    temp = keras.layers.Multiply(name="value-multiply")([input, t])
+
     temp = keras.layers.Conv2D(9, (1, 1), padding='same',
                                           name="pre-value-conv",
                                           kernel_regularizer=WEIGHT_REGULARIZER,
-                                          activation=RECTIFIER)(input)
+                                          activation=RECTIFIER)(temp)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
     temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
     temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
@@ -140,7 +155,7 @@ def create_model():
     value_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
-        name = "MobileNet_V2-like",
+        name = "MobileNet_V3-like",
         inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output])
 
@@ -166,9 +181,9 @@ def load_or_create_model(model_name):
     return model
 
 
-def schedule_learn_rate(model, batch_no):
+def schedule_learn_rate(model, iteration, batch_no):
 
     learn_rate = INITIAL_LEARN_RATE # * 0.97 ** (batch_no / 1000)
 
-    K.set_value(model.optimizer.lr, learn_rate)
+    K.set_value(model.optimizer.lr, learn_rate / (iteration + 1))
     return learn_rate

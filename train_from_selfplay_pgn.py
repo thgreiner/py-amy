@@ -93,7 +93,7 @@ if __name__ == "__main__":
         t.start()
 
         while True:
-            
+
             item = queue.get()
             sample = item.item
 
@@ -115,7 +115,7 @@ if __name__ == "__main__":
                 train_data = [ train_data_board, train_data_non_progress]
                 train_labels = [ train_labels1, train_labels2 ]
 
-                lr = schedule_learn_rate(model, batch_no)
+                lr = schedule_learn_rate(model, iteration, batch_no)
                 learn_rate_gauge.set(lr)
                 batch_no += 1
                 batch_no_counter.inc()
@@ -168,5 +168,5 @@ if __name__ == "__main__":
                 model.save("combined-model.h5")
             else:
                 model.save(model_name)
-                
-        batch_size *= 2
+
+        # batch_size *= 2
