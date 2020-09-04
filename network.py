@@ -11,7 +11,7 @@ ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
 
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 0.02
+INITIAL_LEARN_RATE = 0.001
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -183,7 +183,7 @@ def load_or_create_model(model_name):
 
 def schedule_learn_rate(model, iteration, batch_no):
 
-    learn_rate = INITIAL_LEARN_RATE # * 0.97 ** (batch_no / 1000)
+    learn_rate = INITIAL_LEARN_RATE  / (iteration + 1)
 
-    K.set_value(model.optimizer.lr, learn_rate / (iteration + 1))
+    K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate
