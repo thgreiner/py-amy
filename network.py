@@ -11,7 +11,7 @@ ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
 
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 0.001
+INITIAL_LEARN_RATE = 0.01
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -43,8 +43,12 @@ def residual_block(y, dim, index, residual=True, factor=6):
                                              activation=RECTIFIER)(y)
 
     t = keras.layers.GlobalAveragePooling2D(name="residual-block-{}-pooling".format(index))(y)
-    t = keras.layers.Dense(16, name="residual-block-{}-squeeze".format(index), activation=RECTIFIER)(t)
-    t = keras.layers.Dense(dim * factor, name="residual-block-{}-excite".format(index), activation='sigmoid')(t)
+    t = keras.layers.Dense(16, name="residual-block-{}-squeeze".format(index),
+                               kernel_regularizer=WEIGHT_REGULARIZER,
+                               activation=RECTIFIER)(t)
+    t = keras.layers.Dense(dim * factor, name="residual-block-{}-excite".format(index),
+                                         kernel_regularizer=WEIGHT_REGULARIZER,
+                                         activation='sigmoid')(t)
 
     y = keras.layers.Multiply(name="residual-block-{}-multiply".format(index))([y, t])
 
@@ -67,8 +71,12 @@ def create_policy_head(input):
                                             padding='same')(input)
 
     t = keras.layers.GlobalAveragePooling2D(name="moves-pooling")(temp)
-    t = keras.layers.Dense(16, name="moves-squeeze", activation=RECTIFIER)(t)
-    t = keras.layers.Dense(dim, name="moves-excite", activation='sigmoid')(t)
+    t = keras.layers.Dense(16, name="moves-squeeze",
+                               kernel_regularizer=WEIGHT_REGULARIZER,
+                               activation=RECTIFIER)(t)
+    t = keras.layers.Dense(dim, name="moves-excite",
+                                kernel_regularizer=WEIGHT_REGULARIZER,
+                                activation='sigmoid')(t)
 
     temp = keras.layers.Multiply(name="moves-multiply")([temp, t])
 
@@ -87,8 +95,12 @@ def create_value_head(input, non_progress_input):
     dim = input.shape.as_list()[-1]
 
     t = keras.layers.GlobalAveragePooling2D(name="value-pooling")(input)
-    t = keras.layers.Dense(16, name="value-squeeze", activation=RECTIFIER)(t)
-    t = keras.layers.Dense(dim, name="value-excite", activation='sigmoid')(t)
+    t = keras.layers.Dense(16, name="value-squeeze",
+                               kernel_regularizer=WEIGHT_REGULARIZER,
+                               activation=RECTIFIER)(t)
+    t = keras.layers.Dense(dim, name="value-excite",
+                                kernel_regularizer=WEIGHT_REGULARIZER,
+                                activation='sigmoid')(t)
 
     temp = keras.layers.Multiply(name="value-multiply")([input, t])
 
