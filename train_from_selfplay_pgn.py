@@ -24,21 +24,47 @@ from pgn_reader import pos_generator
 # Checkpoint every "CHEKCPOINT" updates
 CHECKPOINT = 100_000
 
-def stats(step_output):
-    loss = step_output[0]
-    moves_loss = step_output[1]
-    score_loss = step_output[2]
-    reg_loss = abs(loss - moves_loss - score_loss)
+class Stats(object):
 
-    moves_accuracy = step_output[3]
-    score_mae = step_output[6]
+    def __init__(self):
 
-    return "loss: {:.2f} = {:.2f} + {:.2f} + {:.2f}, move accuracy: {:4.1f}%, score mae: {:.2f}".format(
-        loss,
-        moves_loss, score_loss, reg_loss,
-        moves_accuracy * 100, score_mae
-    )
+        self.sum_moves_accuracy = 0
+        self.sum_score_mae = 0
+        self.sum_loss = 0
+        self.sum_cnt = 0
 
+    def __call__(self, step_output, cnt):
+
+        loss = step_output[0]
+        moves_loss = step_output[1]
+        score_loss = step_output[2]
+        reg_loss = abs(loss - moves_loss - score_loss)
+
+        moves_accuracy = step_output[3]
+        score_mae = step_output[6]
+
+        self.sum_moves_accuracy += moves_accuracy * cnt
+        self.sum_score_mae += score_mae * cnt
+        self.sum_loss += loss * cnt
+        self.sum_cnt += cnt
+
+        return "loss: {:.2f} = {:.2f} + {:.2f} + {:.2f}, move accuracy: {:4.1f}%, score mae: {:.2f} || avg: {:.3f}, {:.2f}%, {:.3f}".format(
+            loss,
+            moves_loss, score_loss, reg_loss,
+            moves_accuracy * 100,
+            score_mae,
+            self.sum_loss / self.sum_cnt,
+            self.sum_moves_accuracy * 100 / self.sum_cnt,
+            self.sum_score_mae / self.sum_cnt
+        )
+
+
+def wait_for_queue_to_fill(q):
+    for i in range(20):
+        time.sleep(1)
+        print("Waiting for queue to fill, current size is {}     ".format(q.qsize()))
+        if q.qsize() > 100000:
+            break
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
@@ -71,9 +97,11 @@ if __name__ == "__main__":
     learn_rate_gauge = Gauge('training_learn_rate', "Learn rate")
     qsize_gauge = Gauge("training_qsize", "Queue size")
 
-    queue = PriorityQueue(maxsize = 400000)
+    queue = PriorityQueue(maxsize = 600000)
 
     for iteration in range(100):
+
+        stats = Stats()
 
         train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
         train_data_non_progress = np.zeros((batch_size, 1), np.float32)
@@ -91,6 +119,8 @@ if __name__ == "__main__":
 
         t = Thread(target = pos_gen)
         t.start()
+
+        wait_for_queue_to_fill(queue)
 
         while True:
 
@@ -129,7 +159,7 @@ if __name__ == "__main__":
 
                 samples += cnt
                 print("{}.{}: {} in {:.1f}s".format(
-                    iteration, samples, stats(results), elapsed))
+                    iteration, samples, stats(results, cnt), elapsed))
 
                 loss_gauge.set(results[0])
                 moves_accuracy_gauge.set(results[3] * 100)
@@ -161,12 +191,14 @@ if __name__ == "__main__":
 
             samples += cnt
             print("{}.{}: {} in {:.1f}s]".format(
-                iteration, samples, stats(results), elapsed))
+                iteration, samples, stats(results, cnt), elapsed))
 
-        if not args.test:
-            if model_name is None:
-                model.save("combined-model.h5")
-            else:
-                model.save(model_name)
+        if args.test:
+            break
+
+        if model_name is None:
+            model.save("combined-model.h5")
+        else:
+            model.save(model_name)
 
         # batch_size *= 2

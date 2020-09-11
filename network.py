@@ -27,7 +27,7 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
     return tf.where(cond, squared_loss, linear_loss)
 
 
-def residual_block(y, dim, index, residual=True, factor=6):
+def residual_block(y, dim, index, residual=True, factor=4):
     shortcut = y
 
     y = keras.layers.Conv2D(factor * dim, (1, 1),
