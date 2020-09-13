@@ -22,6 +22,8 @@ from network import load_or_create_model, schedule_learn_rate
 from dataclasses import dataclass, field
 from typing import Any
 
+from train_stats import Stats
+
 # Checkpoint every "CHEKCPOINT" updates
 CHECKPOINT = 100_000
 
@@ -56,22 +58,6 @@ def label_for_result(result, turn):
             return 1
 
     return 0
-
-
-def stats(step_output):
-    loss = step_output[0]
-    moves_loss = step_output[1]
-    score_loss = step_output[2]
-    reg_loss = abs(loss - moves_loss - score_loss)
-
-    moves_accuracy = step_output[3]
-    score_mae = step_output[6]
-
-    return "loss: {:.2f} = {:.2f} + {:.2f} + {:.2f}, move accuracy: {:4.1f}%, score mae: {:.2f}".format(
-        loss,
-        moves_loss, score_loss, reg_loss,
-        moves_accuracy * 100, score_mae
-    )
 
 
 def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue, test_mode):
@@ -224,6 +210,7 @@ if __name__ == "__main__":
         t = Thread(target = pos_gen)
         t.start()
 
+        stats = Stats()
         while True:
             item = queue.get()
             sample = item.item
@@ -247,7 +234,7 @@ if __name__ == "__main__":
                 train_data = [ train_data_board, train_data_non_progress ]
                 train_labels = [ train_labels1, train_labels2 ]
 
-                lr = schedule_learn_rate(model, batch_no)
+                lr = schedule_learn_rate(model, iteration, batch_no)
                 learn_rate_gauge.set(lr)
                 batch_no += 1
                 batch_no_counter.inc()
@@ -261,7 +248,7 @@ if __name__ == "__main__":
 
                 samples += cnt
                 print("{}.{}: {} in {:.1f}s".format(
-                    iteration, samples, stats(results), elapsed))
+                    iteration, samples, stats(results, cnt), elapsed))
 
                 loss_gauge.set(results[0])
                 moves_accuracy_gauge.set(results[3] * 100)
@@ -292,7 +279,7 @@ if __name__ == "__main__":
 
         samples += cnt
         print("{}.{}: {} in {:.1f}s]".format(
-            iteration, samples, stats(results), elapsed))
+            iteration, samples, stats(results, cnt), elapsed))
 
         if not args.test:
             if model_name is None:
