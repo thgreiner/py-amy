@@ -27,11 +27,15 @@ from train_stats import Stats
 CHECKPOINT = 100_000
 
 def wait_for_queue_to_fill(q):
-    for i in range(20):
+    old_qsize = None
+    for i in range(60):
         time.sleep(1)
         print("Waiting for queue to fill, current size is {}     ".format(q.qsize()))
         if q.qsize() > 100000:
             break
+        if old_qsize is not None and old_qsize == q.qsize():
+            break
+        old_qsize = q.qsize()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
