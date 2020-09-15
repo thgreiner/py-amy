@@ -19,7 +19,7 @@ from prometheus_client import start_http_server, Counter, Gauge
 
 from network import load_or_create_model, schedule_learn_rate
 
-from pgn_reader import pos_generator
+from pgn_reader import pos_generator, randomize_item
 
 from train_stats import Stats
 
@@ -28,10 +28,10 @@ CHECKPOINT = 100_000
 
 def wait_for_queue_to_fill(q):
     old_qsize = None
-    for i in range(60):
+    for i in range(90):
         time.sleep(1)
         print("Waiting for queue to fill, current size is {}     ".format(q.qsize()))
-        if q.qsize() > 100000:
+        if q.qsize() > 200000:
             break
         if old_qsize is not None and old_qsize == q.qsize():
             break
@@ -68,7 +68,16 @@ if __name__ == "__main__":
     learn_rate_gauge = Gauge('training_learn_rate', "Learn rate")
     qsize_gauge = Gauge("training_qsize", "Queue size")
 
-    queue = PriorityQueue(maxsize = 600000)
+    queue = PriorityQueue()
+    queue2 = PriorityQueue()
+
+    pos_gen = partial(pos_generator, args.filename, args.diff, args.min_elo,
+                      args.skip, game_counter, queue)
+
+    t = Thread(target = pos_gen)
+    t.start()
+
+    wait_for_queue_to_fill(queue)
 
     for iteration in range(100):
 
@@ -85,21 +94,16 @@ if __name__ == "__main__":
         checkpoint_next = CHECKPOINT
         batch_no = 0
 
-        pos_gen = partial(pos_generator, args.filename, args.diff, args.min_elo,
-                          args.skip, game_counter, queue)
-
-        t = Thread(target = pos_gen)
-        t.start()
-
-        wait_for_queue_to_fill(queue)
-
         while True:
 
             item = queue.get()
             sample = item.item
 
             if sample is None:
+                queue2.put(item)
                 break
+
+            queue2.put(randomize_item(item))
 
             pos_counter.inc()
             qsize_gauge.set(queue.qsize())
@@ -171,5 +175,7 @@ if __name__ == "__main__":
             model.save("combined-model.h5")
         else:
             model.save(model_name)
+
+        queue, queue2 = queue2, queue
 
         # batch_size *= 2
