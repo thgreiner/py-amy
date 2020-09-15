@@ -57,6 +57,10 @@ def parse_mcts_result(input):
     return q, v
 
 
+def randomize_item(item):
+    item.priority = random.randint(0, MAX_PRIO)
+    return item
+    
 def traverse_game(node, board, queue, skip_training, result):
     move = node.move
 
