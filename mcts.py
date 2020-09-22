@@ -175,13 +175,6 @@ class MCTS:
             subsequent_indent = 11 * " ",
             width=119)
 
-        self.white_prop_gauge = Gauge('white_prob', "Win probability white")
-        self.black_prop_gauge = Gauge('black_prob', "Win probability black")
-        self.nps_gauge = Gauge('nps', 'Nodes per second')
-        self.avg_depth_gauge = Gauge('avg_depth', 'Average search depth')
-        self.median_depth_gauge = Gauge('median_depth', 'Median search depth')
-        self.max_depth_gauge = Gauge('max_depth', 'Max search depth')
-        self.terminal_node_gauge = Gauge('terminal_nodes', 'Percentage of terminal nodes encountered by search')
         self.best_move = None
 
     def move_prob(self, logits, move, xor):
@@ -236,6 +229,9 @@ class MCTS:
             self.avg_depth = self.sum_depth / self.num_simulations
             tmp = np.array(self.depth_list)
             self.median_depth = np.median(tmp, overwrite_input=True)
+
+            avg_depth_gauge.set(self.avg_depth)
+            median_depth_gauge.set(self.median_depth)
 
             click.clear()
             print(board)
@@ -305,18 +301,21 @@ class MCTS:
                     print(line)
 
         else:
-            print("{} - {}: {:4.1f}% {} [{:.1f} sims/s]".format(
+            best_move = select_root_move(root, board.fullmove_number, False)
+            variations_list = variations(board, best_move, root.children[best_move], 1)
+            if len(variations_list) == 0:
+                variations_list.append("")
+            print("{:3} - {:4} {:.1f}% {:8} [{:.1f} sims/s]  {}".format(
                 self.prefix,
                 self.num_simulations,
-                100 * root.children.get(principal_variation[0]).value(),
-                board.variation_san(principal_variation),
-                self.num_simulations / elapsed))
+                100 * root.children[best_move].value(),
+                board.variation_san([best_move]),
+                self.num_simulations / elapsed,
+                variations_list[0])
+            )
 
-        self.nps_gauge.set(self.num_simulations / elapsed)
-        self.terminal_node_gauge.set(100 * self.terminal_nodes / self.num_simulations)
-        self.avg_depth_gauge.set(self.avg_depth)
-        self.median_depth_gauge.set(self.median_depth)
-        self.max_depth_gauge.set(self.max_depth)
+        terminal_node_gauge.set(100 * self.terminal_nodes / self.num_simulations)
+        max_depth_gauge.set(self.max_depth)
 
     def mcts(self, board, sample=True):
         self.start_time = time.perf_counter()
@@ -362,6 +361,8 @@ class MCTS:
                 for i in range(depth):
                     board.pop()
 
+                nodes_counter.inc()
+
                 if iteration > 0 and iteration % 100 == 0:
                     self.statistics(root, board)
 
@@ -374,14 +375,24 @@ class MCTS:
                 if nbc.get_data() == '\x1b':
                     break
 
+
         self.statistics(root, board)
 
         selected_move = select_root_move(root, board.fullmove_number, sample)
         selected_move_child = root.children.get(selected_move)
         if board.turn:
-            self.white_prop_gauge.set(selected_move_child.value())
+            white_prop_gauge.set(selected_move_child.value())
         else:
-            self.black_prop_gauge.set(selected_move_child.value())
+            black_prop_gauge.set(selected_move_child.value())
         elapsed = time.perf_counter() - self.start_time
 
         return selected_move, root
+
+
+white_prop_gauge = Gauge('white_prob', "Win probability white")
+black_prop_gauge = Gauge('black_prob', "Win probability black")
+nodes_counter = Counter('nodes', 'Nodes visited')
+avg_depth_gauge = Gauge('avg_depth', 'Average search depth')
+median_depth_gauge = Gauge('median_depth', 'Median search depth')
+max_depth_gauge = Gauge('max_depth', 'Max search depth')
+terminal_node_gauge = Gauge('terminal_nodes', 'Percentage of terminal nodes encountered by search')
