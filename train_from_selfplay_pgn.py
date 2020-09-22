@@ -168,6 +168,8 @@ if __name__ == "__main__":
             print("{}.{}: {} in {:.1f}s]".format(
                 iteration, samples, stats(results, cnt), elapsed))
 
+        stats.write_to_file()
+
         if args.test:
             break
 
@@ -178,4 +180,4 @@ if __name__ == "__main__":
 
         queue, queue2 = queue2, queue
 
-        # batch_size *= 2
+        batch_size *= 2

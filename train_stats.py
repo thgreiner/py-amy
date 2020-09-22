@@ -31,3 +31,14 @@ class Stats(object):
             self.sum_moves_accuracy * 100 / self.sum_cnt,
             self.sum_score_mae / self.sum_cnt
         )
+ 
+
+    def write_to_file(self, filename="stats.txt"):
+
+        with open(filename, "a") as statsfile:
+            print("{} positions: {:.3f}, {:.2f}%, {:.3f}".format(
+                    self.sum_cnt,
+                    self.sum_loss / self.sum_cnt,
+                    self.sum_moves_accuracy * 100 / self.sum_cnt,
+                    self.sum_score_mae / self.sum_cnt),
+                file=statsfile)
