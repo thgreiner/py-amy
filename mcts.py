@@ -20,6 +20,8 @@ import click
 
 from prometheus_client import Counter, Gauge
 
+from colors import color
+
 class Node(object):
 
     def __init__(self, prior: float):
@@ -273,13 +275,16 @@ class MCTS:
                 message = "   (since iteration {})".format(self.best_move_found)
 
             for move, child_node in stats[:10]:
-                print("{:5.1f}% {:10s} {:5.1f}% [{:4.1f}%] {:6d} visits {}".format(
-                    100 * child_node.value(),
-                    board.variation_san([move]),
-                    100 * child_node.visit_count / self.num_simulations,
-                    100 * child_node.prior,
-                    child_node.visit_count,
-                    message))
+                print(
+                    color(
+                        "{:5.1f}% {:10s} {:5.1f}% [{:4.1f}%] {:6d} visits {}".format(
+                        100 * child_node.value(),
+                        board.variation_san([move]),
+                        100 * child_node.visit_count / self.num_simulations,
+                        100 * child_node.prior,
+                        child_node.visit_count,
+                        message),
+                        get_color(child_node.value())))
                 message = ""
                 if variations_cnt > 0:
                     variations_list = variations(board, move, child_node, variations_cnt)
@@ -293,26 +298,30 @@ class MCTS:
                 print()
                 remaining_moves = []
                 for move, child_node in stats[10:]:
-                    remaining_moves.append("{} ({:.1f}%, {})".format(
-                        board.san(move),
-                        100 * child_node.value(),
-                        child_node.visit_count))
-                for line in self.wrapper.wrap(", ".join(remaining_moves)):
-                    print(line)
+                    remaining_moves.append(
+                        color(
+                            "{} ({:.1f}%, {})".format(
+                                board.san(move),
+                                100 * child_node.value(),
+                                child_node.visit_count),
+                            get_color(child_node.value())))
+                print(", ".join(remaining_moves))
 
         else:
             best_move = select_root_move(root, board.fullmove_number, False)
             variations_list = variations(board, best_move, root.children[best_move], 1)
             if len(variations_list) == 0:
                 variations_list.append("")
-            print("{:3} - {:4} {:.1f}% {:8} [{:.1f} sims/s]  {}".format(
-                self.prefix,
-                self.num_simulations,
-                100 * root.children[best_move].value(),
-                board.variation_san([best_move]),
-                self.num_simulations / elapsed,
-                variations_list[0])
-            )
+            print(
+                color(
+                    "{:3} - {:4} {:5.1f}% {:12} [{:.1f} sims/s]  {}".format(
+                        self.prefix,
+                        self.num_simulations,
+                        100 * root.children[best_move].value(),
+                        board.variation_san([best_move]),
+                        self.num_simulations / elapsed,
+                        variations_list[0]),
+                    get_color(root.children[best_move].value())))
 
         terminal_node_gauge.set(100 * self.terminal_nodes / self.num_simulations)
         max_depth_gauge.set(self.max_depth)
@@ -363,7 +372,7 @@ class MCTS:
 
                 nodes_counter.inc()
 
-                if iteration > 0 and iteration % 100 == 0:
+                if self.verbose and iteration > 0 and iteration % 100 == 0:
                     self.statistics(root, board)
 
                 if root.visit_count >= max_visit_count:
@@ -396,3 +405,13 @@ avg_depth_gauge = Gauge('avg_depth', 'Average search depth')
 median_depth_gauge = Gauge('median_depth', 'Median search depth')
 max_depth_gauge = Gauge('max_depth', 'Max search depth')
 terminal_node_gauge = Gauge('terminal_nodes', 'Percentage of terminal nodes encountered by search')
+
+def get_color(x):
+    t = min(int(x * 13), 12)
+    if t < 6:
+        return 16 + 5 * 36 + 6 * t + t
+    elif t > 6:
+        t = 12 - t
+        return 16 + 36 * t + 6 * 5 + t
+    else:
+        return 0
