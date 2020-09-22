@@ -1,13 +1,14 @@
 from queue import Queue
 from network import load_or_create_model
 import numpy as np
+from threading import Event
 
 class QueuedEvaluator:
 
-    def __init__(self, target_queue: Queue):
+    def __init__(self, target_queue: Queue, name):
         self.result_queue = Queue()
         self.target_queue = target_queue
-        self.name = "bla"
+        self.name = name
 
     def predict(self, features):
         self.target_queue.put((self.result_queue, features))
@@ -20,10 +21,13 @@ class MultiplexingEvaluator:
     def __init__(self, model_name, batch_size):
         self.model_name = model_name
         self.batch_size = batch_size
+        self.model_loaded = Event()
 
     def run(self, input_queue):
 
         model = load_or_create_model(self.model_name)
+        self.name = model.name
+        self.model_loaded.set()
 
         features_board = np.zeros(((self.batch_size, 8, 8, 18)), np.int8)
         features_non_progress = np.zeros((self.batch_size, 1), np.float32)
