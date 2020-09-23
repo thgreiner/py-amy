@@ -19,5 +19,5 @@ if __name__ == "__main__":
 
     for i in range(24):
         qe = QueuedEvaluator(input_queue, multiplexing_evaluator.name)
-        play_thread = Thread(target = lambda: selfplay(qe, 10, verbose=False, prefix=i))
+        play_thread = Thread(target = lambda: selfplay(qe, 800, verbose=False, prefix=str(i)))
         play_thread.start()

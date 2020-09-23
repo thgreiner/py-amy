@@ -18,7 +18,7 @@ from chess_input import Repr2D
 
 import click
 
-from prometheus_client import Counter, Gauge
+from prometheus_client import Counter, Gauge, Histogram
 
 from colors import color
 
@@ -188,6 +188,7 @@ class MCTS:
     def evaluate(self, node, board):
         if board.is_game_over(claim_draw = True):
             self.terminal_nodes += 1
+            terminal_nodes_counter.inc()
             winner = board.result(claim_draw = True)
             # print(winner)
             node.turn = board.turn
@@ -231,9 +232,6 @@ class MCTS:
             self.avg_depth = self.sum_depth / self.num_simulations
             tmp = np.array(self.depth_list)
             self.median_depth = np.median(tmp, overwrite_input=True)
-
-            avg_depth_gauge.set(self.avg_depth)
-            median_depth_gauge.set(self.median_depth)
 
             click.clear()
             print(board)
@@ -323,10 +321,8 @@ class MCTS:
                         variations_list[0]),
                     get_color(root.children[best_move].value())))
 
-        terminal_node_gauge.set(100 * self.terminal_nodes / self.num_simulations)
-        max_depth_gauge.set(self.max_depth)
 
-    def mcts(self, board, sample=True):
+    def mcts(self, board, prefix, sample=True):
         self.start_time = time.perf_counter()
         self.num_simulations = 0
         self.terminal_nodes = 0
@@ -363,6 +359,7 @@ class MCTS:
                 value = self.evaluate(node, board)
                 backpropagate(search_path, value, board.turn)
 
+                depth_histogram.observe(depth)
                 self.max_depth = max(self.max_depth, depth)
                 self.sum_depth += depth
                 self.depth_list.append(depth)
@@ -389,22 +386,21 @@ class MCTS:
 
         selected_move = select_root_move(root, board.fullmove_number, sample)
         selected_move_child = root.children.get(selected_move)
-        if board.turn:
-            white_prop_gauge.set(selected_move_child.value())
-        else:
-            black_prop_gauge.set(selected_move_child.value())
+
+        white_win_prop = selected_move_child.value() if board.turn \
+                         else 1.0 - selected_move_child.value()
+        prop_gauge.labels(game=prefix).set(white_win_prop)
+
         elapsed = time.perf_counter() - self.start_time
 
         return selected_move, root
 
 
-white_prop_gauge = Gauge('white_prob', "Win probability white")
-black_prop_gauge = Gauge('black_prob', "Win probability black")
+prop_gauge = Gauge('white_prob', "Win probability white", [ 'game' ])
 nodes_counter = Counter('nodes', 'Nodes visited')
-avg_depth_gauge = Gauge('avg_depth', 'Average search depth')
-median_depth_gauge = Gauge('median_depth', 'Median search depth')
-max_depth_gauge = Gauge('max_depth', 'Max search depth')
-terminal_node_gauge = Gauge('terminal_nodes', 'Percentage of terminal nodes encountered by search')
+terminal_nodes_counter = Counter('terminal_nodes', 'Terminal nodes visited')
+depth_histogram = Histogram('depth', 'Search depth',
+    buckets = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64])
 
 def get_color(x):
     t = min(int(x * 13), 12)

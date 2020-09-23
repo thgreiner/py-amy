@@ -148,7 +148,7 @@
       "fill": 1,
       "fillGradient": 7,
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 12,
         "x": 12,
         "y": 0
@@ -181,7 +181,13 @@
       "targets": [
         {
           "expr": "rate(nodes_total[$__interval])",
+          "legendFormat": "Nodes/s",
           "refId": "A"
+        },
+        {
+          "expr": "rate(terminal_nodes_total[$__interval])",
+          "legendFormat": "Terminal nodes/s",
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -266,12 +272,19 @@
       "steppedLine": true,
       "targets": [
         {
-          "expr": "avg_depth",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(depth_bucket[1m])))",
+          "legendFormat": "P50",
           "refId": "A"
         },
         {
-          "expr": "max_depth",
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(depth_bucket[1m])))",
+          "legendFormat": "P90",
           "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(depth_bucket[1m])))",
+          "legendFormat": "P99",
+          "refId": "C"
         }
       ],
       "thresholds": [],
@@ -321,97 +334,10 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
-      "fill": 1,
-      "fillGradient": 10,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "hiddenSeries": false,
-      "id": 4,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": true,
-      "targets": [
-        {
-          "expr": "terminal_nodes",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Terminal nodes",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "decimals": null,
-          "format": "percent",
-          "label": null,
-          "logBase": 1,
-          "max": "100",
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
+      "fill": 0,
       "fillGradient": 0,
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
         "x": 0,
         "y": 10
@@ -446,14 +372,8 @@
           "expr": "white_prob",
           "hide": false,
           "instant": false,
-          "legendFormat": "White",
+          "legendFormat": "White #{{game}}",
           "refId": "A"
-        },
-        {
-          "expr": "black_prob",
-          "instant": false,
-          "legendFormat": "Black",
-          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -463,7 +383,7 @@
       "title": "Evaluation",
       "tooltip": {
         "shared": true,
-        "sort": 0,
+        "sort": 1,
         "value_type": "individual"
       },
       "type": "graph",
@@ -481,6 +401,93 @@
           "label": null,
           "logBase": 1,
           "max": "1",
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "hiddenSeries": false,
+      "id": 4,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": true,
+      "targets": [
+        {
+          "expr": "rate(tb_probes_total[$__interval])",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Tablebase probes",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "decimals": null,
+          "format": "ops",
+          "label": null,
+          "logBase": 1,
+          "max": null,
           "min": null,
           "show": true
         },
@@ -527,5 +534,5 @@
   "timezone": "",
   "title": "Selfplay",
   "uid": "rPeKlFRGk",
-  "version": 21
+  "version": 27
 }
