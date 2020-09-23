@@ -1,10 +1,12 @@
 from chess.gaviota import open_tablebase
 from chess import popcount
 from prometheus_client import Counter
+from threading import Lock
 
 tb = open_tablebase('gtb')
 tb_probe_counter = Counter('tb_probes', "Successful tablebase probes")
 
+tb_lock = Lock()
 def get_optimal_move(board):
 
     if popcount(board.pawns | board.knights | board.bishops | board.rooks | board.queens) > 2:
@@ -19,7 +21,8 @@ def get_optimal_move(board):
         is_checkmate = board.is_checkmate()
         if not is_checkmate:
             try:
-                val = -tb.probe_dtm(board)
+                with tb_lock:
+                    val = -tb.probe_dtm(board)
             except KeyError:
                 val = None
         board.pop()

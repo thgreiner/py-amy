@@ -43,4 +43,4 @@ if __name__ == "__main__":
             b = Board()
             b.set_epd(l)
 
-            mcts.mcts(b)
+            mcts.mcts(b, prefix="")
