@@ -1,6 +1,9 @@
 from chess.gaviota import open_tablebase
 from chess import popcount
+from prometheus_client import Counter
+
 tb = open_tablebase('gtb')
+tb_probe_counter = Counter('tb_probes', "Successful tablebase probes")
 
 def get_optimal_move(board):
 
@@ -14,12 +17,21 @@ def get_optimal_move(board):
 
         board.push(m)
         is_checkmate = board.is_checkmate()
-        val = -tb.probe_dtm(board)
+        if not is_checkmate:
+            try:
+                val = -tb.probe_dtm(board)
+            except KeyError:
+                val = None
         board.pop()
 
         if is_checkmate:
             best_move = m
             break
+
+        if val is None:
+            continue
+
+        tb_probe_counter.inc()
 
         if best_move is None:
             best_move = m
