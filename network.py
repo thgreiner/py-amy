@@ -18,13 +18,15 @@ def categorical_crossentropy_from_logits(target, output):
 
 # aleatoric loss function
 def aleatoric_loss(y_true, y_pred):
-    N = y_true.shape[0]
     se = K.pow((y_true[:,0]-y_pred[:,0]),2)
     inv_std = K.exp(-y_pred[:,1])
-    mse = K.mean(inv_std*se)
-    reg = N * K.mean(y_pred[:,1])
+    mse = K.mean(se * inv_std)
+    reg = K.mean(y_pred[:,1])
     return 0.5*(mse + reg)
 
+
+def custom_mae(y_true, y_pred):
+    return K.mean(K.abs(y_true[:,0]-y_pred[:,0]))
 
 def residual_block(y, dim, index, residual=True, factor=4):
     shortcut = y
@@ -193,7 +195,7 @@ def load_or_create_model(model_name):
 
     model.compile(optimizer=optimizer,
                   loss={'moves': categorical_crossentropy_from_logits, 'value': aleatoric_loss },
-                  metrics=['accuracy', 'mae'])
+                  metrics=['accuracy', custom_mae])
     return model
 
 
