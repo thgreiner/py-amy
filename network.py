@@ -183,7 +183,11 @@ def load_or_create_model(model_name):
         model = create_model()
     else:
         print("Loading model from \"{}\"".format(model_name))
-        model = load_model(model_name, custom_objects={ 'categorical_crossentropy_from_logits': categorical_crossentropy_from_logits, 'aleatoric_loss': aleatoric_loss })
+        model = load_model(
+            model_name,
+            custom_objects={ 'categorical_crossentropy_from_logits': categorical_crossentropy_from_logits,
+                             'aleatoric_loss': aleatoric_loss,
+                             'custom_mae': custom_mae })
 
     model.summary()
     print()
