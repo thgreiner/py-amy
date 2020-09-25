@@ -16,15 +16,14 @@ INITIAL_LEARN_RATE = 0.01
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
 
-
-def huber_loss(y_true, y_pred, clip_delta=1.0):
-    error = y_true - y_pred
-    cond  = K.abs(error) < clip_delta
-
-    squared_loss = 0.5 * K.square(error)
-    linear_loss  = clip_delta * (K.abs(error) - 0.5 * clip_delta)
-
-    return tf.where(cond, squared_loss, linear_loss)
+# aleatoric loss function
+def aleatoric_loss(y_true, y_pred):
+    N = y_true.shape[0]
+    se = K.pow((y_true[:,0]-y_pred[:,0]),2)
+    inv_std = K.exp(-y_pred[:,1])
+    mse = K.mean(inv_std*se)
+    reg = N * K.mean(y_pred[:,1])
+    return 0.5*(mse + reg)
 
 
 def residual_block(y, dim, index, residual=True, factor=4):
@@ -118,9 +117,14 @@ def create_value_head(input, non_progress_input):
                               activation=RECTIFIER)(temp)
 
     temp = keras.layers.BatchNormalization(name="value-bn")(temp)
-    return keras.layers.Dense(1, activation='tanh',
-                                 kernel_regularizer=WEIGHT_REGULARIZER,
-                                 name='value')(temp)
+    t1 =  keras.layers.Dense(1, activation='tanh',
+                                kernel_regularizer=WEIGHT_REGULARIZER,
+                                name='prediction')(temp)
+    t2 =  keras.layers.Dense(1, activation='linear',
+                                kernel_regularizer=WEIGHT_REGULARIZER,
+                                name='stddev')(temp)
+    return keras.layers.Concatenate(name='value')([t1, t2])
+
 
 def create_model():
     repr = Repr2D()
@@ -177,7 +181,7 @@ def load_or_create_model(model_name):
         model = create_model()
     else:
         print("Loading model from \"{}\"".format(model_name))
-        model = load_model(model_name, custom_objects={ 'categorical_crossentropy_from_logits': categorical_crossentropy_from_logits, 'huber_loss': huber_loss })
+        model = load_model(model_name, custom_objects={ 'categorical_crossentropy_from_logits': categorical_crossentropy_from_logits, 'aleatoric_loss': aleatoric_loss })
 
     model.summary()
     print()
@@ -188,7 +192,7 @@ def load_or_create_model(model_name):
     # optimizer = keras.optimizers.Adam(lr=0.001)
 
     model.compile(optimizer=optimizer,
-                  loss={'moves': categorical_crossentropy_from_logits, 'value': huber_loss },
+                  loss={'moves': categorical_crossentropy_from_logits, 'value': aleatoric_loss },
                   metrics=['accuracy', 'mae'])
     return model
 

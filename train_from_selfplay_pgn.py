@@ -86,7 +86,7 @@ if __name__ == "__main__":
         train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
         train_data_non_progress = np.zeros((batch_size, 1), np.float32)
         train_labels1 = np.zeros((batch_size, 4672), np.float32)
-        train_labels2 = np.zeros((batch_size, 1), np.float32)
+        train_labels2 = np.zeros((batch_size, 2), np.float32)
 
         cnt = 0
         samples = 0
