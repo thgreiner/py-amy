@@ -61,7 +61,11 @@ def randomize_item(item):
     item.priority = random.randint(0, MAX_PRIO)
     return item
     
-def traverse_game(node, board, queue, skip_training, result):
+def traverse_game(node, board, queue, skip_training, result, follow_variations=False):
+
+    if not follow_variations and not node.is_mainline():
+        return
+
     move = node.move
 
     if node.comment:
