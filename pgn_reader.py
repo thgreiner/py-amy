@@ -104,6 +104,7 @@ def traverse_game(node, board, queue, skip_training, result, follow_variations=F
 
 def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
 
+    cnt = 0
     with open(filename) as pgn:
         while True:
             skip_training = False
@@ -135,17 +136,15 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
                 # print("Skipping game, one side has no Elo.")
                 continue
 
-            print("{} ({}) - {} ({}), {} {}        ". format(
-                white, white_elo,
-                black, black_elo,
-                result, date_of_game), end='\r')
-
             if skip_games > 0:
                 print("Skipping {} games...".format(skip_games), end='\r')
                 skip_games -= 1
                 skip_training = True
 
             game_counter.labels(result=result).inc()
+
+            cnt += 1
+            print("Parsing game #{}".format(cnt), end='\r')
 
             traverse_game(game, game.board(), queue, skip_training, result)
 
