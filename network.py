@@ -11,7 +11,7 @@ ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
 
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 0.01
+INITIAL_LEARN_RATE = 1e-3
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -27,7 +27,7 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
     return tf.where(cond, squared_loss, linear_loss)
 
 
-def residual_block(y, dim, index, residual=True, factor=4):
+def residual_block(y, dim, index, residual=True, factor=5):
     shortcut = y
 
     y = keras.layers.Conv2D(factor * dim, (1, 1),
@@ -186,7 +186,8 @@ def load_or_create_model(model_name):
 
     optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0)
     # optimizer = keras.optimizers.Adam(lr=0.001)
-
+    # optimizer = AdaBound()
+    
     model.compile(optimizer=optimizer,
                   loss={'moves': categorical_crossentropy_from_logits, 'value': huber_loss },
                   metrics=['accuracy', 'mae'])
@@ -195,7 +196,7 @@ def load_or_create_model(model_name):
 
 def schedule_learn_rate(model, iteration, batch_no):
 
-    learn_rate = INITIAL_LEARN_RATE  / (iteration + 1)
+    learn_rate = INITIAL_LEARN_RATE # / (iteration + 1)
 
     K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate

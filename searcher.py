@@ -8,8 +8,8 @@ import numpy as np
 
 nodes = 0
 
-TIME_LIMIT = 100
-NODE_LIMIT = 10000
+TIME_LIMIT = 1000
+NODE_LIMIT = 100000
 
 EPSILON = 0.01
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SELFPLAY_PGN=PGN/selfplay.pgn
+SELFPLAY_PGN=PGN/selfplay-2020.pgn
 
 GAMES=$(find PGN_Selfplay -newer "${SELFPLAY_PGN}" -name "*.pgn")
 

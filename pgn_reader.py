@@ -144,7 +144,7 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
             game_counter.labels(result=result).inc()
 
             cnt += 1
-            print("Parsing game #{}".format(cnt), end='\r')
+            print("Parsing game #{} {}".format(cnt, date_of_game), end='\r')
 
             traverse_game(game, game.board(), queue, skip_training, result)
 
