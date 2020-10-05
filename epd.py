@@ -21,7 +21,7 @@ from pos_generator import generate_kxk
 
 from network import load_or_create_model
 
-from mcts import MCTS
+from mcts_batched import MCTS
 
 from prometheus_client import start_http_server, Counter
 
