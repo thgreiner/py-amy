@@ -160,18 +160,36 @@ def is_singular_move(search_path, threshold):
 def variations(board, move, child, count):
 
     vars = []
-
+    prefix = []
+    
     board.push(move)
-    stats = [ (key, val)
-        for key, val in child.children.items()
-        if val.visit_count > 0 ]
+    
+    while True:
+        stats = [ (key, val)
+            for key, val in child.children.items()
+            if val.visit_count > 0 ]
+            
+        if len(stats) != 1:
+            break
+            
+        prefix.append(stats[0][0])
+        child = stats[0][1]
+        
     stats = sorted(stats, key = lambda e: e[1].visit_count, reverse=True)
 
     for m, grand_child in stats[:count]:
-        line = [ m ]
+        line = []
+        for mp in prefix:
+            line.append(mp)
+            board.push(mp)
+
+        line.append(m)
         board.push(m)
         pv(board, grand_child, line)
         board.pop()
+
+        for mp in prefix:
+            board.pop()
 
         vars.append(board.variation_san(line))
 
