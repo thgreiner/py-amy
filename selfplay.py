@@ -8,7 +8,7 @@ from chess import Board
 from datetime import date
 import pos_generator
 from network import load_or_create_model
-from mcts import MCTS, select_root_move
+from mcts_batched import MCTS, select_root_move
 from prometheus_client import start_http_server, Counter
 
 MAX_HALFMOVES_IN_GAME = 200

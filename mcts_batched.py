@@ -429,7 +429,7 @@ class MCTS:
 
                 self.deferred_evaluator.clear()
 
-                for j in range(BATCH_SIZE):
+                while len(to_evaluate) < BATCH_SIZE:
                     self.num_simulations += 1
                     depth = 0
                     node = root
@@ -441,7 +441,7 @@ class MCTS:
                         depth += 1
 
                     if node.observed_count != 0:
-                        print("Detected observed final node at {}.".format(j), end='\r')
+                        # print("Detected observed final node at {}.".format(j), end='\r')
                         for i in range(depth):
                             board.pop()
                         break
