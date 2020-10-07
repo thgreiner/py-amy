@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-BATCH_SIZE = 32
+BATCH_SIZE=32
 
 from chess import Board
 
@@ -429,7 +429,7 @@ class MCTS:
 
                 self.deferred_evaluator.clear()
 
-                while len(to_evaluate) < BATCH_SIZE:
+                for _ in range(BATCH_SIZE):
                     self.num_simulations += 1
                     depth = 0
                     node = root
