@@ -60,12 +60,8 @@ def parse_mcts_result(input):
 def randomize_item(item):
     item.priority = random.randint(0, MAX_PRIO)
     return item
-
-def traverse_game(node, board, queue, skip_training, result, game_length, ply=0, follow_variations=False):
-
-    ply = ply+1
-    factor = ply / game_length
-    factor = 0.25 + 0.5*factor
+    
+def traverse_game(node, board, queue, skip_training, result, follow_variations=False):
 
     if not follow_variations and not node.is_mainline():
         return
@@ -84,7 +80,7 @@ def traverse_game(node, board, queue, skip_training, result, game_length, ply=0,
             train_labels1 = repr.policy_to_array(board, policy)
 
             if node.is_mainline():
-                train_labels2 = (1-factor)*q + factor*z
+                train_labels2 = (q + z) * 0.5
             else:
                 train_labels2 = q
 
@@ -100,7 +96,7 @@ def traverse_game(node, board, queue, skip_training, result, game_length, ply=0,
         board.push(move)
 
     for sibling in node.variations:
-        traverse_game(sibling, board, queue, skip_training, result, game_length, ply)
+        traverse_game(sibling, board, queue, skip_training, result)
 
     if move is not None:
         board.pop()
@@ -146,14 +142,10 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
                 skip_training = True
 
             game_counter.labels(result=result).inc()
-            game_length = len([x for x in game.mainline()])
-
-            if game_length == 0:
-                continue
 
             cnt += 1
-            print("Parsing game #{} {} [{} plies]   ".format(cnt, date_of_game, game_length), end='\r')
+            print("Parsing game #{} {}".format(cnt, date_of_game), end='\r')
 
-            traverse_game(game, game.board(), queue, skip_training, result, game_length)
+            traverse_game(game, game.board(), queue, skip_training, result)
 
     queue.put(PrioritizedItem(MAX_PRIO, None))
