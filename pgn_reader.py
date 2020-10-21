@@ -6,6 +6,8 @@ from chess_input import Repr2D
 import random
 import re
 
+from prometheus_client import Counter
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,49 +62,54 @@ def parse_mcts_result(input):
 def randomize_item(item):
     item.priority = random.randint(0, MAX_PRIO)
     return item
-    
-def traverse_game(node, board, queue, skip_training, result, follow_variations=False):
+
+
+def traverse_game(node, board, queue, result, sample_rate, follow_variations=False):
 
     if not follow_variations and not node.is_mainline():
         return
 
     move = node.move
 
-    if node.comment:
+    if node.comment and random.randint(0, 100) < sample_rate:
 
         q, policy = parse_mcts_result(node.comment)
         q = q * 2 - 1.0
         z = label_for_result(result, board.turn)
 
-        if not skip_training:
-            train_data_board = repr.board_to_array(board)
-            train_data_non_progress = board.halfmove_clock / 100.0
-            train_labels1 = repr.policy_to_array(board, policy)
+        train_data_board = repr.board_to_array(board)
+        train_data_non_progress = board.halfmove_clock / 100.0
+        train_labels1 = repr.policy_to_array(board, policy)
 
-            if node.is_mainline():
-                train_labels2 = (q + z) * 0.5
-            else:
-                train_labels2 = q
+        if node.is_mainline():
+            train_labels2 = (q + z) * 0.5
+        else:
+            train_labels2 = q
 
-            item = PrioritizedItem(
-                random.randint(0, MAX_PRIO),
-                ( train_data_board,
-                  train_data_non_progress,
-                  train_labels1,
-                  train_labels2 ))
-            queue.put(item)
+        item = PrioritizedItem(
+            random.randint(0, MAX_PRIO),
+            ( train_data_board,
+              train_data_non_progress,
+              train_labels1,
+              train_labels2 ))
+        queue.put(item)
 
     if move is not None:
         board.push(move)
 
     for sibling in node.variations:
-        traverse_game(sibling, board, queue, skip_training, result)
+        traverse_game(sibling, board, queue, result, sample_rate)
 
     if move is not None:
         board.pop()
 
 
-def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
+# Counter for monitoring no. of games
+game_counter = Counter('training_game_total', "Games seen by training", [ "result" ])
+
+def pos_generator(filename, test_mode, queue):
+
+    sample_rate = 100 if test_mode else 50
 
     cnt = 0
     with open(filename) as pgn:
@@ -121,31 +128,11 @@ def pos_generator(filename, elo_diff, min_elo, skip_games, game_counter, queue):
             black = game.headers["Black"]
             date_of_game = game.headers["Date"]
 
-            white_elo = game.headers.get("WhiteElo", "-")
-            black_elo = game.headers.get("BlackElo", "-")
-
-            if white_elo != "-" and black_elo != "-":
-                w = int(white_elo)
-                b = int(black_elo)
-                if abs(w - b) < elo_diff:
-                    # print("Skipping game - Elo diff less than {}}.".format(elo_diff))
-                    continue
-                if min(w, b) < min_elo:
-                    continue
-            elif elo_diff > 0:
-                # print("Skipping game, one side has no Elo.")
-                continue
-
-            if skip_games > 0:
-                print("Skipping {} games...".format(skip_games), end='\r')
-                skip_games -= 1
-                skip_training = True
-
             game_counter.labels(result=result).inc()
 
             cnt += 1
             print("Parsing game #{} {}".format(cnt, date_of_game), end='\r')
 
-            traverse_game(game, game.board(), queue, skip_training, result)
+            traverse_game(game, game.board(), queue, result, sample_rate)
 
     queue.put(PrioritizedItem(MAX_PRIO, None))

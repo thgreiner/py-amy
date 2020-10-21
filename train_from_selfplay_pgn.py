@@ -40,12 +40,9 @@ def wait_for_queue_to_fill(q):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
     parser.add_argument("filename")
-    parser.add_argument('--diff', type=int, help="minimum elo diff", default=0)
     parser.add_argument('--model', help="model file name")
-    parser.add_argument('--skip', type=int, help="games to skip", default=0)
     parser.add_argument('--test', action='store_const', const=True, default=False, help="run test instead of training")
     parser.add_argument('--batch_size', type=int, help="batch size", default=256)
-    parser.add_argument('--min_elo', type=int, help='minimum elo threshold', default=0)
 
     args = parser.parse_args()
 
@@ -61,7 +58,6 @@ if __name__ == "__main__":
     start_http_server(9099)
     pos_counter = Counter('training_position_total', "Positions seen by training")
     batch_no_counter = Counter('training_batch_total', "Training batches")
-    game_counter = Counter('training_game_total', "Games seen by training", [ "result" ])
     loss_gauge = Gauge('training_loss', "Training loss")
     moves_accuracy_gauge = Gauge('training_move_accuracy', "Move accuracy")
     score_mae_gauge = Gauge('training_score_mae', "Score mean absolute error")
@@ -71,8 +67,7 @@ if __name__ == "__main__":
     queue = PriorityQueue()
     queue2 = PriorityQueue()
 
-    pos_gen = partial(pos_generator, args.filename, args.diff, args.min_elo,
-                      args.skip, game_counter, queue)
+    pos_gen = partial(pos_generator, args.filename, args.test, queue)
 
     t = Thread(target = pos_gen)
     t.start()
@@ -168,7 +163,7 @@ if __name__ == "__main__":
             print("{}.{}: {} in {:.1f}s]".format(
                 iteration, samples, stats(results, cnt), elapsed))
 
-        stats.write_to_file()
+        stats.write_to_file(model.name)
 
         if args.test:
             break
@@ -180,4 +175,6 @@ if __name__ == "__main__":
 
         queue, queue2 = queue2, queue
 
+        # Every 2 iterations, double the batch size
+        #if iteration % 2 == 1:
         batch_size *= 2
