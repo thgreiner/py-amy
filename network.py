@@ -8,7 +8,6 @@ from chess_input import Repr2D
 
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
-
 RECTIFIER='elu'
 
 INITIAL_LEARN_RATE = 1e-3
@@ -27,7 +26,7 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
     return tf.where(cond, squared_loss, linear_loss)
 
 
-def residual_block(y, dim, index, residual=True, factor=5):
+def residual_block(y, dim, index, residual=True, factor=4):
     shortcut = y
 
     y = keras.layers.Conv2D(factor * dim, (1, 1),
@@ -104,10 +103,10 @@ def create_value_head(input, non_progress_input):
 
     temp = keras.layers.Multiply(name="value-multiply")([input, t])
 
-    temp = keras.layers.Conv2D(9, (1, 1), padding='same',
-                                          name="pre-value-conv",
-                                          kernel_regularizer=WEIGHT_REGULARIZER,
-                                          activation=RECTIFIER)(temp)
+    temp = keras.layers.Conv2D(24, (1, 1), padding='same',
+                                           name="pre-value-conv",
+                                           kernel_regularizer=WEIGHT_REGULARIZER,
+                                           activation=RECTIFIER)(temp)
     temp = keras.layers.Flatten(name="flatten-value")(temp)
     temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
     temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
@@ -140,7 +139,7 @@ def create_model():
     index = 1
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
     for i in range(6):
-        temp = residual_block(temp, dim, index)
+        temp = residual_block(temp, dim, index, factor=6)
         index += 1
 
     dim = 64
@@ -177,7 +176,9 @@ def load_or_create_model(model_name):
         model = create_model()
     else:
         print("Loading model from \"{}\"".format(model_name))
-        model = load_model(model_name, custom_objects={ 'categorical_crossentropy_from_logits': categorical_crossentropy_from_logits, 'huber_loss': huber_loss })
+        model = load_model(model_name, custom_objects={
+            'categorical_crossentropy_from_logits': categorical_crossentropy_from_logits,
+            'huber_loss': huber_loss })
 
     model.summary()
     print()
@@ -187,7 +188,7 @@ def load_or_create_model(model_name):
     optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0)
     # optimizer = keras.optimizers.Adam(lr=0.001)
     # optimizer = AdaBound()
-    
+
     model.compile(optimizer=optimizer,
                   loss={'moves': categorical_crossentropy_from_logits, 'value': huber_loss },
                   metrics=['accuracy', 'mae'])
