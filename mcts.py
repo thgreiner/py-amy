@@ -89,12 +89,12 @@ def pv(board, node, variation=None):
     return variation
 
 
+pb_c_base = 1000
+pb_c_init = 2.5
+
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
-    pb_c_base = 3000 #19652
-    pb_c_init = 1.25
-
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
 
@@ -144,20 +144,20 @@ def variations(board, move, child, count):
 
     vars = []
     prefix = []
-    
+
     board.push(move)
-    
+
     while True:
         stats = [ (key, val)
             for key, val in child.children.items()
             if val.visit_count > 0 ]
-            
+
         if len(stats) != 1:
             break
-            
+
         prefix.append(stats[0][0])
         child = stats[0][1]
-        
+
     stats = sorted(stats, key = lambda e: e[1].visit_count, reverse=True)
 
     for m, grand_child in stats[:count]:
@@ -340,7 +340,7 @@ class MCTS:
                     get_color(root.children[best_move].value())))
 
 
-    def mcts(self, board, prefix, sample=True):
+    def mcts(self, board, prefix, sample=True, limit=None):
         self.start_time = time.perf_counter()
         self.num_simulations = 0
         self.terminal_nodes = 0
@@ -360,6 +360,8 @@ class MCTS:
 
         best_move = None
         max_visit_count = self.max_simulations
+        if limit is not None:
+            max_visit_count = min(limit, max_visit_count)
 
         with NonBlockingConsole() as nbc:
             for iteration in range(max_visit_count):

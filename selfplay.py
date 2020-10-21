@@ -3,12 +3,13 @@
 import chess.pgn
 import uuid
 import argparse
+import random
 
 from chess import Board
 from datetime import date
 import pos_generator
 from network import load_or_create_model
-from mcts_batched import MCTS, select_root_move
+from mcts import MCTS, select_root_move
 from prometheus_client import start_http_server, Counter
 
 MAX_HALFMOVES_IN_GAME = 200
@@ -34,19 +35,19 @@ def create_node_with_comment(node, tree, best_move, board, pos_counter ,follow_m
     if new_node.comment:
         pos_counter.inc()
 
-    for move, subtree in tree.children.items():
-        if not follow_main_line and move == best_move: continue
-
-        if subtree.visit_count > 100:  # arbitrary threshold
-            if follow_main_line and move == best_move:
-                tmp_node = new_node
-            else:
-                tmp_node = node.add_variation(move)
-            board.push(move)
-            tmp_best_move = select_root_move(subtree, board.fullmove_number, False)
-            if tmp_best_move is not None:
-                create_node_with_comment(tmp_node, subtree, tmp_best_move, board, pos_counter, True)
-            board.pop()
+    # for move, subtree in tree.children.items():
+    #     if not follow_main_line and move == best_move: continue
+    #
+    #     if subtree.visit_count > 100:  # arbitrary threshold
+    #         if follow_main_line and move == best_move:
+    #             tmp_node = new_node
+    #         else:
+    #             tmp_node = node.add_variation(move)
+    #         board.push(move)
+    #         tmp_best_move = select_root_move(subtree, board.fullmove_number, False)
+    #         if tmp_best_move is not None:
+    #             create_node_with_comment(tmp_node, subtree, tmp_best_move, board, pos_counter, True)
+    #         board.pop()
 
     return new_node
 
@@ -79,9 +80,14 @@ def selfplay(model, num_simulations, verbose=True, prefix="0", generator=None):
             board = Board()
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
-            best_move, tree = mcts.mcts(board, prefix=prefix)
+            is_full_playout = random.randint(0, 100) < 25
 
-            node = create_node_with_comment(node, tree, best_move, board, pos_counter)
+            if is_full_playout:
+                best_move, tree = mcts.mcts(board, prefix=prefix)
+                node = create_node_with_comment(node, tree, best_move, board, pos_counter)
+            else:
+                best_move, _ = mcts.mcts(board, prefix=prefix, limit=100)
+                node = node.add_main_variation(best_move)
 
             board.push(best_move)
 
@@ -101,6 +107,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Self play.")
     parser.add_argument('--sims', type=int, help="number of simulations", default=800)
     parser.add_argument('--kqk', action='store_const', const=True, default=False, help="only play K+Q vs K games")
+    parser.add_argument('--kqkr', action='store_const', const=True, default=False, help="only play K+Q vs K+R games")
     parser.add_argument('--krk', action='store_const', const=True, default=False, help="only play K+R vs K games")
     parser.add_argument('--kxk', action='store_const', const=True, default=False, help="only play K+X vs K games")
     parser.add_argument('--kpkp', action='store_const', const=True, default=False, help="only play K+P vs K+P games")
@@ -117,6 +124,8 @@ if __name__ == "__main__":
         generator = pos_generator.generate_kxk
     if args.kpkp:
         generator = pos_generator.generate_kpkp
+    if args.kqkr:
+        generator = pos_generator.generate_kqkr
     if args.kqqk:
         generator = pos_generator.generate_kqqk
 

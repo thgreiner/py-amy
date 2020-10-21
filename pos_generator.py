@@ -44,3 +44,17 @@ def generate_krk():
                 board.set_piece_at(positions[2], Piece.from_symbol("k"))
                 if board.is_valid():
                     return board
+
+
+def generate_kqkr():
+    board = Board()
+    while True:
+        board.clear()
+        positions = random.sample(range(64), 4)
+        while True:
+            board.set_piece_at(positions[0], Piece.from_symbol("K"))
+            board.set_piece_at(positions[1], Piece.from_symbol('Q'))
+            board.set_piece_at(positions[2], Piece.from_symbol("k"))
+            board.set_piece_at(positions[3], Piece.from_symbol("r"))
+            if board.is_valid():
+                return board
