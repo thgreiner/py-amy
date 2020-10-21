@@ -8,6 +8,7 @@ import numpy as np
 import time
 import uuid
 import sys
+import argparse
 
 from datetime import date
 
@@ -27,15 +28,19 @@ from prometheus_client import start_http_server, Counter
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(description="Run training on a PGN file.")
+    parser.add_argument('--model', help="model file name")
+    parser.add_argument("filename")
+
+    args = parser.parse_args()
+
     start_http_server(9099)
 
-    name = sys.argv[1]
 
-    model = load_or_create_model("combined-model.h5")
+    model = load_or_create_model(args.model)
     mcts = MCTS(model, True, None, max_simulations = 5000000, exploration_noise=False)
 
-
-    with open(name, "r") as f:
+    with open(args.filename, "r") as f:
 
         while True:
             l = f.readline()
