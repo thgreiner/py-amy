@@ -105,16 +105,16 @@ def pv(board, node, variation=None):
     return variation
 
 
+pb_c_base = 1000
+pb_c_init = 2.5
+
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
-    pb_c_base = 3000 #19652
-    pb_c_init = 1.25
-
     pb_c = math.log((parent.effective_count() + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.effective_count()) / (child.effective_count() + 1)
 
-    prior_score = pb_c * max(child.prior, 0.02)
+    prior_score = pb_c * child.prior # max(child.prior, 0.02)
     value_score = child.value()
 
     return prior_score + value_score
@@ -161,20 +161,20 @@ def variations(board, move, child, count):
 
     vars = []
     prefix = []
-    
+
     board.push(move)
-    
+
     while True:
         stats = [ (key, val)
             for key, val in child.children.items()
             if val.visit_count > 0 ]
-            
+
         if len(stats) != 1:
             break
-            
+
         prefix.append(stats[0][0])
         child = stats[0][1]
-        
+
     stats = sorted(stats, key = lambda e: e[1].visit_count, reverse=True)
 
     for m, grand_child in stats[:count]:
