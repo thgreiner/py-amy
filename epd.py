@@ -28,7 +28,7 @@ from prometheus_client import start_http_server, Counter
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="Run training on a PGN file.")
+    parser = argparse.ArgumentParser(description="Run evaluation on a EPD file.")
     parser.add_argument('--model', help="model file name")
     parser.add_argument("filename")
 
