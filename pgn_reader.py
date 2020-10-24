@@ -23,16 +23,16 @@ class PrioritizedItem:
 def label_for_result(result, turn):
     if result == '1-0':
         if turn:
-            return 1
+            return [1, 0, 0]
         else:
-            return -1
+            return [0, 1, 0]
     if result == '0-1':
         if turn:
-            return -1
+            return [0, 1, 0]
         else:
-            return 1
+            return [1, 0, 0]
 
-    return 0
+    return [0, 0, 1]
 
 
 repr = Repr2D()
@@ -75,23 +75,19 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
 
         q, policy = parse_mcts_result(node.comment)
         q = q * 2 - 1.0
-        z = label_for_result(result, board.turn)
+
+        result_label = label_for_result(result, board.turn)
+        # z = result_label[0] - result_label[1]
 
         train_data_board = repr.board_to_array(board)
         train_data_non_progress = board.halfmove_clock / 100.0
         train_labels1 = repr.policy_to_array(board, policy)
 
-        if node.is_mainline():
-            train_labels2 = (q + z) * 0.5
-        else:
-            train_labels2 = q
-
         item = PrioritizedItem(
             random.randint(0, MAX_PRIO),
             ( train_data_board,
               train_data_non_progress,
-              train_labels1,
-              train_labels2 ))
+              train_labels1, q, result_label ))
         queue.put(item)
 
     if move is not None:
@@ -109,7 +105,7 @@ game_counter = Counter('training_game_total', "Games seen by training", [ "resul
 
 def pos_generator(filename, test_mode, queue):
 
-    sample_rate = 100 if test_mode else 50
+    sample_rate = 100 if test_mode else 100
 
     cnt = 0
     with open(filename) as pgn:

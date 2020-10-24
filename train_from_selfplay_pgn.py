@@ -72,9 +72,10 @@ if __name__ == "__main__":
     t = Thread(target = pos_gen)
     t.start()
 
-    wait_for_queue_to_fill(queue)
+    if not args.test:
+        wait_for_queue_to_fill(queue)
 
-    for iteration in range(100):
+    for iteration in range(3):
 
         stats = Stats()
 
@@ -82,6 +83,7 @@ if __name__ == "__main__":
         train_data_non_progress = np.zeros((batch_size, 1), np.float32)
         train_labels1 = np.zeros((batch_size, 4672), np.float32)
         train_labels2 = np.zeros((batch_size, 1), np.float32)
+        train_labels3 = np.zeros((batch_size, 3), np.float32)
 
         cnt = 0
         samples = 0
@@ -107,13 +109,14 @@ if __name__ == "__main__":
             train_data_non_progress[cnt, 0] = sample[1]
             train_labels1[cnt] = sample[2]
             train_labels2[cnt, 0] = sample[3]
+            train_labels3[cnt] = sample[4]
             cnt += 1
 
 
             if cnt >= batch_size:
                 # print(train_labels2)
                 train_data = [ train_data_board, train_data_non_progress]
-                train_labels = [ train_labels1, train_labels2 ]
+                train_labels = [ train_labels1, train_labels2, train_labels3 ]
 
                 lr = schedule_learn_rate(model, iteration, batch_no)
                 learn_rate_gauge.set(lr)
@@ -132,8 +135,8 @@ if __name__ == "__main__":
                     iteration, samples, stats(results, cnt), elapsed))
 
                 loss_gauge.set(results[0])
-                moves_accuracy_gauge.set(results[3] * 100)
-                score_mae_gauge.set(results[6])
+                moves_accuracy_gauge.set(results[4] * 100)
+                score_mae_gauge.set(results[5])
 
                 start_time = time.perf_counter()
 
@@ -145,23 +148,6 @@ if __name__ == "__main__":
                     model.save(checkpoint_name)
                     checkpoint_next += CHECKPOINT
 
-
-        # Train on the remainder of the dataset if enough data is remaining
-        if cnt >= 16:
-            train_data = [ train_data_board[:cnt], train_data_non_progress[:cnt] ]
-            train_labels = [ train_labels1[:cnt], train_labels2[:cnt] ]
-
-            start_time = time.perf_counter()
-            if args.test:
-                results = model.test_on_batch(train_data, train_labels)
-            else:
-                results = model.train_on_batch(train_data, train_labels)
-
-            elapsed = time.perf_counter() - start_time
-
-            samples += cnt
-            print("{}.{}: {} in {:.1f}s]".format(
-                iteration, samples, stats(results, cnt), elapsed))
 
         stats.write_to_file(model.name)
 

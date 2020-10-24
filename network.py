@@ -10,7 +10,7 @@ WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
 RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 1e-3
+INITIAL_LEARN_RATE = 1e-2
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -90,6 +90,7 @@ def create_policy_head(input):
 
     return keras.layers.Flatten(name='moves')(temp)
 
+
 def create_value_head(input, non_progress_input):
     dim = input.shape.as_list()[-1]
 
@@ -117,9 +118,15 @@ def create_value_head(input, non_progress_input):
                               activation=RECTIFIER)(temp)
 
     temp = keras.layers.BatchNormalization(name="value-bn")(temp)
-    return keras.layers.Dense(1, activation='tanh',
-                                 kernel_regularizer=WEIGHT_REGULARIZER,
-                                 name='value')(temp)
+    eval_head = keras.layers.Dense(1, activation='tanh',
+                                   kernel_regularizer=WEIGHT_REGULARIZER,
+                                   name='value')(temp)
+
+    result_head = keras.layers.Dense(3, activation='softmax',
+                                     kernel_regularizer=WEIGHT_REGULARIZER,
+                                     name='result')(temp)
+    return eval_head, result_head
+
 
 def create_model():
     repr = Repr2D()
@@ -163,12 +170,12 @@ def create_model():
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
 
     move_output = create_policy_head(temp)
-    value_output = create_value_head(temp, non_progress_input)
+    value_output, game_result_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
         name = "MobileNet_V3-like",
         inputs = [board_input, non_progress_input],
-        outputs = [move_output, value_output])
+        outputs = [move_output, value_output, game_result_output])
 
 
 def load_or_create_model(model_name):
@@ -185,13 +192,17 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0)
+    # optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0)
+    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True)
     # optimizer = keras.optimizers.Adam(lr=0.001)
     # optimizer = AdaBound()
 
     model.compile(optimizer=optimizer,
-                  loss={'moves': categorical_crossentropy_from_logits, 'value': huber_loss },
-                  metrics=['accuracy', 'mae'])
+                  loss={ 'moves': categorical_crossentropy_from_logits,
+                         'value': "mean_squared_error",
+                         'result': "categorical_crossentropy" },
+                  loss_weights={ 'moves': 1.0, 'value': 1.0, 'result': 0.15},
+                  metrics={ 'moves' :['accuracy'], 'value': ['mae'], 'result': ['accuracy'] })
     return model
 
 
