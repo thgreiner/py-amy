@@ -398,7 +398,7 @@ class MCTS:
                     get_color(root.children[best_move].value())))
 
 
-    def mcts(self, board, prefix, sample=True):
+    def mcts(self, board, prefix, sample=True, limit=None):
         self.start_time = time.perf_counter()
         self.num_simulations = 0
         self.terminal_nodes = 0
@@ -418,6 +418,8 @@ class MCTS:
 
         best_move = None
         max_visit_count = self.max_simulations
+        if limit is not None:
+            max_visit_count = min(limit, max_visit_count)
 
         next_statistics = 100
 
