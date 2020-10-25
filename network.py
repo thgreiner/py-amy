@@ -29,32 +29,22 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
 def residual_block(y, dim, index, residual=True, factor=4):
     shortcut = y
 
-    y = keras.layers.Conv2D(factor * dim, (1, 1),
+    y = keras.layers.Conv2D(dim, (3, 3),
                             padding='same',
-                            name="residual-block-{}-expand".format(index),
+                            name="residual-block-{}-conv".format(index),
                             kernel_regularizer=WEIGHT_REGULARIZER,
                             # activity_regularizer=ACTIVITY_REGULARIZER,
                             activation=RECTIFIER)(y)
 
-    y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
-                                             name="residual-block-{}-depthwise".format(index),
-                                             kernel_regularizer=WEIGHT_REGULARIZER,
-                                             activation=RECTIFIER)(y)
-
     t = keras.layers.GlobalAveragePooling2D(name="residual-block-{}-pooling".format(index))(y)
-    t = keras.layers.Dense(16, name="residual-block-{}-squeeze".format(index),
-                               kernel_regularizer=WEIGHT_REGULARIZER,
-                               activation=RECTIFIER)(t)
-    t = keras.layers.Dense(dim * factor, name="residual-block-{}-excite".format(index),
-                                         kernel_regularizer=WEIGHT_REGULARIZER,
-                                         activation='sigmoid')(t)
+    t = keras.layers.Dense(8, name="residual-block-{}-squeeze".format(index),
+                              kernel_regularizer=WEIGHT_REGULARIZER,
+                              activation=RECTIFIER)(t)
+    t = keras.layers.Dense(dim, name="residual-block-{}-excite".format(index),
+                                kernel_regularizer=WEIGHT_REGULARIZER,
+                                activation='sigmoid')(t)
 
     y = keras.layers.Multiply(name="residual-block-{}-multiply".format(index))([y, t])
-
-    y = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                         name="residual-block-{}-contract".format(index),
-                                         kernel_regularizer=WEIGHT_REGULARIZER,
-                                         activation='linear')(y)
 
     if residual:
         y = keras.layers.add([y, shortcut], name="residual-block-{}-add".format(index))
@@ -70,9 +60,9 @@ def create_policy_head(input):
                                             padding='same')(input)
 
     t = keras.layers.GlobalAveragePooling2D(name="moves-pooling")(temp)
-    t = keras.layers.Dense(16, name="moves-squeeze",
-                               kernel_regularizer=WEIGHT_REGULARIZER,
-                               activation=RECTIFIER)(t)
+    t = keras.layers.Dense(8, name="moves-squeeze",
+                              kernel_regularizer=WEIGHT_REGULARIZER,
+                              activation=RECTIFIER)(t)
     t = keras.layers.Dense(dim, name="moves-excite",
                                 kernel_regularizer=WEIGHT_REGULARIZER,
                                 activation='sigmoid')(t)
@@ -95,9 +85,9 @@ def create_value_head(input, non_progress_input):
     dim = input.shape.as_list()[-1]
 
     t = keras.layers.GlobalAveragePooling2D(name="value-pooling")(input)
-    t = keras.layers.Dense(16, name="value-squeeze",
-                               kernel_regularizer=WEIGHT_REGULARIZER,
-                               activation=RECTIFIER)(t)
+    t = keras.layers.Dense(8, name="value-squeeze",
+                              kernel_regularizer=WEIGHT_REGULARIZER,
+                              activation=RECTIFIER)(t)
     t = keras.layers.Dense(dim, name="value-excite",
                                 kernel_regularizer=WEIGHT_REGULARIZER,
                                 activation='sigmoid')(t)
@@ -173,7 +163,7 @@ def create_model():
     value_output, game_result_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
-        name = "MobileNet_V3-like",
+        name = "Full_Convolution_with_SE_48_64_96",
         inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output, game_result_output])
 
