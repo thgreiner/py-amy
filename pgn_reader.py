@@ -66,8 +66,10 @@ def randomize_item(item):
 
 def traverse_game(node, board, queue, result, sample_rate, follow_variations=False):
 
+    positions_created = 0
+
     if not follow_variations and not node.is_mainline():
-        return
+        return positions_created
 
     move = node.move
 
@@ -90,14 +92,18 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
               train_labels1, q, result_label ))
         queue.put(item)
 
+        positions_created += 1
+
     if move is not None:
         board.push(move)
 
     for sibling in node.variations:
-        traverse_game(sibling, board, queue, result, sample_rate)
+        positions_created += traverse_game(sibling, board, queue, result, sample_rate)
 
     if move is not None:
         board.pop()
+
+    return positions_created
 
 
 # Counter for monitoring no. of games
@@ -105,11 +111,13 @@ game_counter = Counter('training_game_total', "Games seen by training", [ "resul
 
 def pos_generator(filename, test_mode, queue):
 
-    sample_rate = 100 if test_mode else 100
+    sample_rate = 100 if test_mode else 50
 
     cnt = 0
     with open(filename) as pgn:
-        while True:
+
+        positions_created = 0
+        while positions_created < 250000:
             skip_training = False
 
             try:
@@ -127,8 +135,8 @@ def pos_generator(filename, test_mode, queue):
             game_counter.labels(result=result).inc()
 
             cnt += 1
-            print("Parsing game #{} {}".format(cnt, date_of_game), end='\r')
+            print("Parsing game #{} {}, {} positions".format(cnt, date_of_game, positions_created), end='\r')
 
-            traverse_game(game, game.board(), queue, result, sample_rate)
+            positions_created += traverse_game(game, game.board(), queue, result, sample_rate)
 
     queue.put(PrioritizedItem(MAX_PRIO, None))
