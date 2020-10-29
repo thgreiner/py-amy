@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    start_http_server(9099)
+    start_http_server(9100)
 
 
     model = load_or_create_model(args.model)
