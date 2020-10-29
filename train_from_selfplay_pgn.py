@@ -31,7 +31,7 @@ def wait_for_queue_to_fill(q):
     for i in range(90):
         time.sleep(1)
         print("Waiting for queue to fill, current size is {}     ".format(q.qsize()))
-        if q.qsize() > 200000:
+        if q.qsize() > 20000:
             break
         if old_qsize is not None and old_qsize == q.qsize():
             break
@@ -60,6 +60,7 @@ if __name__ == "__main__":
     batch_no_counter = Counter('training_batch_total', "Training batches")
     loss_gauge = Gauge('training_loss', "Training loss")
     moves_accuracy_gauge = Gauge('training_move_accuracy', "Move accuracy")
+    moves_top5_accuracy_gauge = Gauge('training_move_top5_accuracy', "Top 5 move accuracy")
     score_mae_gauge = Gauge('training_score_mae', "Score mean absolute error")
     learn_rate_gauge = Gauge('training_learn_rate', "Learn rate")
     qsize_gauge = Gauge("training_qsize", "Queue size")
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     if not args.test:
         wait_for_queue_to_fill(queue)
 
-    for iteration in range(3):
+    for iteration in range(20):
 
         stats = Stats()
 
@@ -136,7 +137,8 @@ if __name__ == "__main__":
 
                 loss_gauge.set(results[0])
                 moves_accuracy_gauge.set(results[4] * 100)
-                score_mae_gauge.set(results[5])
+                moves_top5_accuracy_gauge.set(results[5] * 100)
+                score_mae_gauge.set(results[6])
 
                 start_time = time.perf_counter()
 
@@ -162,5 +164,5 @@ if __name__ == "__main__":
         queue, queue2 = queue2, queue
 
         # Every 2 iterations, double the batch size
-        #if iteration % 2 == 1:
-        batch_size *= 2
+        if iteration % 2 == 1:
+            batch_size *= 2
