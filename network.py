@@ -8,7 +8,7 @@ from chess_input import Repr2D
 
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
-RECTIFIER='elu'
+RECTIFIER='relu'
 
 INITIAL_LEARN_RATE = 1e-2
 
@@ -26,15 +26,32 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
     return tf.where(cond, squared_loss, linear_loss)
 
 
-def residual_block(y, dim, index, residual=True, factor=4):
+def residual_block(y, dim, index, residual=True):
     shortcut = y
+
+    y = keras.layers.BatchNormalization(name="residual-block-{}-bn1".format(index))(y)
+
+    y = keras.layers.Activation(name="residual-block-{}-preactivation1".format(index),
+                                activation=RECTIFIER)(y)
 
     y = keras.layers.Conv2D(dim, (3, 3),
                             padding='same',
-                            name="residual-block-{}-conv".format(index),
+                            name="residual-block-{}-conv1".format(index),
                             kernel_regularizer=WEIGHT_REGULARIZER,
                             # activity_regularizer=ACTIVITY_REGULARIZER,
-                            activation=RECTIFIER)(y)
+                            activation='linear')(y)
+
+    y = keras.layers.BatchNormalization(name="residual-block-{}-bn2".format(index))(y)
+
+    y = keras.layers.Activation(name="residual-block-{}-preactivation2".format(index),
+                                activation=RECTIFIER)(y)
+
+    y = keras.layers.Conv2D(dim, (3, 3),
+                            padding='same',
+                            name="residual-block-{}-conv2".format(index),
+                            kernel_regularizer=WEIGHT_REGULARIZER,
+                            # activity_regularizer=ACTIVITY_REGULARIZER,
+                            activation='linear')(y)
 
     t = keras.layers.GlobalAveragePooling2D(name="residual-block-{}-pooling".format(index))(y)
     t = keras.layers.Dense(8, name="residual-block-{}-squeeze".format(index),
@@ -94,7 +111,7 @@ def create_value_head(input, non_progress_input):
 
     temp = keras.layers.Multiply(name="value-multiply")([input, t])
 
-    temp = keras.layers.Conv2D(24, (1, 1), padding='same',
+    temp = keras.layers.Conv2D(12, (1, 1), padding='same',
                                            name="pre-value-conv",
                                            kernel_regularizer=WEIGHT_REGULARIZER,
                                            activation=RECTIFIER)(temp)
@@ -124,7 +141,10 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    dim = 48
+    layers = [
+        [ 80, 8]
+    ]
+    dim = layers[0][0]
 
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
@@ -132,30 +152,15 @@ def create_model():
                                             # activity_regularizer=ACTIVITY_REGULARIZER,
                                             activation=RECTIFIER)(board_input)
 
-
     index = 1
-    temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
-    for i in range(6):
-        temp = residual_block(temp, dim, index, factor=6)
-        index += 1
+    residual = True
 
-    dim = 64
-    residual = False
-
-    temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
-    for i in range(6):
-        temp = residual_block(temp, dim, index, residual)
-        index += 1
-        residual = True
-
-    dim = 96
-    residual = False
-
-    temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
-    for i in range(6):
-        temp = residual_block(temp, dim, index, residual)
-        index += 1
-        residual = True
+    for width, count in layers:
+        for i in range(count):
+            temp = residual_block(temp, width, index, residual)
+            index += 1
+            residual = True
+        residual = False
 
     temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
 
@@ -163,7 +168,7 @@ def create_model():
     value_output, game_result_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
-        name = "Full_Convolution_with_SE_48_64_96",
+        name = "Full_Convolutionx2_with_SE_80x8",
         inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output, game_result_output])
 
@@ -182,8 +187,8 @@ def load_or_create_model(model_name):
     print("Model name is \"{}\"".format(model.name))
     print()
 
-    # optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0)
-    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True)
+    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0)
+    # optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True)
     # optimizer = keras.optimizers.Adam(lr=0.001)
     # optimizer = AdaBound()
 
@@ -192,7 +197,9 @@ def load_or_create_model(model_name):
                          'value': "mean_squared_error",
                          'result': "categorical_crossentropy" },
                   loss_weights={ 'moves': 1.0, 'value': 1.0, 'result': 0.15},
-                  metrics={ 'moves' :['accuracy'], 'value': ['mae'], 'result': ['accuracy'] })
+                  metrics={ 'moves' :['accuracy', 'top_k_categorical_accuracy'],
+                            'value': ['mae'],
+                            'result': ['accuracy'] })
     return model
 
 
