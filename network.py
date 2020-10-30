@@ -141,16 +141,14 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    layers = [
-        [ 80, 8]
-    ]
-    dim = layers[0][0]
+    layers = [[88, 6]]
 
+    dim = layers[0][0]
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
                                             name="initial-conv",
                                             kernel_regularizer=WEIGHT_REGULARIZER,
                                             # activity_regularizer=ACTIVITY_REGULARIZER,
-                                            activation=RECTIFIER)(board_input)
+                                            activation='linear')(board_input)
 
     index = 1
     residual = True
@@ -168,7 +166,7 @@ def create_model():
     value_output, game_result_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
-        name = "Full_Convolutionx2_with_SE_80x8",
+        name = "Full_Convolutionx2_with_SE_{}".format("-".join(["{}x{}".format(width, count) for width, count in layers])),
         inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output, game_result_output])
 
