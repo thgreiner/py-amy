@@ -55,7 +55,6 @@ if __name__ == "__main__":
 
     start_time = time.perf_counter()
 
-    start_http_server(9099)
     pos_counter = Counter('training_position_total', "Positions seen by training")
     batch_no_counter = Counter('training_batch_total', "Training batches")
     loss_gauge = Gauge('training_loss', "Training loss")
@@ -75,6 +74,8 @@ if __name__ == "__main__":
 
     if not args.test:
         wait_for_queue_to_fill(queue)
+
+    start_http_server(9099)
 
     for iteration in range(20):
 
