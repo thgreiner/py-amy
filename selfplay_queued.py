@@ -5,6 +5,28 @@ from queued_evaluator import QueuedEvaluator, MultiplexingEvaluator
 from threading import Thread
 from queue import Queue
 import argparse
+import chess.pgn
+import time
+
+class QueueSaver:
+    def __init__(self, queue):
+        self.queue = queue
+
+    def __call__(self, game):
+        self.queue.put(game)
+
+class QueueWriter:
+    def __init__(self, queue):
+        self.queue = queue
+
+    def __call__(self):
+        with open("LearnGames-{}.pgn".format(time.strftime('%Y-%m-%d-%H-%M-%S')), "a") as f:
+            exporter = chess.pgn.FileExporter(f)
+            while True:
+                game = self.queue.get()
+                game.accept(exporter)
+                f.flush()
+
 
 if __name__ == "__main__":
 
@@ -18,9 +40,15 @@ if __name__ == "__main__":
     eval_thread = Thread(target = lambda: multiplexing_evaluator.run(input_queue))
     eval_thread.start()
 
+    save_queue = Queue()
+    saver = QueueSaver(save_queue)
+
+    save_thread = Thread(target = QueueWriter(save_queue))
+    save_thread.start()
+
     multiplexing_evaluator.model_loaded.wait()
 
     for i in range(24):
         qe = QueuedEvaluator(input_queue, multiplexing_evaluator.name)
-        play_thread = Thread(target = lambda: selfplay(qe, 800, verbose=False, prefix=str(i)))
+        play_thread = Thread(target = lambda: selfplay(qe, 800, verbose=False, prefix=str(i), saver=saver))
         play_thread.start()
