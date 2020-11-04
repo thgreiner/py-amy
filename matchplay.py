@@ -75,16 +75,20 @@ def matchplay(model1, model2, num_simulations, verbose=True, prefix="0", generat
     mcts2.set_delta_selection_strategy()
 
     total_positions = 0
+    round = 0
 
     while total_positions < 1638400:
 
-        player1 = "Amy Zero [{}]".format(model1.name)
-        player2 = "Amy Zero [{}]".format(model2.name)
+        player1 = "Amy Zero [{}]".format(mcts1.model.name)
+        player2 = "Amy Zero [{}]".format(mcts2.model.name)
+
+        round += 1
 
         game = chess.pgn.Game()
         game.headers["Event"] = "Test Game"
         game.headers["White"] = player1
         game.headers["Black"] = player2
+        game.headers["Round"] = str(round)
         game.headers["Date"] = date.today().strftime("%Y.%m.%d")
         node = game
 
