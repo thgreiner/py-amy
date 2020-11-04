@@ -30,6 +30,7 @@ class Node(object):
         self.prior = prior
         self.value_sum = 0
         self.children = {}
+        self.is_root = False
 
     def expanded(self):
         return len(self.children) > 0
@@ -95,10 +96,15 @@ pb_c_init = 2.5
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
+    if parent.is_root:
+        n_forced_playouts = math.sqrt(child.prior * parent.visit_count * 2)
+        if child.visit_count < n_forced_playouts:
+            return 10000
+
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
 
-    prior_score = pb_c * max(child.prior, 0.02)
+    prior_score = pb_c * child.prior
     value_score = child.value()
 
     return prior_score + value_score
@@ -135,6 +141,31 @@ def select_root_move(tree, move_count, sample=True):
 
     return moves[idx]
 
+
+def select_root_move_delta(tree, move_count, sample=True, delta=0.02):
+
+    if len(tree.children) == 0:
+        return None
+
+    _, best_value = max(((child.visit_count, child.value())
+                        for action, child in tree.children.items()),
+                        key = lambda e: e[0])
+
+    k = 2.0
+    moves = []
+    visits = []
+    for key, val in tree.children.items():
+        if val.visit_count > 0 and val.value() > (best_value - delta):
+            moves.append(key)
+            visits.append(val.visit_count ** k)
+            # print("{} {:4.1f}% {:4d}".format(key, 100*val.value(), val.visit_count))
+
+    if sample and move_count < 15:
+        idx = sample_gumbel(visits)
+    else:
+        idx = np.argmax(visits)
+
+    return moves[idx]
 
 def is_singular_move(search_path, threshold):
     return len(search_path) >= 1 and search_path[1].visit_count > threshold
@@ -185,6 +216,7 @@ class MCTS:
     def __init__(self, model, verbose=True, prefix=None, max_simulations=800, exploration_noise=True):
         self.model = model
         self.repr = Repr2D()
+        self.select_root_move = select_root_move
 
         self.verbose = verbose
         self.prefix = prefix
@@ -196,6 +228,10 @@ class MCTS:
             width=119)
 
         self.best_move = None
+
+
+    def set_delta_selection_strategy(self):
+        self.select_root_move = select_root_move_delta
 
     def move_prob(self, logits, move, xor):
         sq = move.to_square ^ xor
@@ -252,7 +288,7 @@ class MCTS:
             self.median_depth = np.median(tmp, overwrite_input=True)
 
             click.clear()
-            print(board)
+            print(f"{board}   {'White' if board.turn else 'Black'}: {self.model.name}")
             print()
             print(board.fen())
             # print()
@@ -349,6 +385,7 @@ class MCTS:
         self.depth_list = []
 
         root = Node(0)
+        root.is_root = True
         self.evaluate(root, board)
 
         if len(root.children) == 1:
@@ -389,13 +426,13 @@ class MCTS:
 
                 nodes_counter.inc()
 
-                if self.verbose and iteration > 0 and iteration % 100 == 0:
+                if self.verbose and iteration > 0 and iteration % 300 == 0:
                     self.statistics(root, board)
 
                 if root.visit_count >= max_visit_count:
                     break
 
-                if is_singular_move(search_path, 2 * max_visit_count / 3):
+                if is_singular_move(search_path, 4 * max_visit_count / 5):
                     break
 
                 if nbc.get_data() == '\x1b':
@@ -404,7 +441,7 @@ class MCTS:
 
         self.statistics(root, board)
 
-        selected_move = select_root_move(root, board.fullmove_number, sample)
+        selected_move = self.select_root_move(root, board.fullmove_number, sample)
         selected_move_child = root.children.get(selected_move)
 
         white_win_prop = selected_move_child.value() if board.turn \

@@ -58,7 +58,7 @@ game_counter = Counter('games_total', 'Games played by selfplay')
 
 class DefaultGameSaver:
     def __init__(self):
-        self.name = "LearnGames-{}.pgn".format(time.strftime('%Y-%m-%d-%H-%M-%S'))
+        self.name = "MatchGames-{}.pgn".format(time.strftime('%Y-%m-%d-%H-%M-%S'))
 
     def __call__(self, game):
         with open(self.name, "a") as f:
@@ -66,38 +66,37 @@ class DefaultGameSaver:
             game.accept(exporter)
 
 
-def selfplay(model, num_simulations, verbose=True, prefix="0", generator=None, saver=DefaultGameSaver()):
+def matchplay(model1, model2, num_simulations, verbose=True, prefix="0", generator=None, saver=DefaultGameSaver()):
 
-    mcts = MCTS(model, verbose, prefix, exploration_noise=True, max_simulations=num_simulations)
+    mcts1 = MCTS(model1, verbose, prefix, exploration_noise=False, max_simulations=num_simulations)
+    mcts1.set_delta_selection_strategy()
+
+    mcts2 = MCTS(model2, verbose, prefix, exploration_noise=False, max_simulations=num_simulations)
+    mcts2.set_delta_selection_strategy()
 
     total_positions = 0
 
     while total_positions < 1638400:
 
-        player = "Amy Zero [{}]".format(model.name)
+        player1 = "Amy Zero [{}]".format(model1.name)
+        player2 = "Amy Zero [{}]".format(model2.name)
 
         game = chess.pgn.Game()
         game.headers["Event"] = "Test Game"
-        game.headers["White"] = player
-        game.headers["Black"] = player
+        game.headers["White"] = player1
+        game.headers["Black"] = player2
         game.headers["Date"] = date.today().strftime("%Y.%m.%d")
         node = game
 
-        if generator:
-            board = generator()
-            game.setup(board)
-        else:
-            board = Board()
+        board = Board()
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
-            is_full_playout = random.randint(0, 100) < 25
-
-            if is_full_playout:
-                best_move, tree = mcts.mcts(board, prefix=prefix)
-                node = create_node_with_comment(node, tree, best_move, board, pos_counter)
+            if board.turn:
+                best_move, tree = mcts1.mcts(board, prefix=prefix)
             else:
-                best_move, _ = mcts.mcts(board, prefix=prefix, limit=100)
-                node = node.add_main_variation(best_move)
+                best_move, tree = mcts2.mcts(board, prefix=prefix)
+
+            node = create_node_with_comment(node, tree, best_move, board, pos_counter)
 
             board.push(best_move)
 
@@ -109,33 +108,19 @@ def selfplay(model, num_simulations, verbose=True, prefix="0", generator=None, s
 
         game_counter.inc()
 
+        mcts1, mcts2 = mcts2, mcts1
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Self play.")
-    parser.add_argument('--sims', type=int, help="number of simulations", default=800)
-    parser.add_argument('--model', help="model file name")
-    parser.add_argument('--kqk', action='store_const', const=True, default=False, help="only play K+Q vs K games")
-    parser.add_argument('--kqkr', action='store_const', const=True, default=False, help="only play K+Q vs K+R games")
-    parser.add_argument('--krk', action='store_const', const=True, default=False, help="only play K+R vs K games")
-    parser.add_argument('--kxk', action='store_const', const=True, default=False, help="only play K+X vs K games")
-    parser.add_argument('--kpkp', action='store_const', const=True, default=False, help="only play K+P vs K+P games")
-    parser.add_argument('--kqqk', action='store_const', const=True, default=False, help="only play K+Q+Q vs K games")
+    parser.add_argument('--sims', type=int, help="number of simulations", default=5000)
+    parser.add_argument('--model1', help="model1 file name")
+    parser.add_argument('--model2', help="model2 file name")
 
     args = parser.parse_args()
 
-    generator = None
-    if args.kqk:
-        generator = pos_generator.generate_kqk
-    if args.krk:
-        generator = pos_generator.generate_krk
-    if args.kxk:
-        generator = pos_generator.generate_kxk
-    if args.kpkp:
-        generator = pos_generator.generate_kpkp
-    if args.kqkr:
-        generator = pos_generator.generate_kqkr
-    if args.kqqk:
-        generator = pos_generator.generate_kqqk
 
-    model = load_or_create_model(args.model)
-    selfplay(model, args.sims, generator=generator)
+    model1 = load_or_create_model(args.model1)
+    model2 = load_or_create_model(args.model2)
+
+    matchplay(model1, model2, args.sims)

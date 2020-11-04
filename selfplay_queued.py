@@ -20,12 +20,12 @@ class QueueWriter:
         self.queue = queue
 
     def __call__(self):
-        with open("LearnGames-{}.pgn".format(time.strftime('%Y-%m-%d-%H-%M-%S')), "a") as f:
-            exporter = chess.pgn.FileExporter(f)
-            while True:
-                game = self.queue.get()
+        name = "LearnGames-{}.pgn".format(time.strftime('%Y-%m-%d-%H-%M-%S'))
+        while True:
+            game = self.queue.get()
+            with open(name, "a") as f:
+                exporter = chess.pgn.FileExporter(f)
                 game.accept(exporter)
-                f.flush()
 
 
 if __name__ == "__main__":

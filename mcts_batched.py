@@ -36,6 +36,7 @@ class Node(object):
         self.value_sum = 0
         self.children = {}
         self.future_actions = None
+        self.is_root = False
 
     def expanded(self):
         return len(self.children) > 0
@@ -111,6 +112,11 @@ pb_c_init = 2.5
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
 def ucb_score(parent: Node, child: Node):
+    if parent.is_root:
+        n_forced_playouts = math.sqrt(child.prior * parent.visit_count * 2)
+        if child.effective_count() < n_forced_playouts:
+            return 10000
+
     pb_c = math.log((parent.effective_count() + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.effective_count()) / (child.effective_count() + 1)
 
@@ -407,6 +413,7 @@ class MCTS:
         self.depth_list = []
 
         root = Node(0)
+        root.is_root = True
         self.evaluate(root, board)
 
         if len(root.children) == 1:
