@@ -22,6 +22,8 @@ from prometheus_client import Counter, Gauge, Histogram
 
 from colors import color
 
+FORCED_PLAYOUT=10000
+
 class Node(object):
 
     def __init__(self, prior: float):
@@ -31,6 +33,7 @@ class Node(object):
         self.value_sum = 0
         self.children = {}
         self.is_root = False
+        self.forced_playouts = 0
 
     def expanded(self):
         return len(self.children) > 0
@@ -65,11 +68,39 @@ def add_exploration_noise(node: Node):
 
 # Select the child with the highest UCB score.
 def select_child(node: Node):
-    _, action, child = max(((ucb_score(node, child), action, child)
-                           for action, child in node.children.items()),
-                           key = lambda e: e[0])
+    score, action, child = max(((ucb_score(node, child, node.is_root), action, child)
+                                for action, child in node.children.items()),
+                               key = lambda e: e[0])
+
+    if score == FORCED_PLAYOUT:
+        child.forced_playouts += 1
+
     return action, child
 
+
+def correct_forced_playouts(tree: Node):
+
+    _, best_move = max(((child.visit_count, action)
+                        for action, child in tree.children.items()),
+                        key = lambda e: e[0])
+
+    best_ucb_score = ucb_score(tree, tree.children[best_move])
+
+    for action, child in tree.children.items():
+        if action == best_move: continue
+
+        actual_playouts = child.visit_count
+
+        for i in range(1, child.forced_playouts+1):
+            child.visit_count = actual_playouts - i
+            tmp_ucb_score = ucb_score(tree, tree.children[best_move])
+            if tmp_ucb_score > best_ucb_score:
+                child.visit_count = actual_playouts - i + 1
+                break
+            else:
+                pass
+                # print(f"Corrected playout of {action} to {child.visit_count}")
+    return tree
 
 def pv(board, node, variation=None):
 
@@ -95,11 +126,11 @@ pb_c_init = 1.5
 
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
-def ucb_score(parent: Node, child: Node):
-    if parent.is_root:
+def ucb_score(parent: Node, child: Node, forced_playouts=False):
+    if forced_playouts:
         n_forced_playouts = math.sqrt(child.prior * parent.visit_count * 2)
         if child.visit_count < n_forced_playouts:
-            return 10000
+            return FORCED_PLAYOUT
 
     pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
@@ -450,7 +481,7 @@ class MCTS:
 
         elapsed = time.perf_counter() - self.start_time
 
-        return selected_move, root
+        return selected_move, correct_forced_playouts(root)
 
 
 prop_gauge = Gauge('white_prob', "Win probability white", [ 'game' ])
