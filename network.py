@@ -10,7 +10,7 @@ WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
 RECTIFIER='relu'
 
-INITIAL_LEARN_RATE = 1e-2
+INITIAL_LEARN_RATE = 1e-4
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -29,8 +29,6 @@ def huber_loss(y_true, y_pred, clip_delta=1.0):
 def residual_block(y, dim, index, residual=True):
     shortcut = y
 
-    y = keras.layers.BatchNormalization(name="residual-block-{}-bn1".format(index))(y)
-
     y = keras.layers.Activation(name="residual-block-{}-preactivation1".format(index),
                                 activation=RECTIFIER)(y)
 
@@ -40,8 +38,6 @@ def residual_block(y, dim, index, residual=True):
                             kernel_regularizer=WEIGHT_REGULARIZER,
                             # activity_regularizer=ACTIVITY_REGULARIZER,
                             activation='linear')(y)
-
-    y = keras.layers.BatchNormalization(name="residual-block-{}-bn2".format(index))(y)
 
     y = keras.layers.Activation(name="residual-block-{}-preactivation2".format(index),
                                 activation=RECTIFIER)(y)
@@ -54,9 +50,9 @@ def residual_block(y, dim, index, residual=True):
                             activation='linear')(y)
 
     t = keras.layers.GlobalAveragePooling2D(name="residual-block-{}-pooling".format(index))(y)
-    t = keras.layers.Dense(8, name="residual-block-{}-squeeze".format(index),
-                              kernel_regularizer=WEIGHT_REGULARIZER,
-                              activation=RECTIFIER)(t)
+    t = keras.layers.Dense(16, name="residual-block-{}-squeeze".format(index),
+                               kernel_regularizer=WEIGHT_REGULARIZER,
+                               activation=RECTIFIER)(t)
     t = keras.layers.Dense(dim, name="residual-block-{}-excite".format(index),
                                 kernel_regularizer=WEIGHT_REGULARIZER,
                                 activation='sigmoid')(t)
@@ -77,9 +73,9 @@ def create_policy_head(input):
                                             padding='same')(input)
 
     t = keras.layers.GlobalAveragePooling2D(name="moves-pooling")(temp)
-    t = keras.layers.Dense(8, name="moves-squeeze",
-                              kernel_regularizer=WEIGHT_REGULARIZER,
-                              activation=RECTIFIER)(t)
+    t = keras.layers.Dense(16, name="moves-squeeze",
+                               kernel_regularizer=WEIGHT_REGULARIZER,
+                               activation=RECTIFIER)(t)
     t = keras.layers.Dense(dim, name="moves-excite",
                                 kernel_regularizer=WEIGHT_REGULARIZER,
                                 activation='sigmoid')(t)
@@ -102,9 +98,9 @@ def create_value_head(input, non_progress_input):
     dim = input.shape.as_list()[-1]
 
     t = keras.layers.GlobalAveragePooling2D(name="value-pooling")(input)
-    t = keras.layers.Dense(8, name="value-squeeze",
-                              kernel_regularizer=WEIGHT_REGULARIZER,
-                              activation=RECTIFIER)(t)
+    t = keras.layers.Dense(16, name="value-squeeze",
+                               kernel_regularizer=WEIGHT_REGULARIZER,
+                               activation=RECTIFIER)(t)
     t = keras.layers.Dense(dim, name="value-excite",
                                 kernel_regularizer=WEIGHT_REGULARIZER,
                                 activation='sigmoid')(t)
@@ -141,7 +137,7 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    layers = [[88, 6]]
+    layers = [[80, 4]]
 
     dim = layers[0][0]
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
@@ -155,6 +151,7 @@ def create_model():
 
     for width, count in layers:
         for i in range(count):
+            temp  = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(temp)
             temp = residual_block(temp, width, index, residual)
             index += 1
             residual = True
