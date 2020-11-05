@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from math import sqrt, log10, inf
 import chess.pgn
 import argparse
