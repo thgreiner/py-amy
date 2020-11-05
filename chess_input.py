@@ -132,4 +132,4 @@ class Repr2D:
             buf[move.to_square ^ xor, self.plane_index(move, xor)] = value
 
         # return buf.reshape(8, 8, 7)
-        return buf.reshape(4672)
+        return buf.reshape(4672) / np.sum(buf)
