@@ -122,7 +122,7 @@ def pv(board, node, variation=None):
 
 
 pb_c_base = 1000
-pb_c_init = 1.5
+pb_c_init = 1.1
 
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
@@ -261,6 +261,10 @@ class MCTS:
         self.best_move = None
 
 
+    def model_name(self):
+        return self.model.name
+
+
     def set_delta_selection_strategy(self):
         self.select_root_move = select_root_move_delta
 
@@ -319,7 +323,7 @@ class MCTS:
             self.median_depth = np.median(tmp, overwrite_input=True)
 
             click.clear()
-            print(f"{board}   {'White' if board.turn else 'Black'}: {self.model.name}")
+            print(f"{board}   {'White' if board.turn else 'Black'}: {self.model_name()}")
             print()
             print(board.fen())
             # print()
