@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 from chess import Board
+from ucb import FORCED_PLAYOUT, UCB
+from pv import pv, variations
+from move_selection import select_root_move, select_root_move_delta, add_exploration_noise
 
 from tablebase import get_optimal_move
 
@@ -21,8 +24,6 @@ import click
 from prometheus_client import Counter, Gauge, Histogram
 
 from colors import color
-
-FORCED_PLAYOUT=10000
 
 class Node(object):
 
@@ -54,20 +55,8 @@ def score(board, winner):
     return 0
 
 
-def add_exploration_noise(node: Node):
-    root_dirichlet_alpha = 0.3
-    root_exploration_fraction = 0.25
-
-    actions = node.children.keys()
-    noise = np.random.gamma(root_dirichlet_alpha, 1, len(actions))
-    noise /= np.sum(noise)
-    frac = root_exploration_fraction
-    for a, n in zip(actions, noise):
-        node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
-
-
 # Select the child with the highest UCB score.
-def select_child(node: Node):
+def select_child(node: Node, ucb_score):
     score, action, child = max(((ucb_score(node, child, node.is_root), action, child)
                                 for action, child in node.children.items()),
                                key = lambda e: e[0])
@@ -78,7 +67,7 @@ def select_child(node: Node):
     return action, child
 
 
-def correct_forced_playouts(tree: Node):
+def correct_forced_playouts(tree: Node, ucb_score):
 
     _, best_move = max(((child.visit_count, action)
                         for action, child in tree.children.items()),
@@ -97,48 +86,8 @@ def correct_forced_playouts(tree: Node):
             if tmp_ucb_score > best_ucb_score:
                 child.visit_count = actual_playouts - i + 1
                 break
-            else:
-                pass
-                # print(f"Corrected playout of {action} to {child.visit_count}")
+
     return tree
-
-def pv(board, node, variation=None):
-
-    if variation == None:
-        variation = []
-
-    if len(node.children) == 0:
-        return variation
-
-    _, best_move = max(((child.visit_count, action)
-                       for action, child in node.children.items()),
-                       key = lambda e: e[0])
-
-    variation.append(best_move)
-    board.push(best_move)
-    pv(board, node.children[best_move], variation)
-    board.pop()
-    return variation
-
-
-pb_c_base = 1000
-pb_c_init = 1.1
-
-# The score for a node is based on its value, plus an exploration bonus
-# based on  the prior.
-def ucb_score(parent: Node, child: Node, forced_playouts=False):
-    if forced_playouts:
-        n_forced_playouts = math.sqrt(child.prior * parent.visit_count * 2)
-        if child.visit_count < n_forced_playouts:
-            return FORCED_PLAYOUT
-
-    pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
-    pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
-
-    prior_score = pb_c * child.prior
-    value_score = child.value()
-
-    return prior_score + value_score
 
 
 def backpropagate(search_path, value: float, to_play):
@@ -147,99 +96,8 @@ def backpropagate(search_path, value: float, to_play):
         node.visit_count += 1
 
 
-def sample_gumbel(a):
-    b = [math.log(x) - math.log(-math.log(random.uniform(0, 1))) for x in a]
-    return np.argmax(b)
-
-
-def select_root_move(tree, move_count, sample=True):
-
-    if len(tree.children) == 0:
-        return None
-
-    k = 2.0
-    moves = []
-    visits = []
-    for key, val in tree.children.items():
-        if val.visit_count > 0:
-            moves.append(key)
-            visits.append(val.visit_count ** k)
-
-    if sample and move_count < 15:
-        idx = sample_gumbel(visits)
-    else:
-        idx = np.argmax(visits)
-
-    return moves[idx]
-
-
-def select_root_move_delta(tree, move_count, sample=True, delta=0.02):
-
-    if len(tree.children) == 0:
-        return None
-
-    _, best_value = max(((child.visit_count, child.value())
-                        for action, child in tree.children.items()),
-                        key = lambda e: e[0])
-
-    k = 2.0
-    moves = []
-    visits = []
-    for key, val in tree.children.items():
-        if val.visit_count > 0 and val.value() > (best_value - delta):
-            moves.append(key)
-            visits.append(val.visit_count ** k)
-            # print("{} {:4.1f}% {:4d}".format(key, 100*val.value(), val.visit_count))
-
-    if sample and move_count < 15:
-        idx = sample_gumbel(visits)
-    else:
-        idx = np.argmax(visits)
-
-    return moves[idx]
-
 def is_singular_move(search_path, threshold):
     return len(search_path) >= 1 and search_path[1].visit_count > threshold
-
-
-def variations(board, move, child, count):
-
-    vars = []
-    prefix = []
-
-    board.push(move)
-
-    while True:
-        stats = [ (key, val)
-            for key, val in child.children.items()
-            if val.visit_count > 0 ]
-
-        if len(stats) != 1:
-            break
-
-        prefix.append(stats[0][0])
-        child = stats[0][1]
-
-    stats = sorted(stats, key = lambda e: e[1].visit_count, reverse=True)
-
-    for m, grand_child in stats[:count]:
-        line = []
-        for mp in prefix:
-            line.append(mp)
-            board.push(mp)
-
-        line.append(m)
-        board.push(m)
-        pv(board, grand_child, line)
-        board.pop()
-
-        for mp in prefix:
-            board.pop()
-
-        vars.append(board.variation_san(line))
-
-    board.pop()
-    return vars
 
 
 class MCTS:
@@ -260,10 +118,13 @@ class MCTS:
 
         self.best_move = None
 
+        self.ucb_score = UCB(1.25)
+
+    def set_pb_c_init(self, pb_c_init):
+        self.ucb_score = UCB(pb_c_init)
 
     def model_name(self):
-        return self.model.name
-
+        return f"{self.model.name}, {self.ucb_score}"
 
     def set_delta_selection_strategy(self):
         self.select_root_move = select_root_move_delta
@@ -443,7 +304,7 @@ class MCTS:
                 node = root
                 search_path = [ node ]
                 while node.expanded():
-                    move, node = select_child(node)
+                    move, node = select_child(node, self.ucb_score)
                     board.push(move)
                     search_path.append(node)
                     depth += 1
@@ -485,7 +346,7 @@ class MCTS:
 
         elapsed = time.perf_counter() - self.start_time
 
-        return selected_move, correct_forced_playouts(root)
+        return selected_move, correct_forced_playouts(root, self.ucb_score)
 
 
 prop_gauge = Gauge('white_prob', "Win probability white", [ 'game' ])

@@ -3,6 +3,8 @@
 BATCH_SIZE=32
 
 from chess import Board
+from pv import pv, variations
+from move_selection import select_root_move, add_exploration_noise
 
 from tablebase import get_optimal_move
 
@@ -60,18 +62,6 @@ def score(board, winner):
     return 0
 
 
-def add_exploration_noise(node: Node):
-    root_dirichlet_alpha = 0.3
-    root_exploration_fraction = 0.25
-
-    actions = node.children.keys()
-    noise = np.random.gamma(root_dirichlet_alpha, 1, len(actions))
-    noise /= np.sum(noise)
-    frac = root_exploration_fraction
-    for a, n in zip(actions, noise):
-        node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
-
-
 # Select the child with the highest UCB score.
 def select_child(node: Node):
     target_set = [(action, child)
@@ -87,27 +77,8 @@ def select_child(node: Node):
     return action, child
 
 
-def pv(board, node, variation=None):
-
-    if variation == None:
-        variation = []
-
-    if len(node.children) == 0:
-        return variation
-
-    _, best_move = max(((child.visit_count, action)
-                       for action, child in node.children.items()),
-                       key = lambda e: e[0])
-
-    variation.append(best_move)
-    board.push(best_move)
-    pv(board, node.children[best_move], variation)
-    board.pop()
-    return variation
-
-
 pb_c_base = 1000
-pb_c_init = 1.5
+pb_c_init = 2.5
 
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.
@@ -133,74 +104,8 @@ def backpropagate(search_path, value: float, to_play):
         node.observed_count -= 1
 
 
-def sample_gumbel(a):
-    b = [math.log(x) - math.log(-math.log(random.uniform(0, 1))) for x in a]
-    return np.argmax(b)
-
-
-def select_root_move(tree, move_count, sample=True):
-
-    if len(tree.children) == 0:
-        return None
-
-    k = 2.0
-    moves = []
-    visits = []
-    for key, val in tree.children.items():
-        if val.visit_count > 0:
-            moves.append(key)
-            visits.append(val.visit_count ** k)
-
-    if sample and move_count < 15:
-        idx = sample_gumbel(visits)
-    else:
-        idx = np.argmax(visits)
-
-    return moves[idx]
-
-
 def is_singular_move(search_path, threshold):
     return len(search_path) >= 1 and search_path[1].visit_count > threshold
-
-
-def variations(board, move, child, count):
-
-    vars = []
-    prefix = []
-
-    board.push(move)
-
-    while True:
-        stats = [ (key, val)
-            for key, val in child.children.items()
-            if val.visit_count > 0 ]
-
-        if len(stats) != 1:
-            break
-
-        prefix.append(stats[0][0])
-        child = stats[0][1]
-
-    stats = sorted(stats, key = lambda e: e[1].visit_count, reverse=True)
-
-    for m, grand_child in stats[:count]:
-        line = []
-        for mp in prefix:
-            line.append(mp)
-            board.push(mp)
-
-        line.append(m)
-        board.push(m)
-        pv(board, grand_child, line)
-        board.pop()
-
-        for mp in prefix:
-            board.pop()
-
-        vars.append(board.variation_san(line))
-
-    board.pop()
-    return vars
 
 
 class MCTS:
