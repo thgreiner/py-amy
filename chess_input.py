@@ -3,6 +3,7 @@ import chess
 from chess import Board, Piece
 from scipy.sparse import csr_matrix
 
+
 class Repr2D:
     def __init__(self):
         queen_dirs = [-1, 1, -8, 8, -7, 7, -9, 9]

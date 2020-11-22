@@ -3,8 +3,8 @@ from network import load_or_create_model
 import numpy as np
 from threading import Event
 
-class QueuedEvaluator:
 
+class QueuedEvaluator:
     def __init__(self, target_queue: Queue, name):
         self.result_queue = Queue()
         self.target_queue = target_queue
@@ -17,7 +17,6 @@ class QueuedEvaluator:
 
 
 class MultiplexingEvaluator:
-
     def __init__(self, model_name, batch_size):
         self.model_name = model_name
         self.batch_size = batch_size

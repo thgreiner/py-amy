@@ -1,9 +1,9 @@
 from math import sqrt, log
 
-FORCED_PLAYOUT=10000
+FORCED_PLAYOUT = 10000
+
 
 class UCB:
-
     def __init__(self, pb_c_init, pb_c_base=19652):
         self.pb_c_init = pb_c_init
         self.pb_c_base = pb_c_base

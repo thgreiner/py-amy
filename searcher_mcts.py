@@ -6,6 +6,7 @@ import random
 
 TIME_LIMIT = 3
 
+
 class TimeOutException(Exception):
     pass
 
@@ -19,9 +20,8 @@ class MctsSearcher:
 
     def pos_key(self, b):
         fen = b.fen()
-        parts = fen.split(' ')
+        parts = fen.split(" ")
         return "{} {}".format(parts[0], parts[1])
-
 
     def select_index(self, moves, scores):
         sum_scores = sum(scores)
@@ -37,31 +37,34 @@ class MctsSearcher:
         moves = list(board.generate_pseudo_legal_moves())
         while moves:
             scores = np.array(
-                [self.move_score(from_pred, to_pred, board, m) for m in moves])
+                [self.move_score(from_pred, to_pred, board, m) for m in moves]
+            )
             idx = self.select_index(moves, scores)
             if board.is_legal(moves[idx]):
                 return moves[idx]
             moves.remove(moves[idx])
         return None
 
-        
     def next_move(self, board, from_pred, to_pred):
         moves = list(board.generate_pseudo_legal_moves())
         if len(moves) == 0:
             return
-        moves = sorted(moves, key=lambda m: -self.move_score(from_pred, to_pred, board, m))
-        
+        moves = sorted(
+            moves, key=lambda m: -self.move_score(from_pred, to_pred, board, m)
+        )
+
         while moves:
             move = moves[0]
             moves.remove(move)
-            
+
             if board.is_legal(move):
                 yield move
                 break
 
         while moves:
             scores = np.array(
-                [self.move_score(from_pred, to_pred, board, m) for m in moves])
+                [self.move_score(from_pred, to_pred, board, m) for m in moves]
+            )
             idx = self.select_index(moves, scores)
             if board.is_legal(moves[idx]):
                 yield moves[idx]
@@ -74,8 +77,7 @@ class MctsSearcher:
         type = board.piece_at(move.from_square).piece_type
         fr = move.from_square ^ xor
         to = move.to_square ^ xor
-        return max(from_pred[fr], 0) * max(to_pred[type-1][to], 0)
-
+        return max(from_pred[fr], 0) * max(to_pred[type - 1][to], 0)
 
     def play_out(self, b):
 
@@ -86,14 +88,14 @@ class MctsSearcher:
         input = self.repr.board_to_array(b)
         predictions = self.move_model.predict([input.reshape(1, self.repr.SIZE)])
         from_pred = predictions[0].flatten()
-        to_pred   = [ predictions[i].flatten() for i in range(1,7)]
-        
+        to_pred = [predictions[i].flatten() for i in range(1, 7)]
+
         move = self.next_move_mc(b, from_pred, to_pred)
         if move:
             # print(b)
             # print(b.san(move))
             # print()
-            
+
             b.push(move)
             result = self.play_out(b)
             b.pop()
@@ -104,22 +106,22 @@ class MctsSearcher:
     def search(self, b, alpha, beta, depth):
         # print("search({}, {}, {})".format(alpha, beta, depth))
         self.nodes += 1
-        
+
         if self.nodes > self.next_time_check:
             self.elapsed = time.perf_counter() - self.start_time
             if self.elapsed > self.time_limit:
                 raise TimeOutException()
             self.next_time_check = self.nodes + 100
-        
+
         incheck = False
-        
+
         if len(b.move_stack) > self.limit:
             print("Limit reached.")
             return 0
 
         if b.is_insufficient_material() or b.is_fivefold_repetition():
             return 0
-        
+
         if b.can_claim_draw() and 0 >= beta:
             return 0
 
@@ -130,8 +132,8 @@ class MctsSearcher:
         input = self.repr.board_to_array(b)
         predictions = self.move_model.predict([input.reshape(1, self.repr.SIZE)])
         from_pred = predictions[0].flatten()
-        to_pred   = [ predictions[i].flatten() for i in range(1,7)]
-        
+        to_pred = [predictions[i].flatten() for i in range(1, 7)]
+
         if depth <= 0:
             predictions = self.score_model.predict([input.reshape(1, self.repr.SIZE)])
             max_score = predictions[0].flatten()[0]
@@ -152,7 +154,7 @@ class MctsSearcher:
         for move in self.next_move(b, from_pred, to_pred):
             b.push(move)
             try:
-                score = -self.search(b, -beta, -alpha, depth-1)
+                score = -self.search(b, -beta, -alpha, depth - 1)
             finally:
                 b.pop()
             if score > max_score:
@@ -179,8 +181,7 @@ class MctsSearcher:
 
         return max_score
 
-
-    def pv(self, b, move, depth = 0):
+    def pv(self, b, move, depth=0):
         line = b.san(move)
         if depth < 10:
             b.push(move)
@@ -191,7 +192,6 @@ class MctsSearcher:
                 line += " " + self.pv(b, hash_move, depth + 1)
             b.pop()
         return line
-
 
     def select_move(self, b):
         self.nodes = 0
@@ -217,35 +217,42 @@ class MctsSearcher:
                         if b.is_fivefold_repetition():
                             score = 0
                         else:
-                            score = -self.search(b, -1000, -max_score, depth-1)
+                            score = -self.search(b, -1000, -max_score, depth - 1)
                     finally:
                         b.pop()
 
                     self.elapsed = time.perf_counter() - self.start_time
 
-                    print("{}: [{}] {} with score {:.3f}, {} nodes/sec".format(
-                        depth,
-                        b.san(best_move),
-                        b.san(move),
-                        score,
-                        int(self.nodes / self.elapsed)),
-                        end = '\r')
+                    print(
+                        "{}: [{}] {} with score {:.3f}, {} nodes/sec".format(
+                            depth,
+                            b.san(best_move),
+                            b.san(move),
+                            score,
+                            int(self.nodes / self.elapsed),
+                        ),
+                        end="\r",
+                    )
                     if best_move is None or score > max_score:
                         max_score = score
                         best_move = move
                         l.remove(move)
                         l.insert(0, move)
-                print("{}: {} in {:.1f} secs {:.3f}, {} nodes/sec                    ".format(
-                    depth,
-                    self.pv(b, best_move),
-                    self.elapsed,
-                    max_score,
-                    int(self.nodes / self.elapsed)))
+                print(
+                    "{}: {} in {:.1f} secs {:.3f}, {} nodes/sec                    ".format(
+                        depth,
+                        self.pv(b, best_move),
+                        self.elapsed,
+                        max_score,
+                        int(self.nodes / self.elapsed),
+                    )
+                )
         except TimeOutException:
             pass
 
-        print("==> {} with score {:.3f}, {} nodes/sec                ".format(
-            b.san(best_move),
-            max_score,
-            int(self.nodes / self.elapsed)))
+        print(
+            "==> {} with score {:.3f}, {} nodes/sec                ".format(
+                b.san(best_move), max_score, int(self.nodes / self.elapsed)
+            )
+        )
         return best_move

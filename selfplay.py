@@ -16,9 +16,13 @@ from prometheus_client import start_http_server
 MAX_HALFMOVES_IN_GAME = 200
 
 
-def selfplay(model, num_simulations, verbose=True, prefix="0", generator=None, saver=None):
+def selfplay(
+    model, num_simulations, verbose=True, prefix="0", generator=None, saver=None
+):
 
-    mcts = MCTS(model, verbose, prefix, exploration_noise=True, max_simulations=num_simulations)
+    mcts = MCTS(
+        model, verbose, prefix, exploration_noise=True, max_simulations=num_simulations
+    )
 
     if saver is None:
         saver = DefaultGameSaver("LearnGames")
@@ -48,13 +52,18 @@ def selfplay(model, num_simulations, verbose=True, prefix="0", generator=None, s
 
         fully_playout_game = random.randint(0, 100) < 8
 
-        while not board.is_game_over(claim_draw=True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
+        while (
+            not board.is_game_over(claim_draw=True)
+            and board.halfmove_clock < MAX_HALFMOVES_IN_GAME
+        ):
             is_full_playout = fully_playout_game or (random.randint(0, 100) < 25)
 
             if is_full_playout:
                 tree = mcts.mcts(board, prefix=prefix)
                 best_move = select_root_move(tree, board.fullmove_number, True)
-                node = create_node_with_comment(node, mcts.correct_forced_playouts(tree), best_move, board)
+                node = create_node_with_comment(
+                    node, mcts.correct_forced_playouts(tree), best_move, board
+                )
             else:
                 tree = mcts.mcts(board, prefix=prefix, limit=100)
                 best_move = select_root_move(tree, board.fullmove_number, True)
@@ -72,14 +81,50 @@ def selfplay(model, num_simulations, verbose=True, prefix="0", generator=None, s
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Self play.")
-    parser.add_argument('--sims', type=int, help="number of simulations", default=800)
-    parser.add_argument('--model', help="model file name")
-    parser.add_argument('--kqk', action='store_const', const=True, default=False, help="only play K+Q vs K games")
-    parser.add_argument('--kqkr', action='store_const', const=True, default=False, help="only play K+Q vs K+R games")
-    parser.add_argument('--krk', action='store_const', const=True, default=False, help="only play K+R vs K games")
-    parser.add_argument('--kxk', action='store_const', const=True, default=False, help="only play K+X vs K games")
-    parser.add_argument('--kpkp', action='store_const', const=True, default=False, help="only play K+P vs K+P games")
-    parser.add_argument('--kqqk', action='store_const', const=True, default=False, help="only play K+Q+Q vs K games")
+    parser.add_argument("--sims", type=int, help="number of simulations", default=800)
+    parser.add_argument("--model", help="model file name")
+    parser.add_argument(
+        "--kqk",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+Q vs K games",
+    )
+    parser.add_argument(
+        "--kqkr",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+Q vs K+R games",
+    )
+    parser.add_argument(
+        "--krk",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+R vs K games",
+    )
+    parser.add_argument(
+        "--kxk",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+X vs K games",
+    )
+    parser.add_argument(
+        "--kpkp",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+P vs K+P games",
+    )
+    parser.add_argument(
+        "--kqqk",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+Q+Q vs K games",
+    )
 
     args = parser.parse_args()
 

@@ -3,13 +3,20 @@ from chess import popcount
 from prometheus_client import Counter
 from threading import Lock
 
-tb = open_tablebase('gtb')
-tb_probe_counter = Counter('tb_probes', "Successful tablebase probes")
+tb = open_tablebase("gtb")
+tb_probe_counter = Counter("tb_probes", "Successful tablebase probes")
 
 tb_lock = Lock()
+
+
 def get_optimal_move(board):
 
-    if popcount(board.pawns | board.knights | board.bishops | board.rooks | board.queens) > 2:
+    if (
+        popcount(
+            board.pawns | board.knights | board.bishops | board.rooks | board.queens
+        )
+        > 2
+    ):
         return None, None
 
     best_move = None
@@ -49,10 +56,11 @@ def get_optimal_move(board):
                     best_move = m
                     best_val = val
             elif best_val == 0 and val > 0:
-                    best_move = m
-                    best_val = val
+                best_move = m
+                best_val = val
 
     return best_move, tb_val_to_str(best_val)
+
 
 def tb_val_to_str(val):
     if val == 0:
@@ -60,4 +68,4 @@ def tb_val_to_str(val):
     elif val > 0:
         return "M{}".format(val // 2)
     else:
-        return "-M{}".format((-val+1) // 2)
+        return "-M{}".format((-val + 1) // 2)

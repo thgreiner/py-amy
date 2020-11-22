@@ -97,7 +97,7 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
             train_data_non_progress,
             train_labels1,
             q,
-            result_label
+            result_label,
         )
         queue.put(item)
 
@@ -121,7 +121,7 @@ game_counter = Counter("training_game_total", "Games seen by training", ["result
 
 def pos_generator(filename, test_mode, queue):
 
-    sample_rate = 100 # if test_mode else 50
+    sample_rate = 100  # if test_mode else 50
 
     cnt = 0
     with open(filename) as pgn:
