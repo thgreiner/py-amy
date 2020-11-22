@@ -1,7 +1,7 @@
 import numpy as np
 import chess
 from chess import Board, Piece
-
+from scipy.sparse import csr_matrix
 
 class Repr2D:
     def __init__(self):
@@ -127,4 +127,5 @@ class Repr2D:
             buf[move.to_square ^ xor, self.plane_index(move, xor)] = value
 
         # return buf.reshape(8, 8, 7)
-        return buf.reshape(4672) / np.sum(buf)
+        buf = buf / np.sum(buf)
+        return csr_matrix(buf)

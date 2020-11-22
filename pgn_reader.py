@@ -18,7 +18,11 @@ MAX_PRIO = 1_000_000
 @dataclass(order=True)
 class PrioritizedItem:
     priority: int
-    item: Any = field(compare=False)
+    data_board: Any = field(compare=False)
+    data_non_progress: Any = field(compare=False)
+    label_moves: Any = field(compare=False)
+    label_value: Any = field(compare=False)
+    label_result: Any = field(compare=False)
 
 
 def label_for_result(result, turn):
@@ -89,7 +93,11 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
 
         item = PrioritizedItem(
             random.randint(0, MAX_PRIO),
-            (train_data_board, train_data_non_progress, train_labels1, q, result_label),
+            train_data_board,
+            train_data_non_progress,
+            train_labels1,
+            q,
+            result_label
         )
         queue.put(item)
 
@@ -113,13 +121,13 @@ game_counter = Counter("training_game_total", "Games seen by training", ["result
 
 def pos_generator(filename, test_mode, queue):
 
-    sample_rate = 100 if test_mode else 50
+    sample_rate = 100 # if test_mode else 50
 
     cnt = 0
     with open(filename) as pgn:
 
         positions_created = 0
-        while positions_created < 250000:
+        while positions_created < 2500000:
             skip_training = False
 
             try:
@@ -148,4 +156,4 @@ def pos_generator(filename, test_mode, queue):
                 game, game.board(), queue, result, sample_rate
             )
 
-    queue.put(PrioritizedItem(MAX_PRIO, None))
+    queue.put(PrioritizedItem(MAX_PRIO, None, None, None, None, None))

@@ -96,9 +96,8 @@ if __name__ == "__main__":
         while True:
 
             item = queue.get()
-            sample = item.item
 
-            if sample is None:
+            if item.data_board is None:
                 queue2.put(item)
                 break
 
@@ -107,11 +106,11 @@ if __name__ == "__main__":
             pos_counter.inc()
             qsize_gauge.set(queue.qsize())
 
-            train_data_board[cnt] = sample[0]
-            train_data_non_progress[cnt, 0] = sample[1]
-            train_labels1[cnt] = sample[2]
-            train_labels2[cnt, 0] = sample[3]
-            train_labels3[cnt] = sample[4]
+            train_data_board[cnt] = item.data_board
+            train_data_non_progress[cnt, 0] = item.data_non_progress
+            train_labels1[cnt] = item.label_moves.todense().reshape(4672)
+            train_labels2[cnt, 0] = item.label_value
+            train_labels3[cnt] = item.label_result
             cnt += 1
 
 
