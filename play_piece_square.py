@@ -33,7 +33,7 @@ MAX_HALFMOVES_IN_GAME = 200
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Run evaluation on a EPD file.")
-    parser.add_argument('--model', help="model file name")
+    parser.add_argument("--model", help="model file name")
 
     args = parser.parse_args()
 
@@ -43,9 +43,11 @@ if __name__ == "__main__":
 
     mcts = MCTS(model, max_simulations=800)
 
-    ps_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
+    ps_searcher = Searcher(
+        lambda board: piece_square_eval.evaluate(board), "PieceSquareTables"
+    )
 
-    saver=DefaultGameSaver("TestGames")
+    saver = DefaultGameSaver("TestGames")
 
     total_positions = 0
     while total_positions < 16384:
@@ -77,7 +79,10 @@ if __name__ == "__main__":
                 board.push(m)
                 node = node.add_variation(m)
 
-        while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
+        while (
+            not board.is_game_over(claim_draw=True)
+            and board.halfmove_clock < MAX_HALFMOVES_IN_GAME
+        ):
             if board.turn:
                 tree = mcts.mcts(board, prefix=None)
                 best_move = select_root_move_delta(tree, board.fullmove_number)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-BATCH_SIZE=32
+BATCH_SIZE = 32
 
 from chess import Board
 from pv import pv, variations
@@ -28,8 +28,8 @@ from colors import color
 
 from deferred_evaluator import DeferredEvaluator
 
-class Node(object):
 
+class Node(object):
     def __init__(self, prior: float):
         self.visit_count = 0
         self.observed_count = 0
@@ -64,16 +64,19 @@ def score(board, winner):
 
 # Select the child with the highest UCB score.
 def select_child(node: Node):
-    target_set = [(action, child)
+    target_set = [
+        (action, child)
         for action, child in node.children.items()
-        if child.expanded() or child.observed_count == 0]
+        if child.expanded() or child.observed_count == 0
+    ]
 
     if len(target_set) == 0:
         target_set = [(action, child) for action, child in node.children.items()]
 
-    _, action, child = max(((ucb_score(node, child), action, child)
-                           for action, child in target_set),
-                           key = lambda e: e[0])
+    _, action, child = max(
+        ((ucb_score(node, child), action, child) for action, child in target_set),
+        key=lambda e: e[0],
+    )
     return action, child
 
 
@@ -91,7 +94,7 @@ def ucb_score(parent: Node, child: Node):
     pb_c = math.log((parent.effective_count() + pb_c_base + 1) / pb_c_base) + pb_c_init
     pb_c *= math.sqrt(parent.effective_count()) / (child.effective_count() + 1)
 
-    prior_score = pb_c * child.prior # max(child.prior, 0.02)
+    prior_score = pb_c * child.prior  # max(child.prior, 0.02)
     value_score = child.value()
 
     return prior_score + value_score
@@ -99,7 +102,7 @@ def ucb_score(parent: Node, child: Node):
 
 def backpropagate(search_path, value: float, to_play):
     for node in search_path:
-        node.value_sum += (value if node.turn != to_play else (1 - value))
+        node.value_sum += value if node.turn != to_play else (1 - value)
         node.visit_count += 1
         node.observed_count -= 1
 
@@ -109,8 +112,14 @@ def is_singular_move(search_path, threshold):
 
 
 class MCTS:
-
-    def __init__(self, model, verbose=True, prefix=None, max_simulations=800, exploration_noise=True):
+    def __init__(
+        self,
+        model,
+        verbose=True,
+        prefix=None,
+        max_simulations=800,
+        exploration_noise=True,
+    ):
         self.model = model
         self.repr = Repr2D()
 
@@ -119,9 +128,8 @@ class MCTS:
         self.max_simulations = max_simulations
         self.exploration_noise = exploration_noise
         self.wrapper = wrapper = textwrap.TextWrapper(
-            initial_indent = 9 * " ",
-            subsequent_indent = 11 * " ",
-            width=119)
+            initial_indent=9 * " ", subsequent_indent=11 * " ", width=119
+        )
 
         self.best_move = None
         self.deferred_evaluator = DeferredEvaluator(model, BATCH_SIZE)
@@ -131,18 +139,19 @@ class MCTS:
         plane = self.repr.plane_index(move, xor)
         return math.exp(logits[sq, plane])
 
-
     def evaluate(self, node, board):
-        if board.is_game_over(claim_draw = True):
+        if board.is_game_over(claim_draw=True):
             self.terminal_nodes += 1
             terminal_nodes_counter.inc()
-            winner = board.result(claim_draw = True)
+            winner = board.result(claim_draw=True)
             # print(winner)
             node.turn = board.turn
             return score(board, winner)
 
-        input_board = self.repr.board_to_array(board).reshape(1, 8, 8, self.repr.num_planes)
-        input_non_progress = np.array([ board.halfmove_clock / 100.0 ])
+        input_board = self.repr.board_to_array(board).reshape(
+            1, 8, 8, self.repr.num_planes
+        )
+        input_non_progress = np.array([board.halfmove_clock / 100.0])
 
         prediction = self.model.predict([input_board, input_non_progress])
 
@@ -161,9 +170,15 @@ class MCTS:
         node.turn = board.turn
 
         if tb_value is not None and tb_value != "Draw":
-            policy = {move: (1 if move == tb_move else 0) for move in board.generate_legal_moves()}
+            policy = {
+                move: (1 if move == tb_move else 0)
+                for move in board.generate_legal_moves()
+            }
         else:
-            policy = {move: (self.move_prob(logits, move, xor)) for move in board.generate_legal_moves()}
+            policy = {
+                move: (self.move_prob(logits, move, xor))
+                for move in board.generate_legal_moves()
+            }
 
         policy_sum = sum(policy.values())
         for action, p in policy.items():
@@ -184,7 +199,9 @@ class MCTS:
         # Expand the node.
         node.turn = turn
 
-        policy = {move: (self.move_prob(logits, move, xor)) for move in node.future_actions}
+        policy = {
+            move: (self.move_prob(logits, move, xor)) for move in node.future_actions
+        }
         node.future_actions = None
 
         policy_sum = sum(policy.values())
@@ -194,16 +211,18 @@ class MCTS:
         return value
 
     def evaluate_deferred(self, node, board):
-        if board.is_game_over(claim_draw = True):
+        if board.is_game_over(claim_draw=True):
             self.terminal_nodes += 1
             terminal_nodes_counter.inc()
-            winner = board.result(claim_draw = True)
+            winner = board.result(claim_draw=True)
             # print(winner)
             node.turn = board.turn
             return score(board, winner)
 
-        input_board = self.repr.board_to_array(board).reshape(1, 8, 8, self.repr.num_planes)
-        input_non_progress = np.array([ board.halfmove_clock / 100.0 ])
+        input_board = self.repr.board_to_array(board).reshape(
+            1, 8, 8, self.repr.num_planes
+        )
+        input_non_progress = np.array([board.halfmove_clock / 100.0])
 
         self.deferred_evaluator.add((input_board, input_non_progress))
 
@@ -227,23 +246,26 @@ class MCTS:
             # print()
             # print(board.variation_san(principal_variation))
             print()
-            print("{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
-                self.num_simulations,
-                elapsed,
-                self.num_simulations / elapsed
-            ))
+            print(
+                "{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
+                    self.num_simulations, elapsed, self.num_simulations / elapsed
+                )
+            )
             print()
-            print("Max depth: {} Median depth: {} Avg depth: {:.1f} Terminal nodes: {:.1f}%".format(
-                self.max_depth,
-                self.median_depth,
-                self.avg_depth,
-                100 * self.terminal_nodes / self.num_simulations))
+            print(
+                "Max depth: {} Median depth: {} Avg depth: {:.1f} Terminal nodes: {:.1f}%".format(
+                    self.max_depth,
+                    self.median_depth,
+                    self.avg_depth,
+                    100 * self.terminal_nodes / self.num_simulations,
+                )
+            )
             print()
 
-            stats = [ (key, val)
-                for key, val in root.children.items()
-                if val.visit_count > 0 ]
-            stats = sorted(stats, key = lambda e: e[1].visit_count, reverse=True)
+            stats = [
+                (key, val) for key, val in root.children.items() if val.visit_count > 0
+            ]
+            stats = sorted(stats, key=lambda e: e[1].visit_count, reverse=True)
 
             variations_cnt = 3
             print(" Score Line      Visit-% [prior]")
@@ -263,16 +285,21 @@ class MCTS:
                 print(
                     color(
                         "{:5.1f}% {:10s} {:5.1f}% [{:4.1f}%] {:6d} visits {}".format(
-                        100 * child_node.value(),
-                        board.variation_san([move]),
-                        100 * child_node.visit_count / self.num_simulations,
-                        100 * child_node.prior,
-                        child_node.visit_count,
-                        message),
-                        get_color(child_node.value())))
+                            100 * child_node.value(),
+                            board.variation_san([move]),
+                            100 * child_node.visit_count / self.num_simulations,
+                            100 * child_node.prior,
+                            child_node.visit_count,
+                            message,
+                        ),
+                        get_color(child_node.value()),
+                    )
+                )
                 message = ""
                 if variations_cnt > 0:
-                    variations_list = variations(board, move, child_node, variations_cnt)
+                    variations_list = variations(
+                        board, move, child_node, variations_cnt
+                    )
                     for variation in variations_list:
                         for line in self.wrapper.wrap(variation):
                             print(line)
@@ -288,8 +315,11 @@ class MCTS:
                             "{} ({:.1f}%, {})".format(
                                 board.san(move),
                                 100 * child_node.value(),
-                                child_node.visit_count),
-                            get_color(child_node.value())))
+                                child_node.visit_count,
+                            ),
+                            get_color(child_node.value()),
+                        )
+                    )
                 print(", ".join(remaining_moves))
 
         else:
@@ -305,9 +335,11 @@ class MCTS:
                         100 * root.children[best_move].value(),
                         board.variation_san([best_move]),
                         self.num_simulations / elapsed,
-                        variations_list[0]),
-                    get_color(root.children[best_move].value())))
-
+                        variations_list[0],
+                    ),
+                    get_color(root.children[best_move].value()),
+                )
+            )
 
     def mcts(self, board, prefix, sample=True, limit=None):
         self.start_time = time.perf_counter()
@@ -347,7 +379,7 @@ class MCTS:
                     self.num_simulations += 1
                     depth = 0
                     node = root
-                    search_path = [ node ]
+                    search_path = [node]
                     while node.expanded():
                         move, node = select_child(node)
                         board.push(move)
@@ -378,12 +410,18 @@ class MCTS:
                     for i in range(depth):
                         board.pop()
 
-                for path, eval, turn in zip(to_evaluate, self.deferred_evaluator.evaluate(), turns):
+                for path, eval, turn in zip(
+                    to_evaluate, self.deferred_evaluator.evaluate(), turns
+                ):
                     value = self.evaluate_deferred_post(path[-1], eval, turn)
                     backpropagate(path, value, turn)
                     nodes_counter.inc()
 
-                if self.verbose and iteration > 0 and self.num_simulations > next_statistics:
+                if (
+                    self.verbose
+                    and iteration > 0
+                    and self.num_simulations > next_statistics
+                ):
                     self.statistics(root, board)
                     next_statistics += 200
 
@@ -393,17 +431,19 @@ class MCTS:
                 if is_singular_move(search_path, 2 * max_visit_count / 3):
                     break
 
-                if nbc.get_data() == '\x1b':
+                if nbc.get_data() == "\x1b":
                     break
-
 
         self.statistics(root, board)
 
         selected_move = select_root_move(root, board.fullmove_number, sample)
         selected_move_child = root.children.get(selected_move)
 
-        white_win_prop = selected_move_child.value() if board.turn \
-                         else 1.0 - selected_move_child.value()
+        white_win_prop = (
+            selected_move_child.value()
+            if board.turn
+            else 1.0 - selected_move_child.value()
+        )
         prop_gauge.labels(game=prefix).set(white_win_prop)
 
         elapsed = time.perf_counter() - self.start_time
@@ -411,11 +451,39 @@ class MCTS:
         return root
 
 
-prop_gauge = Gauge('white_prob', "Win probability white", [ 'game' ])
-nodes_counter = Counter('nodes', 'Nodes visited')
-terminal_nodes_counter = Counter('terminal_nodes', 'Terminal nodes visited')
-depth_histogram = Histogram('depth', 'Search depth',
-    buckets = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64])
+prop_gauge = Gauge("white_prob", "Win probability white", ["game"])
+nodes_counter = Counter("nodes", "Nodes visited")
+terminal_nodes_counter = Counter("terminal_nodes", "Terminal nodes visited")
+depth_histogram = Histogram(
+    "depth",
+    "Search depth",
+    buckets=[
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        12,
+        14,
+        16,
+        18,
+        20,
+        24,
+        28,
+        32,
+        36,
+        40,
+        48,
+        56,
+        64,
+    ],
+)
+
 
 def get_color(x):
     t = min(int(x * 13), 12)

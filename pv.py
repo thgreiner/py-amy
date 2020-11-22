@@ -6,9 +6,10 @@ def pv(board, node, variation=None):
     if not node.expanded():
         return variation
 
-    _, best_move = max(((child.visit_count, action)
-                       for action, child in node.children.items()),
-                       key = lambda e: e[0])
+    _, best_move = max(
+        ((child.visit_count, action) for action, child in node.children.items()),
+        key=lambda e: e[0],
+    )
 
     variation.append(best_move)
     board.push(best_move)
@@ -25,9 +26,9 @@ def variations(board, move, child, count):
     board.push(move)
 
     while True:
-        stats = [ (key, val)
-            for key, val in child.children.items()
-            if val.visit_count > 0 ]
+        stats = [
+            (key, val) for key, val in child.children.items() if val.visit_count > 0
+        ]
 
         if len(stats) != 1:
             break
@@ -35,7 +36,7 @@ def variations(board, move, child, count):
         prefix.append(stats[0][0])
         child = stats[0][1]
 
-    stats = sorted(stats, key = lambda e: e[1].visit_count, reverse=True)
+    stats = sorted(stats, key=lambda e: e[1].visit_count, reverse=True)
 
     for m, grand_child in stats[:count]:
         line = []

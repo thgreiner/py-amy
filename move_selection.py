@@ -3,6 +3,7 @@ from math import log
 from random import uniform
 import numpy as np
 
+
 def sample_gumbel(a):
     b = [log(x) - log(-log(uniform(0, 1))) for x in a]
     return np.argmax(b)
@@ -34,9 +35,10 @@ def select_root_move_delta(tree, move_count, sample=True, delta=0.02):
     if len(tree.children) == 0:
         return None
 
-    _, best_value = max(((child.visit_count, child.value())
-                        for action, child in tree.children.items()),
-                        key = lambda e: e[0])
+    _, best_value = max(
+        ((child.visit_count, child.value()) for action, child in tree.children.items()),
+        key=lambda e: e[0],
+    )
 
     k = 2.0
     moves = []

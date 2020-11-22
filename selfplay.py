@@ -11,9 +11,10 @@ from network import load_or_create_model
 from mcts import MCTS
 from move_selection import select_root_move
 from pgn_writer import DefaultGameSaver, create_node_with_comment
-from prometheus_client import start_http_server, Counter
+from prometheus_client import start_http_server
 
 MAX_HALFMOVES_IN_GAME = 200
+
 
 def selfplay(model, num_simulations, verbose=True, prefix="0", generator=None, saver=None):
 
@@ -47,7 +48,7 @@ def selfplay(model, num_simulations, verbose=True, prefix="0", generator=None, s
 
         fully_playout_game = random.randint(0, 100) < 8
 
-        while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
+        while not board.is_game_over(claim_draw=True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             is_full_playout = fully_playout_game or (random.randint(0, 100) < 25)
 
             if is_full_playout:

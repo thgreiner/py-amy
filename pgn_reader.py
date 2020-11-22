@@ -14,19 +14,20 @@ from typing import Any
 # Maximum priority to assign an item in the position queue
 MAX_PRIO = 1_000_000
 
+
 @dataclass(order=True)
 class PrioritizedItem:
     priority: int
-    item: Any=field(compare=False)
+    item: Any = field(compare=False)
 
 
 def label_for_result(result, turn):
-    if result == '1-0':
+    if result == "1-0":
         if turn:
             return [1, 0, 0]
         else:
             return [0, 1, 0]
-    if result == '0-1':
+    if result == "0-1":
         if turn:
             return [0, 1, 0]
         else:
@@ -39,6 +40,7 @@ repr = Repr2D()
 
 re1 = re.compile("q=(.*); p=\[(.*)\]")
 re2 = re.compile("(.*):(.*)")
+
 
 def parse_mcts_result(input):
     m = re1.match(input)
@@ -87,9 +89,8 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
 
         item = PrioritizedItem(
             random.randint(0, MAX_PRIO),
-            ( train_data_board,
-              train_data_non_progress,
-              train_labels1, q, result_label ))
+            (train_data_board, train_data_non_progress, train_labels1, q, result_label),
+        )
         queue.put(item)
 
         positions_created += 1
@@ -107,7 +108,8 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
 
 
 # Counter for monitoring no. of games
-game_counter = Counter('training_game_total', "Games seen by training", [ "result" ])
+game_counter = Counter("training_game_total", "Games seen by training", ["result"])
+
 
 def pos_generator(filename, test_mode, queue):
 
@@ -135,8 +137,15 @@ def pos_generator(filename, test_mode, queue):
             game_counter.labels(result=result).inc()
 
             cnt += 1
-            print("Parsing game #{} {}, {} positions".format(cnt, date_of_game, positions_created), end='\r')
+            print(
+                "Parsing game #{} {}, {} positions".format(
+                    cnt, date_of_game, positions_created
+                ),
+                end="\r",
+            )
 
-            positions_created += traverse_game(game, game.board(), queue, result, sample_rate)
+            positions_created += traverse_game(
+                game, game.board(), queue, result, sample_rate
+            )
 
     queue.put(PrioritizedItem(MAX_PRIO, None))

@@ -16,12 +16,27 @@ from move_selection import select_root_move_delta
 
 MAX_HALFMOVES_IN_GAME = 200
 
-def matchplay(model1, model2, num_simulations, verbose=True, prefix="0", generator=None):
 
-    mcts1 = MCTS(model1, verbose, prefix, exploration_noise=False, max_simulations=num_simulations)
-    mcts2 = MCTS(model2, verbose, prefix, exploration_noise=False, max_simulations=num_simulations)
+def matchplay(
+    model1, model2, num_simulations, verbose=True, prefix="0", generator=None
+):
 
-    saver=DefaultGameSaver("MatchGames")
+    mcts1 = MCTS(
+        model1,
+        verbose,
+        prefix,
+        exploration_noise=False,
+        max_simulations=num_simulations,
+    )
+    mcts2 = MCTS(
+        model2,
+        verbose,
+        prefix,
+        exploration_noise=False,
+        max_simulations=num_simulations,
+    )
+
+    saver = DefaultGameSaver("MatchGames")
 
     total_positions = 0
     round = 0
@@ -43,7 +58,10 @@ def matchplay(model1, model2, num_simulations, verbose=True, prefix="0", generat
 
         board = Board()
 
-        while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
+        while (
+            not board.is_game_over(claim_draw=True)
+            and board.halfmove_clock < MAX_HALFMOVES_IN_GAME
+        ):
             if board.turn:
                 tree = mcts1.mcts(board, prefix=prefix)
             else:
@@ -63,15 +81,15 @@ def matchplay(model1, model2, num_simulations, verbose=True, prefix="0", generat
 
         mcts1, mcts2 = mcts2, mcts1
 
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Self play.")
-    parser.add_argument('--sims', type=int, help="number of simulations", default=5000)
-    parser.add_argument('--model1', help="model1 file name")
-    parser.add_argument('--model2', help="model2 file name")
+    parser.add_argument("--sims", type=int, help="number of simulations", default=5000)
+    parser.add_argument("--model1", help="model1 file name")
+    parser.add_argument("--model2", help="model2 file name")
 
     args = parser.parse_args()
-
 
     model1 = load_or_create_model(args.model1)
     model2 = load_or_create_model(args.model2)

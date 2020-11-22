@@ -2,18 +2,18 @@ import numpy as np
 import chess
 from chess import Board, Piece
 
-class Repr2D:
 
+class Repr2D:
     def __init__(self):
-        queen_dirs = [ -1, 1, -8, 8, -7, 7, -9, 9 ]
-        knight_dirs = [ -15, 15, -17, 17, -10, 10, -6, 6]
-        pawn_dirs = [ 7, 8, 9 ]
+        queen_dirs = [-1, 1, -8, 8, -7, 7, -9, 9]
+        knight_dirs = [-15, 15, -17, 17, -10, 10, -6, 6]
+        pawn_dirs = [7, 8, 9]
         self.queen_indexes = dict()
         self.knight_indexes = dict()
         self.underpromo_indexes = {
             chess.KNIGHT: dict(),
             chess.BISHOP: dict(),
-            chess.ROOK: dict()
+            chess.ROOK: dict(),
         }
 
         idx = 0
@@ -29,7 +29,7 @@ class Repr2D:
             idx += 1
 
         for delta in pawn_dirs:
-            for piece in [ chess.KNIGHT, chess.BISHOP, chess.ROOK ]:
+            for piece in [chess.KNIGHT, chess.BISHOP, chess.ROOK]:
                 self.underpromo_indexes[piece][delta] = idx
                 idx += 1
 
@@ -37,12 +37,12 @@ class Repr2D:
 
         # print("Generated {} indexes for moves.".format(idx))
 
-
     def _is_knight_move(self, move):
         file_dist = abs((move.from_square & 7) - (move.to_square & 7))
         rank_dist = abs((move.from_square >> 3) - (move.to_square >> 3))
-        return (file_dist == 1 and rank_dist == 2) or (file_dist == 2 and rank_dist == 1)
-
+        return (file_dist == 1 and rank_dist == 2) or (
+            file_dist == 2 and rank_dist == 1
+        )
 
     def plane_index(self, move, xor):
         delta = (move.to_square ^ xor) - (move.from_square ^ xor)
@@ -53,10 +53,8 @@ class Repr2D:
         else:
             return self.queen_indexes[delta]
 
-
     def _coords(self, sq):
         return (sq >> 3, sq & 7)
-
 
     def _store_board(self, b, buf, turn, plane_offset):
         xor = 0 if turn else 0x38
@@ -100,7 +98,6 @@ class Repr2D:
 
         return buf
 
-
     def legal_moves_mask(self, b):
         buf = np.zeros((64, 73), np.int8)
 
@@ -111,13 +108,11 @@ class Repr2D:
 
         return buf.flatten()
 
-
     def move_to_array(self, b, move):
         buf = np.zeros((64, 73), np.int8)
         xor = 0 if b.turn else 0x38
         buf[move.to_square ^ xor, self.plane_index(move, xor)] = 1
         return buf.reshape(4672)
-
 
     def policy_to_array(self, b, policy):
         # buf = np.zeros((64, 7), np.int8)

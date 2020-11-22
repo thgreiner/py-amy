@@ -29,16 +29,15 @@ from prometheus_client import start_http_server, Counter
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Run evaluation on a EPD file.")
-    parser.add_argument('--model', help="model file name")
+    parser.add_argument("--model", help="model file name")
     parser.add_argument("filename")
 
     args = parser.parse_args()
 
     start_http_server(9100)
 
-
     model = load_or_create_model(args.model)
-    mcts = MCTS(model, True, None, max_simulations = 5000000, exploration_noise=False)
+    mcts = MCTS(model, True, None, max_simulations=5000000, exploration_noise=False)
 
     with open(args.filename, "r") as f:
 
