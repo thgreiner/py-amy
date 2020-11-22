@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 from selfplay import selfplay
+from pgn_writer import DefaultGameSaver
 from queued_evaluator import QueuedEvaluator, MultiplexingEvaluator
 from threading import Thread
 from queue import Queue
 import argparse
-import chess.pgn
 import time
+from prometheus_client import start_http_server
 
 class QueueSaver:
     def __init__(self, queue):
@@ -20,15 +21,15 @@ class QueueWriter:
         self.queue = queue
 
     def __call__(self):
-        name = "LearnGames-{}.pgn".format(time.strftime('%Y-%m-%d-%H-%M-%S'))
+        saver = DefaultGameSaver("LearnGames")
         while True:
             game = self.queue.get()
-            with open(name, "a") as f:
-                exporter = chess.pgn.FileExporter(f)
-                game.accept(exporter)
+            saver(game)
 
 
 if __name__ == "__main__":
+
+    start_http_server(9100)
 
     parser = argparse.ArgumentParser(description="Execute parallel selfplay.")
     parser.add_argument('--model', help="model file name")

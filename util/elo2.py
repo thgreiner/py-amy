@@ -5,12 +5,13 @@ import chess.pgn
 import argparse
 
 DEFAULT_ELO=2000
-K=20
 
 def report_on_match(filename):
     stats = dict()
 
     for iters in range(100):
+
+        K = max(2, 80 / (4 + iters))
         print(f"Iteration {iters}")
 
         wins, losses, draws = dict(), dict(), dict()
@@ -61,7 +62,7 @@ def report_on_match(filename):
                 elo_delta[black] = elo_delta.get(black, 0) + delta_black
 
         for name, delta in elo_delta.items():
-            stats[name] = stats.get(name, DEFAULT_ELO) + delta * .5
+            stats[name] = stats.get(name, DEFAULT_ELO) + delta
 
         elo_ratings_by_name = sorted([(name, result) for name, result in stats.items()], key=lambda x: x[1])
         last_elo = None

@@ -408,7 +408,7 @@ class MCTS:
 
         elapsed = time.perf_counter() - self.start_time
 
-        return selected_move, root
+        return root
 
 
 prop_gauge = Gauge('white_prob', "Win probability white", [ 'game' ])

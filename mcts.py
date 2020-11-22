@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
 
-from chess import Board
 from ucb import FORCED_PLAYOUT, UCB
-from pv import pv, variations
-from move_selection import select_root_move, select_root_move_delta, add_exploration_noise
+from pv import variations
+from move_selection import select_root_move, add_exploration_noise
 
 from tablebase import get_optimal_move
 
-import random
 import math
 import numpy as np
 import time
-import uuid
 import textwrap
 from non_blocking_console import NonBlockingConsole
-
-from datetime import date
 
 from chess_input import Repr2D
 
@@ -24,6 +19,7 @@ import click
 from prometheus_client import Counter, Gauge, Histogram
 
 from colors import color
+
 
 class Node(object):
 
@@ -67,29 +63,6 @@ def select_child(node: Node, ucb_score):
     return action, child
 
 
-def correct_forced_playouts(tree: Node, ucb_score):
-
-    _, best_move = max(((child.visit_count, action)
-                        for action, child in tree.children.items()),
-                        key = lambda e: e[0])
-
-    best_ucb_score = ucb_score(tree, tree.children[best_move])
-
-    for action, child in tree.children.items():
-        if action == best_move: continue
-
-        actual_playouts = child.visit_count
-
-        for i in range(1, child.forced_playouts+1):
-            child.visit_count = actual_playouts - i
-            tmp_ucb_score = ucb_score(tree, tree.children[best_move])
-            if tmp_ucb_score > best_ucb_score:
-                child.visit_count = actual_playouts - i + 1
-                break
-
-    return tree
-
-
 def backpropagate(search_path, value: float, to_play):
     for node in search_path:
         node.value_sum += (value if node.turn != to_play else (1 - value))
@@ -111,7 +84,7 @@ class MCTS:
         self.prefix = prefix
         self.max_simulations = max_simulations
         self.exploration_noise = exploration_noise
-        self.wrapper = wrapper = textwrap.TextWrapper(
+        self.wrapper = textwrap.TextWrapper(
             initial_indent = 9 * " ",
             subsequent_indent = 11 * " ",
             width=119)
@@ -123,11 +96,11 @@ class MCTS:
     def set_pb_c_init(self, pb_c_init):
         self.ucb_score = UCB(pb_c_init)
 
-    def model_name(self):
-        return f"{self.model.name}, {self.ucb_score}"
 
-    def set_delta_selection_strategy(self):
-        self.select_root_move = select_root_move_delta
+    def model_name(self):
+        return self.model.name
+        # return f"{self.model.name}, {self.ucb_score}"
+
 
     def move_prob(self, logits, move, xor):
         sq = move.to_square ^ xor
@@ -284,14 +257,9 @@ class MCTS:
         root.is_root = True
         self.evaluate(root, board)
 
-        if len(root.children) == 1:
-            for best_move in root.children.keys():
-                return best_move, root
-
         if self.exploration_noise:
             add_exploration_noise(root)
 
-        best_move = None
         max_visit_count = self.max_simulations
         if limit is not None:
             max_visit_count = min(limit, max_visit_count)
@@ -337,16 +305,33 @@ class MCTS:
 
         self.statistics(root, board)
 
-        selected_move = self.select_root_move(root, board.fullmove_number, sample)
-        selected_move_child = root.children.get(selected_move)
-
-        white_win_prop = selected_move_child.value() if board.turn \
-                         else 1.0 - selected_move_child.value()
+        white_win_prop = 1.0 - root.value() if board.turn else root.value()
         prop_gauge.labels(game=prefix).set(white_win_prop)
 
-        elapsed = time.perf_counter() - self.start_time
+        return root
 
-        return selected_move, correct_forced_playouts(root, self.ucb_score)
+
+    def correct_forced_playouts(self, tree: Node):
+
+        _, best_move = max(((child.visit_count, action)
+                            for action, child in tree.children.items()),
+                            key = lambda e: e[0])
+
+        best_ucb_score = self.ucb_score(tree, tree.children[best_move])
+
+        for action, child in tree.children.items():
+            if action == best_move: continue
+
+            actual_playouts = child.visit_count
+
+            for i in range(1, child.forced_playouts+1):
+                child.visit_count = actual_playouts - i
+                tmp_ucb_score = self.ucb_score(tree, tree.children[best_move])
+                if tmp_ucb_score > best_ucb_score:
+                    child.visit_count = actual_playouts - i + 1
+                    break
+
+        return tree
 
 
 prop_gauge = Gauge('white_prob', "Win probability white", [ 'game' ])

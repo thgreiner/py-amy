@@ -8,6 +8,7 @@ import numpy as np
 import time
 import uuid
 import sys
+import argparse
 
 from datetime import date
 
@@ -18,46 +19,33 @@ import click
 from searcher import Searcher, AmySearcher
 import piece_square_eval
 from pos_generator import generate_kxk
+from move_selection import select_root_move_delta
+from pgn_writer import DefaultGameSaver, create_node_with_comment
 
 from network import load_or_create_model
 
 from mcts import MCTS
 
+from prometheus_client import start_http_server
+
 MAX_HALFMOVES_IN_GAME = 200
-
-# For KQK training
-# MAX_HALFMOVES_IN_GAME = 60
-
-
-def new_root(tree, move):
-    if tree is not None and move in tree.children:
-        return tree.children[move]
-    else:
-        return None
-
-
-def format_root_moves(root, board):
-    if root.visit_count == 0:
-        return None
-
-    root_moves = []
-    for key, val in root.children.items():
-        prop = val.visit_count / root.visit_count
-        if prop >= 1e-3:
-            root_moves.append("{}:{:.3f}".format(board.san(key), prop))
-
-    return "q={:.3f}; p=[{}]".format(
-        1.0 - root.value_sum / root.visit_count,
-        ", ".join(root_moves))
 
 if __name__ == "__main__":
 
-    model = load_or_create_model("combined-model.h5")
-    mcts = MCTS(model)
+    parser = argparse.ArgumentParser(description="Run evaluation on a EPD file.")
+    parser.add_argument('--model', help="model file name")
 
-    suffix = str(uuid.uuid4())
+    args = parser.parse_args()
+
+    start_http_server(9100)
+
+    model = load_or_create_model(args.model)
+
+    mcts = MCTS(model, max_simulations=800)
 
     ps_searcher = Searcher(lambda board: piece_square_eval.evaluate(board), "PieceSquareTables")
+
+    saver=DefaultGameSaver("TestGames")
 
     total_positions = 0
     while total_positions < 16384:
@@ -78,8 +66,8 @@ if __name__ == "__main__":
         opening = None
         # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
         # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5 Bd3 h6 Bf4 b4 Ne4 Nxe4 Bxe4 Ba6 Qa4 Bb5"
-        # opening = "d4 d5"
-        opening = "d4 d5 c4 e6 Nc3 Nf6"
+        opening = "d4 d5"
+        # opening = "d4 d5 c4 e6 Nc3 Nf6"
         # opening = "e4 c5 Nf3 Nc6"
 
         node = game
@@ -91,19 +79,16 @@ if __name__ == "__main__":
 
         while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
             if board.turn:
-                best_move, tree = mcts.mcts(board)
-                node = node.add_variation(best_move)
-                node.comment = format_root_moves(tree, board)
+                tree = mcts.mcts(board, prefix=None)
+                best_move = select_root_move_delta(tree, board.fullmove_number)
+                node = create_node_with_comment(node, tree, best_move, board)
             else:
                 best_move = ps_searcher.select_move(board)
                 node = node.add_variation(best_move)
 
             board.push(best_move)
             total_positions += 1
-            tree = new_root(tree, best_move)
 
         game.headers["Result"] = board.result(claim_draw=True)
 
-        with open("LearnGames-{}.pgn".format(suffix), "a") as f:
-            exporter = chess.pgn.FileExporter(f)
-            game.accept(exporter)
+        saver(game)

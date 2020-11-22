@@ -9,7 +9,7 @@ import numpy as np
 nodes = 0
 
 TIME_LIMIT = 1000
-NODE_LIMIT = 100000
+NODE_LIMIT = 10000
 
 EPSILON = 0.01
 
@@ -278,7 +278,7 @@ class Searcher:
                         depth,
                         self.elapsed,
                         san), end = '\r')
-                        
+
                     b.push(move)
                     try:
                         alpha = max_score
@@ -306,7 +306,7 @@ class Searcher:
                                         score,
                                         san))
                                 score = -self.search(b, -1000, -score, depth-1)
-                                
+
                     finally:
                         b.pop()
 
@@ -317,7 +317,7 @@ class Searcher:
                         best_move = move
                         l.remove(move)
                         l.insert(0, move)
-                            
+
                         if depth > 1:
                             print("{:2d}+ {:5.1f}  {:+.3f}  {}".format(
                                 depth,

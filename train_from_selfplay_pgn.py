@@ -28,10 +28,10 @@ CHECKPOINT = 100_000
 
 def wait_for_queue_to_fill(q):
     old_qsize = None
-    for i in range(90):
+    for i in range(900):
         time.sleep(1)
         print("Waiting for queue to fill, current size is {}     ".format(q.qsize()))
-        if q.qsize() > 20000:
+        if q.qsize() > 100000:
             break
         if old_qsize is not None and old_qsize == q.qsize():
             break
@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
     start_http_server(9099)
 
-    for iteration in range(20):
+    for iteration in range(6):
 
         stats = Stats()
 

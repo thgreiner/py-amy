@@ -8,9 +8,9 @@ from chess_input import Repr2D
 
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None # keras.regularizers.l1(1e-6)
-RECTIFIER='relu'
+RECTIFIER='elu'
 
-INITIAL_LEARN_RATE = 1e-4
+INITIAL_LEARN_RATE = 1e-2
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -137,7 +137,7 @@ def create_model():
     board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
     non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
 
-    layers = [[80, 4]]
+    layers = [[80, 8]]
 
     dim = layers[0][0]
     temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
@@ -163,7 +163,7 @@ def create_model():
     value_output, game_result_output = create_value_head(temp, non_progress_input)
 
     return keras.Model(
-        name = "Full_Convolutionx2_with_SE_{}".format("-".join(["{}x{}".format(width, count) for width, count in layers])),
+        name = "ResNet_ELU_with_SE_{}".format("-".join(["{}x{}".format(width, count) for width, count in layers])),
         inputs = [board_input, non_progress_input],
         outputs = [move_output, value_output, game_result_output])
 
