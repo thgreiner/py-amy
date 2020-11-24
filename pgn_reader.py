@@ -156,4 +156,7 @@ def pos_generator(filename, test_mode, queue):
                 game, game.board(), queue, result, sample_rate
             )
 
-    queue.put(PrioritizedItem(MAX_PRIO, None, None, None, None, None))
+    queue.put(end_of_input_item())
+
+def end_of_input_item():
+    return PrioritizedItem(MAX_PRIO, None, None, None, None, None)
