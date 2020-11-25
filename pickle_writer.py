@@ -8,6 +8,8 @@ import argparse
 import pickle
 from functools import partial
 
+NFILES=10
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert a training file.")
     parser.add_argument('--split', type=int, help="Split percentage, default is 10%", default=10)
@@ -22,13 +24,21 @@ if __name__ == "__main__":
     t = Thread(target=pos_gen)
     t.start()
 
-    with open("train.pkl", "wb") as train_file, open("validation.pkl", "wb") as validation_file:
-        while True:
+    validation_file = open("data/validation.pkl", "wb")
 
-            item = queue.get()
-            if item.data_board is None:
-                break
+    train_files = []
+    for i in range(NFILES):
+        train_files.append(open(f"data/train-{i}.pkl", "wb"))
 
-            is_validation = random.randint(0, 99) < args.split
-            file = validation_file if is_validation else train_file
-            pickle.dump(item, file)
+    while True:
+
+        item = queue.get()
+        if item.data_board is None:
+            break
+
+        is_validation = random.randint(0, 99) < args.split
+        file = validation_file if is_validation else train_files[random.randint(0, NFILES-1)]
+        pickle.dump(item, file)
+
+    validation_file.close()
+    for f in train_files: f.close()

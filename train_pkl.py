@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
-import chess
-from chess import Board
-import chess.pgn
-
 from chess_input import Repr2D
 
 import numpy as np
-import sys
 import time
 import argparse
+
+from random import shuffle
 from functools import partial
 
 from threading import Thread
@@ -41,30 +38,39 @@ def wait_for_queue_to_fill(q):
         old_qsize = q.qsize()
 
 
-def read_pickle(filename, queue):
+def read_pickle(queue, test_mode):
 
-    with open(filename, "rb") as fin:
-        try:
-            while True:
-                item = pickle.load(fin)
-                queue.put(randomize_item(item))
-        except EOFError:
-            queue.put(end_of_input_item())
+    if test_mode:
+        files = ["validation.pkl"]
+    else:
+        files = [f"train-{i}.pkl" for i in range(10)]
+        shuffle(files)
+
+    for filename in files:
+        print(f"Reading {filename}")
+        with open(f"data/{filename}", "rb") as fin:
+            try:
+                while True:
+                    item = pickle.load(fin)
+                    queue.put(randomize_item(item))
+            except EOFError:
+                pass
+
+    queue.put(end_of_input_item())
 
 
-def start_pos_gen_thread(queue, filename, wait):
-    pos_gen = partial(read_pickle, filename, queue)
+def start_pos_gen_thread(queue, test_mode):
+    pos_gen = partial(read_pickle, queue, test_mode)
 
     t = Thread(target=pos_gen)
     t.start()
 
-    if wait:
+    if not test_mode:
         wait_for_queue_to_fill(queue)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run training on a PGN file.")
-    parser.add_argument("filename")
     parser.add_argument("--model", help="model file name")
     parser.add_argument(
         "--test",
@@ -117,7 +123,7 @@ if __name__ == "__main__":
         checkpoint_next = CHECKPOINT
         batch_no = 0
 
-        start_pos_gen_thread(queue, args.filename, not args.test)
+        start_pos_gen_thread(queue, args.test)
 
         while True:
 
@@ -154,11 +160,7 @@ if __name__ == "__main__":
                 elapsed = time.perf_counter() - start_time
 
                 samples += cnt
-                print(
-                    "{}.{}: {} in {:.1f}s".format(
-                        iteration, samples, stats(results, cnt), elapsed
-                    )
-                )
+                print(f"{iteration}.{samples}: {stats(results, cnt)} in {elapsed:.1f}s")
 
                 loss_gauge.set(results[0])
                 moves_accuracy_gauge.set(results[4] * 100)
@@ -170,8 +172,8 @@ if __name__ == "__main__":
                 cnt = 0
                 if samples >= checkpoint_next and not args.test:
                     checkpoint_no += 1
-                    checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
-                    print("Checkpointing model to {}".format(checkpoint_name))
+                    checkpoint_name = f"checkpoint-{checkpoint_no}.h5"
+                    print(f"Checkpointing model to {checkpoint_name}")
                     model.save(checkpoint_name)
                     checkpoint_next += CHECKPOINT
 
