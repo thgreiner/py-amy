@@ -8,7 +8,7 @@ from chess_input import Repr2D
 
 from adabelief import AdaBelief
 
-WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
+WEIGHT_REGULARIZER = None # keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None  # keras.regularizers.l1(1e-6)
 RECTIFIER = "elu"
 
@@ -233,7 +233,7 @@ def load_or_create_model(model_name):
     if model_name is None:
         model = create_model()
 
-        optimizer = AdaBelief()
+        optimizer = AdaBelief(lr=1e-4, weight_decay=1e-4)
         # optimizer = keras.optimizers.SGD(
         #     lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0
         # )
@@ -261,7 +261,7 @@ def load_or_create_model(model_name):
             custom_objects={
                 "categorical_crossentropy_from_logits": categorical_crossentropy_from_logits,
                 "huber_loss": huber_loss,
-                "AdaBelief": AdaBelief
+                "AdaBelief": AdaBelief,
             },
         )
 

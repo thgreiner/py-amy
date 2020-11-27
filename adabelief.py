@@ -29,7 +29,7 @@ class AdaBelief(Optimizer):
     """
 
     def __init__(self, lr=0.001, beta_1=0.9, beta_2=0.999,
-                 epsilon=None, decay=0., amsgrad=False, **kwargs):
+                 epsilon=None, decay=0., weight_decay=0.0, amsgrad=False, **kwargs):
         super(AdaBelief, self).__init__(**kwargs)
         with K.name_scope(self.__class__.__name__):
             self.iterations = K.variable(0, dtype='int64', name='iterations')
@@ -37,6 +37,7 @@ class AdaBelief(Optimizer):
             self.beta_1 = K.variable(beta_1, name='beta_1')
             self.beta_2 = K.variable(beta_2, name='beta_2')
             self.decay = K.variable(decay, name='decay')
+            self.weight_decay = K.variable(weight_decay, name='weight_decay')
         if epsilon is None:
             epsilon = K.epsilon()
         self.epsilon = epsilon
@@ -75,6 +76,9 @@ class AdaBelief(Optimizer):
             else:
                 p_t = p - lr_t * m_t / (K.sqrt(v_t) + self.epsilon)
 
+            # weight decay
+            p_t = p_t - self.weight_decay * p
+
             self.updates.append(K.update(m, m_t))
             self.updates.append(K.update(v, v_t))
             new_p = p_t
@@ -92,6 +96,7 @@ class AdaBelief(Optimizer):
                   'beta_1': float(K.get_value(self.beta_1)),
                   'beta_2': float(K.get_value(self.beta_2)),
                   'decay': float(K.get_value(self.decay)),
+                  'weight_decay': float(K.get_value(self.weight_decay)),
                   'epsilon': self.epsilon,
                   'amsgrad': self.amsgrad}
         base_config = super(AdaBelief, self).get_config()
