@@ -81,7 +81,7 @@ def select_child(node: Node):
 
 
 pb_c_base = 1000
-pb_c_init = 2.5
+pb_c_init = 1.5
 
 # The score for a node is based on its value, plus an exploration bonus
 # based on  the prior.

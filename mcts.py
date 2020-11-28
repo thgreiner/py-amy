@@ -99,7 +99,7 @@ class MCTS:
 
         self.best_move = None
 
-        self.ucb_score = UCB(1.25)
+        self.ucb_score = UCB(1.5)
 
     def set_pb_c_init(self, pb_c_init):
         self.ucb_score = UCB(pb_c_init)
