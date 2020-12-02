@@ -7,12 +7,13 @@ from tensorflow.keras import backend as K
 from chess_input import Repr2D
 
 from adabelief import AdaBelief
+import math
 
 WEIGHT_REGULARIZER = None # keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None  # keras.regularizers.l1(1e-6)
 RECTIFIER = "elu"
 
-INITIAL_LEARN_RATE = 1e-2
+INITIAL_LEARN_RATE = 2e-3
 
 
 def categorical_crossentropy_from_logits(target, output):
@@ -64,7 +65,7 @@ def residual_block(y, dim, index, residual=True):
         name="residual-block-{}-pooling".format(index)
     )(y)
     t = keras.layers.Dense(
-        16,
+        8,
         name="residual-block-{}-squeeze".format(index),
         kernel_regularizer=WEIGHT_REGULARIZER,
         activation=RECTIFIER,
@@ -98,7 +99,7 @@ def create_policy_head(input):
 
     t = keras.layers.GlobalAveragePooling2D(name="moves-pooling")(temp)
     t = keras.layers.Dense(
-        16,
+        8,
         name="moves-squeeze",
         kernel_regularizer=WEIGHT_REGULARIZER,
         activation=RECTIFIER,
@@ -135,7 +136,7 @@ def create_value_head(input, non_progress_input):
 
     t = keras.layers.GlobalAveragePooling2D(name="value-pooling")(input)
     t = keras.layers.Dense(
-        16,
+        8,
         name="value-squeeze",
         kernel_regularizer=WEIGHT_REGULARIZER,
         activation=RECTIFIER,
@@ -233,7 +234,7 @@ def load_or_create_model(model_name):
     if model_name is None:
         model = create_model()
 
-        optimizer = AdaBelief(lr=1e-4, weight_decay=1e-4)
+        optimizer = AdaBelief(lr=2e-3, weight_decay=1e-4)
         # optimizer = keras.optimizers.SGD(
         #     lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0
         # )
@@ -275,7 +276,8 @@ def load_or_create_model(model_name):
 
 def schedule_learn_rate(model, iteration, batch_no):
 
-    learn_rate = INITIAL_LEARN_RATE  # / (iteration + 1)
+    t = iteration + batch_no / 430.5
+    learn_rate = INITIAL_LEARN_RATE * 0.5 * (1 + math.cos(t / 5 * math.pi))
 
-    # K.set_value(model.optimizer.lr, learn_rate)
+    K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate

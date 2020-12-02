@@ -6,7 +6,7 @@ import numpy as np
 import time
 import argparse
 
-from random import shuffle
+from random import shuffle, randint
 from functools import partial
 
 from threading import Thread
@@ -40,11 +40,14 @@ def wait_for_queue_to_fill(q):
 
 def read_pickle(queue, test_mode):
 
+
     if test_mode:
         files = ["validation.pkl"]
+        sample = 100
     else:
         files = [f"train-{i}.pkl" for i in range(10)]
         shuffle(files)
+        sample = 10
 
     for filename in files:
         print(f"Reading {filename}")
@@ -52,7 +55,8 @@ def read_pickle(queue, test_mode):
             try:
                 while True:
                     item = pickle.load(fin)
-                    queue.put(randomize_item(item))
+                    if randint(0, 99) < sample:
+                        queue.put(randomize_item(item))
             except EOFError:
                 pass
 
@@ -107,7 +111,7 @@ if __name__ == "__main__":
 
     start_http_server(9099)
 
-    for iteration in range(6):
+    for iteration in range(100):
 
         stats = Stats()
 
@@ -188,5 +192,5 @@ if __name__ == "__main__":
             model.save(model_name)
 
         # Every 2 iterations, double the batch size
-        if iteration % 2 == 1:
-            batch_size *= 2
+        # if iteration % 2 == 1:
+        #     batch_size *= 2
