@@ -21,8 +21,9 @@ import piece_square_eval
 from pos_generator import generate_kxk
 
 from network import load_or_create_model
+from mcts import MCTS
 
-from mcts_batched import MCTS
+from edgetpu import EdgeTpuModel
 
 from prometheus_client import start_http_server, Counter
 
@@ -36,7 +37,11 @@ if __name__ == "__main__":
 
     start_http_server(9100)
 
-    model = load_or_create_model(args.model)
+    if args.model == 'tflite':
+        model = EdgeTpuModel("quantized-model_edgetpu.tflite")
+    else:
+        model = load_or_create_model(args.model)
+
     mcts = MCTS(model, True, None, max_simulations=5000000, exploration_noise=False)
 
     with open(args.filename, "r") as f:

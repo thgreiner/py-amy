@@ -34,7 +34,7 @@ class Repr2D:
                 self.underpromo_indexes[piece][delta] = idx
                 idx += 1
 
-        self.num_planes = 18
+        self.num_planes = 19
 
         # print("Generated {} indexes for moves.".format(idx))
 
@@ -96,6 +96,8 @@ class Repr2D:
 
         # One plane just ones so the network can detect the board edge
         buf[:, :, offset + 5] = 1
+
+        buf[:, :, offset + 6] = board.halfmove_clock / 100.0
 
         return buf
 

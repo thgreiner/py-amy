@@ -19,25 +19,8 @@ MAX_PRIO = 1_000_000
 class PrioritizedItem:
     priority: int
     data_board: Any = field(compare=False)
-    data_non_progress: Any = field(compare=False)
     label_moves: Any = field(compare=False)
     label_value: Any = field(compare=False)
-    label_result: Any = field(compare=False)
-
-
-def label_for_result(result, turn):
-    if result == "1-0":
-        if turn:
-            return [1, 0, 0]
-        else:
-            return [0, 1, 0]
-    if result == "0-1":
-        if turn:
-            return [0, 1, 0]
-        else:
-            return [1, 0, 0]
-
-    return [0, 0, 1]
 
 
 repr = Repr2D()
@@ -84,20 +67,14 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
         q, policy = parse_mcts_result(node.comment)
         q = q * 2 - 1.0
 
-        result_label = label_for_result(result, board.turn)
-        # z = result_label[0] - result_label[1]
-
         train_data_board = repr.board_to_array(board)
-        train_data_non_progress = board.halfmove_clock / 100.0
         train_labels1 = repr.policy_to_array(board, policy)
 
         item = PrioritizedItem(
             random.randint(0, MAX_PRIO),
             train_data_board,
-            train_data_non_progress,
             train_labels1,
             q,
-            result_label,
         )
         queue.put(item)
 
@@ -159,4 +136,4 @@ def pos_generator(filename, test_mode, queue):
     queue.put(end_of_input_item())
 
 def end_of_input_item():
-    return PrioritizedItem(MAX_PRIO, None, None, None, None, None)
+    return PrioritizedItem(MAX_PRIO, None, None, None)

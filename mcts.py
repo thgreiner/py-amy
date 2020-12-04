@@ -125,9 +125,8 @@ class MCTS:
         input_board = self.repr.board_to_array(board).reshape(
             1, 8, 8, self.repr.num_planes
         )
-        input_non_progress = np.array([board.halfmove_clock / 100.0])
 
-        prediction = self.model.predict([input_board, input_non_progress])
+        prediction = self.model.predict(input_board)
 
         value = (prediction[1].flatten())[0]
         # Transform [-1, 1] range to [0, 1]
