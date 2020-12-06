@@ -40,7 +40,6 @@ def wait_for_queue_to_fill(q):
 
 def read_pickle(queue, test_mode):
 
-
     if test_mode:
         files = ["validation.pkl"]
         sample = 100

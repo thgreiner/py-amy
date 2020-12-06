@@ -8,11 +8,13 @@ import argparse
 import pickle
 from functools import partial
 
-NFILES=10
+NFILES = 10
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert a training file.")
-    parser.add_argument('--split', type=int, help="Split percentage, default is 10%", default=10)
+    parser.add_argument(
+        "--split", type=int, help="Split percentage, default is 10%", default=10
+    )
     parser.add_argument("filename")
 
     args = parser.parse_args()
@@ -37,8 +39,13 @@ if __name__ == "__main__":
             break
 
         is_validation = random.randint(0, 99) < args.split
-        file = validation_file if is_validation else train_files[random.randint(0, NFILES-1)]
+        file = (
+            validation_file
+            if is_validation
+            else train_files[random.randint(0, NFILES - 1)]
+        )
         pickle.dump(item, file)
 
     validation_file.close()
-    for f in train_files: f.close()
+    for f in train_files:
+        f.close()

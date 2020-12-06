@@ -12,6 +12,7 @@ from mcts import MCTS
 from move_selection import select_root_move
 from pgn_writer import DefaultGameSaver, create_node_with_comment
 from prometheus_client import start_http_server
+from edgetpu import EdgeTpuModel
 
 MAX_HALFMOVES_IN_GAME = 200
 
@@ -142,7 +143,10 @@ if __name__ == "__main__":
     if args.kqqk:
         generator = pos_generator.generate_kqqk
 
-    model = load_or_create_model(args.model)
+    if args.model == "tflite":
+        model = EdgeTpuModel("models/tflite_80x9_edgetpu.tflite")
+    else:
+        model = load_or_create_model(args.model)
 
     start_http_server(9100)
 

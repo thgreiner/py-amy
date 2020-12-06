@@ -37,8 +37,8 @@ if __name__ == "__main__":
 
     start_http_server(9100)
 
-    if args.model == 'tflite':
-        model = EdgeTpuModel("quantized-model_edgetpu.tflite")
+    if args.model == "tflite":
+        model = EdgeTpuModel("models/tflite_80x9_edgetpu.tflite")
     else:
         model = load_or_create_model(args.model)
 

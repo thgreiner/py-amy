@@ -92,10 +92,8 @@ if __name__ == "__main__":
         stats = Stats()
 
         train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
-        train_data_non_progress = np.zeros((batch_size, 1), np.float32)
         train_labels1 = np.zeros((batch_size, 4672), np.float32)
         train_labels2 = np.zeros((batch_size, 1), np.float32)
-        train_labels3 = np.zeros((batch_size, 3), np.float32)
 
         cnt = 0
         samples = 0
@@ -117,16 +115,14 @@ if __name__ == "__main__":
             qsize_gauge.set(queue.qsize())
 
             train_data_board[cnt] = item.data_board
-            train_data_non_progress[cnt, 0] = item.data_non_progress
             train_labels1[cnt] = item.label_moves.todense().reshape(4672)
             train_labels2[cnt, 0] = item.label_value
-            train_labels3[cnt] = item.label_result
             cnt += 1
 
             if cnt >= batch_size:
                 # print(train_labels2)
-                train_data = [train_data_board, train_data_non_progress]
-                train_labels = [train_labels1, train_labels2, train_labels3]
+                train_data = [train_data_board]
+                train_labels = [train_labels1, train_labels2]
 
                 lr = schedule_learn_rate(model, iteration, batch_no)
                 learn_rate_gauge.set(lr)
@@ -148,9 +144,9 @@ if __name__ == "__main__":
                 )
 
                 loss_gauge.set(results[0])
-                moves_accuracy_gauge.set(results[4] * 100)
-                moves_top5_accuracy_gauge.set(results[5] * 100)
-                score_mae_gauge.set(results[6])
+                moves_accuracy_gauge.set(results[3] * 100)
+                moves_top5_accuracy_gauge.set(results[4] * 100)
+                score_mae_gauge.set(results[5])
 
                 start_time = time.perf_counter()
 

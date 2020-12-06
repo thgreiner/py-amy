@@ -135,5 +135,6 @@ def pos_generator(filename, test_mode, queue):
 
     queue.put(end_of_input_item())
 
+
 def end_of_input_item():
     return PrioritizedItem(MAX_PRIO, None, None, None)
