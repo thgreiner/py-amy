@@ -79,6 +79,10 @@ def residual_block(y, dim, index, residual=True):
 def create_policy_head(input):
     dim = input.shape.as_list()[-1]
 
+    temp = keras.layers.Activation(
+        name="pre-moves-{}-activation".format(index), activation=RECTIFIER
+    )(input)
+
     temp = keras.layers.Conv2D(
         dim,
         (3, 3),
@@ -86,7 +90,7 @@ def create_policy_head(input):
         name="pre-moves-conv",
         kernel_regularizer=WEIGHT_REGULARIZER,
         padding="same",
-    )(input)
+    )(temp)
 
     t = keras.layers.GlobalAveragePooling2D(name="moves-pooling")(temp)
     t = keras.layers.Dense(
