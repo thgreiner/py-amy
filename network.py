@@ -80,7 +80,7 @@ def create_policy_head(input):
     dim = input.shape.as_list()[-1]
 
     temp = keras.layers.Activation(
-        name="pre-moves-{}-activation".format(index), activation=RECTIFIER
+        name="pre-moves-activation", activation=RECTIFIER
     )(input)
 
     temp = keras.layers.Conv2D(
@@ -123,7 +123,7 @@ def create_policy_head(input):
     return keras.layers.Flatten(name="moves")(temp)
 
 
-def create_value_head(input, non_progress_input):
+def create_value_head(input):
     dim = input.shape.as_list()[-1]
 
     t = keras.layers.GlobalAveragePooling2D(name="value-pooling")(input)
@@ -152,9 +152,6 @@ def create_value_head(input, non_progress_input):
     )(temp)
 
     temp = keras.layers.Flatten(name="flatten-value")(temp)
-    temp = keras.layers.concatenate(
-        [temp, non_progress_input], name="concat-non-progress"
-    )
     temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
     temp = keras.layers.Dense(
         128,
@@ -168,17 +165,13 @@ def create_value_head(input, non_progress_input):
         1, activation="tanh", kernel_regularizer=WEIGHT_REGULARIZER, name="value"
     )(temp)
 
-    result_head = keras.layers.Dense(
-        3, activation="softmax", kernel_regularizer=WEIGHT_REGULARIZER, name="result"
-    )(temp)
-    return eval_head, result_head
+    return eval_head
 
 
 def create_model():
     repr = Repr2D()
 
     board_input = keras.layers.Input(shape=(8, 8, repr.num_planes), name="board-input")
-    non_progress_input = keras.layers.Input(shape=(1,), name="non-progress-input")
 
     layers = [[80, 9]]
 
@@ -211,14 +204,14 @@ def create_model():
     )
 
     move_output = create_policy_head(temp)
-    value_output, game_result_output = create_value_head(temp, non_progress_input)
+    value_output = create_value_head(temp)
 
     return keras.Model(
         name="TFlite_SE_{}".format(
             "-".join(["{}x{}".format(width, count) for width, count in layers])
         ),
-        inputs=[board_input, non_progress_input],
-        outputs=[move_output, value_output, game_result_output],
+        inputs=[board_input],
+        outputs=[move_output, value_output],
     )
 
 
@@ -240,13 +233,11 @@ def load_or_create_model(model_name):
             loss={
                 "moves": categorical_crossentropy_from_logits,
                 "value": "mean_squared_error",
-                "result": "categorical_crossentropy",
             },
-            loss_weights={"moves": 1.0, "value": 1.0, "result": 0.15},
+            loss_weights={"moves": 1.0, "value": 1.0, },
             metrics={
                 "moves": ["accuracy", "top_k_categorical_accuracy"],
                 "value": ["mae"],
-                "result": ["accuracy"],
             },
         )
     else:
@@ -268,7 +259,7 @@ def load_or_create_model(model_name):
 
 def schedule_learn_rate(model, iteration, batch_no):
 
-    t = iteration + batch_no / 509
+    t = iteration + batch_no / 1018
     learn_rate = MIN_LEARN_RATE + (INITIAL_LEARN_RATE - MIN_LEARN_RATE) * 0.5 * (
         1 + math.cos(t / 6 * math.pi)
     )

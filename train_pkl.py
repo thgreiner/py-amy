@@ -46,7 +46,7 @@ def read_pickle(queue, test_mode):
     else:
         files = [f"train-{i}.pkl" for i in range(10)]
         shuffle(files)
-        sample = 10
+        sample = 20
 
     for filename in files:
         print(f"Reading {filename}")
