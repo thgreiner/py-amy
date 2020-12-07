@@ -16,6 +16,7 @@ SIGMOID=tf.keras.activations.hard_sigmoid
 INITIAL_LEARN_RATE = 1e-2
 MIN_LEARN_RATE = 2e-5
 
+SQUEEZE_EXCITE=False
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -52,23 +53,24 @@ def residual_block(y, dim, index, residual=True):
         activation="linear",
     )(y)
 
-    t = keras.layers.GlobalAveragePooling2D(
-        name="residual-block-{}-pooling".format(index)
-    )(y)
-    t = keras.layers.Dense(
-        8,
-        name="residual-block-{}-squeeze".format(index),
-        kernel_regularizer=WEIGHT_REGULARIZER,
-        activation=RECTIFIER,
-    )(t)
-    t = keras.layers.Dense(
-        dim,
-        name="residual-block-{}-excite".format(index),
-        kernel_regularizer=WEIGHT_REGULARIZER,
-        activation=SIGMOID,
-    )(t)
+    if SQUEEZE_EXCITE:
+        t = keras.layers.GlobalAveragePooling2D(
+            name="residual-block-{}-pooling".format(index)
+        )(y)
+        t = keras.layers.Dense(
+            8,
+            name="residual-block-{}-squeeze".format(index),
+            kernel_regularizer=WEIGHT_REGULARIZER,
+            activation=RECTIFIER,
+        )(t)
+        t = keras.layers.Dense(
+            dim,
+            name="residual-block-{}-excite".format(index),
+            kernel_regularizer=WEIGHT_REGULARIZER,
+            activation=SIGMOID,
+        )(t)
 
-    y = keras.layers.Multiply(name="residual-block-{}-multiply".format(index))([y, t])
+        y = keras.layers.Multiply(name="residual-block-{}-multiply".format(index))([y, t])
 
     if residual:
         y = keras.layers.add([y, shortcut], name="residual-block-{}-add".format(index))
@@ -92,21 +94,22 @@ def create_policy_head(input):
         padding="same",
     )(temp)
 
-    t = keras.layers.GlobalAveragePooling2D(name="moves-pooling")(temp)
-    t = keras.layers.Dense(
-        8,
-        name="moves-squeeze",
-        kernel_regularizer=WEIGHT_REGULARIZER,
-        activation=RECTIFIER,
-    )(t)
-    t = keras.layers.Dense(
-        dim,
-        name="moves-excite",
-        kernel_regularizer=WEIGHT_REGULARIZER,
-        activation=SIGMOID,
-    )(t)
+    if SQUEEZE_EXCITE:
+        t = keras.layers.GlobalAveragePooling2D(name="moves-pooling")(temp)
+        t = keras.layers.Dense(
+            8,
+            name="moves-squeeze",
+            kernel_regularizer=WEIGHT_REGULARIZER,
+            activation=RECTIFIER,
+        )(t)
+        t = keras.layers.Dense(
+            dim,
+            name="moves-excite",
+            kernel_regularizer=WEIGHT_REGULARIZER,
+            activation=SIGMOID,
+        )(t)
 
-    temp = keras.layers.Multiply(name="moves-multiply")([temp, t])
+        temp = keras.layers.Multiply(name="moves-multiply")([temp, t])
 
     temp = keras.layers.add([temp, input], name="pre-moves-conv-add")
 
@@ -126,24 +129,27 @@ def create_policy_head(input):
 def create_value_head(input):
     dim = input.shape.as_list()[-1]
 
-    t = keras.layers.GlobalAveragePooling2D(name="value-pooling")(input)
-    t = keras.layers.Dense(
-        8,
-        name="value-squeeze",
-        kernel_regularizer=WEIGHT_REGULARIZER,
-        activation=RECTIFIER,
-    )(t)
-    t = keras.layers.Dense(
-        dim,
-        name="value-excite",
-        kernel_regularizer=WEIGHT_REGULARIZER,
-        activation=SIGMOID,
-    )(t)
+    if SQUEEZE_EXCITE:
+        t = keras.layers.GlobalAveragePooling2D(name="value-pooling")(input)
+        t = keras.layers.Dense(
+            8,
+            name="value-squeeze",
+            kernel_regularizer=WEIGHT_REGULARIZER,
+            activation=RECTIFIER,
+        )(t)
+        t = keras.layers.Dense(
+            dim,
+            name="value-excite",
+            kernel_regularizer=WEIGHT_REGULARIZER,
+            activation=SIGMOID,
+        )(t)
 
-    temp = keras.layers.Multiply(name="value-multiply")([input, t])
+        temp = keras.layers.Multiply(name="value-multiply")([input, t])
+    else:
+        temp = input
 
     temp = keras.layers.Conv2D(
-        12,
+        16,
         (1, 1),
         padding="same",
         name="pre-value-conv",
@@ -173,7 +179,7 @@ def create_model():
 
     board_input = keras.layers.Input(shape=(8, 8, repr.num_planes), name="board-input")
 
-    layers = [[80, 9]]
+    layers = [[128, 9]]
 
     dim = layers[0][0]
     temp = keras.layers.Conv2D(
@@ -207,7 +213,8 @@ def create_model():
     value_output = create_value_head(temp)
 
     return keras.Model(
-        name="TFlite_SE_{}".format(
+        name="TFlite{}_{}".format(
+            "_SE" if SQUEEZE_EXCITE else "",
             "-".join(["{}x{}".format(width, count) for width, count in layers])
         ),
         inputs=[board_input],
