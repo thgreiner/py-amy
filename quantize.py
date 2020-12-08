@@ -10,14 +10,14 @@ from network import load_or_create_model
 
 import logging
 
-SAMPLE = 5
+SAMPLE = 10
 
 
 def representative_dataset_gen():
     with open("data/validation.pkl", "rb") as fin:
         try:
             cnt = 0
-            while cnt < 1000:
+            while cnt < 10000:
                 item = pickle.load(fin)
                 if randint(0, 99) < SAMPLE:
                     features = item.data_board.reshape(1, 8, 8, 19).astype("float32")

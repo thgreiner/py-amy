@@ -35,6 +35,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Execute parallel selfplay.")
     parser.add_argument("--model", help="model file name")
+    parser.add_argument("--sims", type=int, help="number of simulations", default=800)
     args = parser.parse_args()
 
     multiplexing_evaluator = MultiplexingEvaluator(args.model, 20)
@@ -54,6 +55,6 @@ if __name__ == "__main__":
     for i in range(24):
         qe = QueuedEvaluator(input_queue, multiplexing_evaluator.name)
         play_thread = Thread(
-            target=lambda: selfplay(qe, 800, verbose=False, prefix=str(i), saver=saver)
+            target=lambda: selfplay(qe, args.sims, verbose=False, prefix=str(i), saver=saver)
         )
         play_thread.start()

@@ -38,7 +38,7 @@ if __name__ == "__main__":
     start_http_server(9100)
 
     if args.model == "tflite":
-        model = EdgeTpuModel("models/tflite_se_80x9_edgetpu.tflite")
+        model = EdgeTpuModel("models/tflite-128x9_edgetpu.tflite")
     else:
         model = load_or_create_model(args.model)
 

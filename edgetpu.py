@@ -11,6 +11,7 @@ EDGETPU_SHARED_LIB = {
 
 class EdgeTpuModel:
     def __init__(self, model_file):
+        print(f"Loading EdgeTPU model from {model_file}")
         self.make_interpreter(model_file)
         self.interpreter.allocate_tensors()
         self.name = "EdgeTPU"
