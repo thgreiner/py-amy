@@ -122,12 +122,13 @@ def pos_generator(filename, test_mode, queue):
             game_counter.labels(result=result).inc()
 
             cnt += 1
-            print(
-                "Parsing game #{} {}, {} positions".format(
-                    cnt, date_of_game, positions_created
-                ),
-                end="\r",
-            )
+            if cnt % 100 == 0:
+                print(
+                    "Parsing game #{} {}, {} positions".format(
+                        cnt, date_of_game, positions_created
+                    ),
+                    end="\r",
+                )
 
             positions_created += traverse_game(
                 game, game.board(), queue, result, sample_rate

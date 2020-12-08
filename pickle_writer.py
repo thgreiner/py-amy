@@ -32,6 +32,9 @@ if __name__ == "__main__":
     for i in range(NFILES):
         train_files.append(open(f"data/train-{i}.pkl", "wb"))
 
+    val_cnt = 0
+    train_cnt = 0
+
     while True:
 
         item = queue.get()
@@ -46,6 +49,12 @@ if __name__ == "__main__":
         )
         pickle.dump(item, file)
 
+        if is_validation:
+            val_cnt += 1
+        else:
+            train_cnt += 1
+
     validation_file.close()
-    for f in train_files:
-        f.close()
+    for f in train_files: f.close()
+
+    print(f"Positions: {train_cnt}/{val_cnt} (training/validation)")
