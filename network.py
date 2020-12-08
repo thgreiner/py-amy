@@ -264,9 +264,14 @@ def load_or_create_model(model_name):
     return model
 
 
+SAMPLE_RATE = 0.2
+N_POSITIONS = 1330249
+BATCH_SIZE = 256
+STEPS_PER_ITERATION = SAMPLE_RATE * N_POSITIONS / BATCH_SIZE
+
 def schedule_learn_rate(model, iteration, batch_no):
 
-    t = iteration + batch_no / 1018
+    t = iteration + batch_no / STEPS_PER_ITERATION
     learn_rate = MIN_LEARN_RATE + (INITIAL_LEARN_RATE - MIN_LEARN_RATE) * 0.5 * (
         1 + math.cos(t / 6 * math.pi)
     )
