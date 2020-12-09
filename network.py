@@ -11,23 +11,18 @@ import math
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None  # keras.regularizers.l1(1e-6)
 RECTIFIER = "relu"
-SIGMOID=tf.keras.activations.hard_sigmoid
+RENORM=False
 
-INITIAL_LEARN_RATE = 1e-2
+INITIAL_LEARN_RATE = 2e-2
 MIN_LEARN_RATE = 2e-5
-
-SQUEEZE_EXCITE=False
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
 
 
 def residual_block(y, dim, index, residual=True):
-    shortcut = y
 
-    y = keras.layers.Activation(
-        name="residual-block-{}-preactivation1".format(index), activation=RECTIFIER
-    )(y)
+    shortcut = y
 
     y = keras.layers.Conv2D(
         dim,
@@ -39,8 +34,13 @@ def residual_block(y, dim, index, residual=True):
         activation="linear",
     )(y)
 
+    y = keras.layers.BatchNormalization(
+        name="residual-block-{}-bn1".format(index),
+        renorm=RENORM,
+    )(y)
+
     y = keras.layers.Activation(
-        name="residual-block-{}-preactivation2".format(index), activation=RECTIFIER
+        name="residual-block-{}-activation1".format(index), activation=RECTIFIER
     )(y)
 
     y = keras.layers.Conv2D(
@@ -53,24 +53,14 @@ def residual_block(y, dim, index, residual=True):
         activation="linear",
     )(y)
 
-    if SQUEEZE_EXCITE:
-        t = keras.layers.GlobalAveragePooling2D(
-            name="residual-block-{}-pooling".format(index)
-        )(y)
-        t = keras.layers.Dense(
-            8,
-            name="residual-block-{}-squeeze".format(index),
-            kernel_regularizer=WEIGHT_REGULARIZER,
-            activation=RECTIFIER,
-        )(t)
-        t = keras.layers.Dense(
-            dim,
-            name="residual-block-{}-excite".format(index),
-            kernel_regularizer=WEIGHT_REGULARIZER,
-            activation=SIGMOID,
-        )(t)
+    y = keras.layers.BatchNormalization(
+        name="residual-block-{}-bn2".format(index),
+        renorm=RENORM,
+    )(y)
 
-        y = keras.layers.Multiply(name="residual-block-{}-multiply".format(index))([y, t])
+    y = keras.layers.Activation(
+        name="residual-block-{}-activation2".format(index), activation=RECTIFIER
+    )(y)
 
     if residual:
         y = keras.layers.add([y, shortcut], name="residual-block-{}-add".format(index))
@@ -81,10 +71,6 @@ def residual_block(y, dim, index, residual=True):
 def create_policy_head(input):
     dim = input.shape.as_list()[-1]
 
-    temp = keras.layers.Activation(
-        name="pre-moves-activation", activation=RECTIFIER
-    )(input)
-
     temp = keras.layers.Conv2D(
         dim,
         (3, 3),
@@ -92,30 +78,17 @@ def create_policy_head(input):
         name="pre-moves-conv",
         kernel_regularizer=WEIGHT_REGULARIZER,
         padding="same",
+    )(input)
+
+    temp = keras.layers.Activation(
+        name="pre-moves-activation", activation=RECTIFIER
     )(temp)
-
-    if SQUEEZE_EXCITE:
-        t = keras.layers.GlobalAveragePooling2D(name="moves-pooling")(temp)
-        t = keras.layers.Dense(
-            8,
-            name="moves-squeeze",
-            kernel_regularizer=WEIGHT_REGULARIZER,
-            activation=RECTIFIER,
-        )(t)
-        t = keras.layers.Dense(
-            dim,
-            name="moves-excite",
-            kernel_regularizer=WEIGHT_REGULARIZER,
-            activation=SIGMOID,
-        )(t)
-
-        temp = keras.layers.Multiply(name="moves-multiply")([temp, t])
 
     temp = keras.layers.add([temp, input], name="pre-moves-conv-add")
 
     temp = keras.layers.Conv2D(
         73,
-        (3, 3),
+        (1, 1),
         activation="linear",
         name="moves-conv",
         kernel_regularizer=WEIGHT_REGULARIZER,
@@ -129,25 +102,6 @@ def create_policy_head(input):
 def create_value_head(input):
     dim = input.shape.as_list()[-1]
 
-    if SQUEEZE_EXCITE:
-        t = keras.layers.GlobalAveragePooling2D(name="value-pooling")(input)
-        t = keras.layers.Dense(
-            8,
-            name="value-squeeze",
-            kernel_regularizer=WEIGHT_REGULARIZER,
-            activation=RECTIFIER,
-        )(t)
-        t = keras.layers.Dense(
-            dim,
-            name="value-excite",
-            kernel_regularizer=WEIGHT_REGULARIZER,
-            activation=SIGMOID,
-        )(t)
-
-        temp = keras.layers.Multiply(name="value-multiply")([input, t])
-    else:
-        temp = input
-
     temp = keras.layers.Conv2D(
         16,
         (1, 1),
@@ -155,18 +109,19 @@ def create_value_head(input):
         name="pre-value-conv",
         kernel_regularizer=WEIGHT_REGULARIZER,
         activation=RECTIFIER,
-    )(temp)
+    )(input)
 
     temp = keras.layers.Flatten(name="flatten-value")(temp)
-    temp = keras.layers.BatchNormalization(name="value-dense-bn")(temp)
+    temp = keras.layers.BatchNormalization(name="value-dense-bn", renorm=RENORM)(temp)
     temp = keras.layers.Dense(
         128,
         name="value-dense",
         kernel_regularizer=WEIGHT_REGULARIZER,
         activity_regularizer=ACTIVITY_REGULARIZER,
+        activation=RECTIFIER,
     )(temp)
 
-    temp = keras.layers.BatchNormalization(name="value-bn")(temp)
+    temp = keras.layers.BatchNormalization(name="value-bn", renorm=RENORM)(temp)
     eval_head = keras.layers.Dense(
         1, activation="tanh", kernel_regularizer=WEIGHT_REGULARIZER, name="value"
     )(temp)
@@ -179,7 +134,7 @@ def create_model():
 
     board_input = keras.layers.Input(shape=(8, 8, repr.num_planes), name="board-input")
 
-    layers = [[128, 9]]
+    layers = [[96, 9]]
 
     dim = layers[0][0]
     temp = keras.layers.Conv2D(
@@ -197,15 +152,12 @@ def create_model():
 
     for width, count in layers:
         for i in range(count):
-            temp = keras.layers.BatchNormalization(
-                name="residual-block-{}-bn".format(index)
-            )(temp)
             temp = residual_block(temp, width, index, residual)
             index += 1
             residual = True
         residual = False
 
-    temp = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index))(
+    temp = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index), renorm=RENORM)(
         temp
     )
 
@@ -213,8 +165,7 @@ def create_model():
     value_output = create_value_head(temp)
 
     return keras.Model(
-        name="TFlite{}_{}".format(
-            "_SE" if SQUEEZE_EXCITE else "",
+        name="TFlite_{}".format(
             "-".join(["{}x{}".format(width, count) for width, count in layers])
         ),
         inputs=[board_input],
@@ -273,8 +224,9 @@ def schedule_learn_rate(model, iteration, batch_no):
 
     t = iteration + batch_no / STEPS_PER_ITERATION
     learn_rate = MIN_LEARN_RATE + (INITIAL_LEARN_RATE - MIN_LEARN_RATE) * 0.5 * (
-        1 + math.cos(t / 6 * math.pi)
+     1 + math.cos(t / 6 * math.pi)
     )
 
+    # learn_rate = 1e-3
     K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate
