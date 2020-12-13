@@ -17,7 +17,7 @@ def representative_dataset_gen():
     with open("data/validation.pkl", "rb") as fin:
         try:
             cnt = 0
-            while cnt < 10000:
+            while cnt < 5000:
                 item = pickle.load(fin)
                 if randint(0, 99) < SAMPLE:
                     features = item.data_board.reshape(1, 8, 8, 19).astype("float32")

@@ -11,9 +11,9 @@ import math
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None  # keras.regularizers.l1(1e-6)
 RECTIFIER = "relu"
-RENORM=False
+RENORM=True
 
-INITIAL_LEARN_RATE = 2e-2
+INITIAL_LEARN_RATE = 1e-3
 MIN_LEARN_RATE = 2e-5
 
 def categorical_crossentropy_from_logits(target, output):
@@ -134,7 +134,7 @@ def create_model():
 
     board_input = keras.layers.Input(shape=(8, 8, repr.num_planes), name="board-input")
 
-    layers = [[96, 9]]
+    layers = [[96, 11]]
 
     dim = layers[0][0]
     temp = keras.layers.Conv2D(
@@ -216,7 +216,7 @@ def load_or_create_model(model_name):
 
 
 SAMPLE_RATE = 0.2
-N_POSITIONS = 1330249
+N_POSITIONS = 1_000_000
 BATCH_SIZE = 256
 STEPS_PER_ITERATION = SAMPLE_RATE * N_POSITIONS / BATCH_SIZE
 

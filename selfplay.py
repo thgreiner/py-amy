@@ -144,10 +144,10 @@ if __name__ == "__main__":
         generator = pos_generator.generate_kqqk
 
     if args.model == "tflite":
-        model = EdgeTpuModel("models/tflite-128x9_edgetpu.tflite")
+        model = EdgeTpuModel("models/tflite-96x11_edgetpu.tflite")
     else:
         model = load_or_create_model(args.model)
 
     start_http_server(9100)
 
-    selfplay(model, args.sims, generator=generator, verbose=False)
+    selfplay(model, args.sims, generator=generator, verbose=True)

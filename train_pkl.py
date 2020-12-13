@@ -31,7 +31,7 @@ def wait_for_queue_to_fill(q):
     for i in range(900):
         time.sleep(1)
         print("Waiting for queue to fill, current size is {}     ".format(q.qsize()))
-        if q.qsize() > 10000:
+        if q.qsize() > 50000:
             break
         if old_qsize is not None and old_qsize == q.qsize():
             break

@@ -35,7 +35,7 @@ if __name__ == "__main__":
     val_cnt = 0
     train_cnt = 0
 
-    while True:
+    while train_cnt < 1_000_000:
 
         item = queue.get()
         if item.data_board is None:

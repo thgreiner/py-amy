@@ -2,6 +2,7 @@
 
 from ucb import FORCED_PLAYOUT, UCB
 from pv import variations
+from kld import KLD
 from move_selection import select_root_move, add_exploration_noise
 
 from tablebase import get_optimal_move
@@ -169,6 +170,7 @@ class MCTS:
             self.median_depth = np.median(tmp, overwrite_input=True)
 
             click.clear()
+
             print(
                 f"{board}   {'White' if board.turn else 'Black'}: {self.model_name()}"
             )
@@ -258,10 +260,11 @@ class MCTS:
             variations_list = variations(board, best_move, root.children[best_move], 1)
             if len(variations_list) == 0:
                 variations_list.append("")
+
             print(
                 color(
                     "{:3} - {:4} {:5.1f}% {:12} [{:.1f} sims/s]  {}".format(
-                        self.prefix,
+                        self.prefix or "",
                         self.num_simulations,
                         100 * root.children[best_move].value(),
                         board.variation_san([best_move]),
@@ -279,6 +282,7 @@ class MCTS:
         self.max_depth = 0
         self.sum_depth = 0
         self.depth_list = []
+        self.kld = KLD()
 
         root = Node(0)
         root.is_root = True
@@ -317,8 +321,13 @@ class MCTS:
 
                 nodes_counter.inc()
 
-                if self.verbose and iteration > 0 and iteration % 300 == 0:
-                    self.statistics(root, board)
+                if iteration > 0 and iteration % 100 == 0:
+                    if self.verbose and iteration % 400 == 0:
+                        self.statistics(root, board)
+                    kldgain = self.kld.update(root)
+
+                    if kldgain is not None and kldgain < 0.75e-3: break
+
 
                 if root.visit_count >= max_visit_count:
                     break
