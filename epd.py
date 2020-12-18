@@ -21,7 +21,6 @@ import piece_square_eval
 from pos_generator import generate_kxk
 
 from network import load_or_create_model
-from mcts import MCTS
 
 from edgetpu import EdgeTpuModel
 
@@ -38,8 +37,10 @@ if __name__ == "__main__":
     start_http_server(9100)
 
     if args.model == "tflite":
-        model = EdgeTpuModel("models/tflite-96x11_edgetpu.tflite")
+        from mcts import MCTS
+        model = EdgeTpuModel("models/tflite-96x13_edgetpu.tflite")
     else:
+        from mcts_batched import MCTS
         model = load_or_create_model(args.model)
 
     mcts = MCTS(model, True, None, max_simulations=5000000, exploration_noise=False)
