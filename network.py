@@ -11,10 +11,11 @@ import math
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 ACTIVITY_REGULARIZER = None  # keras.regularizers.l1(1e-6)
 RECTIFIER = "relu"
-RENORM=True
+RENORM = True
 
-INITIAL_LEARN_RATE = 1e-3
-MIN_LEARN_RATE = 2e-5
+INITIAL_LEARN_RATE = 1e-2
+MIN_LEARN_RATE = 1e-4
+
 
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
@@ -80,9 +81,9 @@ def create_policy_head(input):
         padding="same",
     )(input)
 
-    temp = keras.layers.Activation(
-        name="pre-moves-activation", activation=RECTIFIER
-    )(temp)
+    temp = keras.layers.Activation(name="pre-moves-activation", activation=RECTIFIER)(
+        temp
+    )
 
     temp = keras.layers.add([temp, input], name="pre-moves-conv-add")
 
@@ -134,7 +135,7 @@ def create_model():
 
     board_input = keras.layers.Input(shape=(8, 8, repr.num_planes), name="board-input")
 
-    layers = [[96, 11]]
+    layers = [[96, 13]]
 
     dim = layers[0][0]
     temp = keras.layers.Conv2D(
@@ -157,9 +158,9 @@ def create_model():
             residual = True
         residual = False
 
-    temp = keras.layers.BatchNormalization(name="residual-block-{}-bn".format(index), renorm=RENORM)(
-        temp
-    )
+    temp = keras.layers.BatchNormalization(
+        name="residual-block-{}-bn".format(index), renorm=RENORM
+    )(temp)
 
     move_output = create_policy_head(temp)
     value_output = create_value_head(temp)
@@ -173,31 +174,31 @@ def create_model():
     )
 
 
+def compile_model(model, prefix=""):
+    # optimizer = AdaBelief(lr=2e-3, weight_decay=1e-4)
+    # optimizer = keras.optimizers.SGD(
+    #     lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0
+    # )
+    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True)
+    # optimizer = keras.optimizers.Adam(lr=0.001)
+
+    model.compile(
+        optimizer=optimizer,
+        loss={
+            f"{prefix}moves": keras.losses.CategoricalCrossentropy(from_logits=True),
+            f"{prefix}value": "mean_squared_error",
+        },
+        metrics={
+            f"{prefix}moves": ["accuracy", "top_k_categorical_accuracy"],
+            f"{prefix}value": ["mae"],
+        },
+    )
+
+
 def load_or_create_model(model_name):
     if model_name is None:
         model = create_model()
-
-        # optimizer = AdaBelief(lr=2e-3, weight_decay=1e-4)
-        # optimizer = keras.optimizers.SGD(
-        #     lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0
-        # )
-        optimizer = keras.optimizers.SGD(
-            lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True
-        )
-        # optimizer = keras.optimizers.Adam(lr=0.001)
-
-        model.compile(
-            optimizer=optimizer,
-            loss={
-                "moves": categorical_crossentropy_from_logits,
-                "value": "mean_squared_error",
-            },
-            loss_weights={"moves": 1.0, "value": 1.0, },
-            metrics={
-                "moves": ["accuracy", "top_k_categorical_accuracy"],
-                "value": ["mae"],
-            },
-        )
+        compile_model(model)
     else:
         print('Loading model from "{}"'.format(model_name))
         model = load_model(
@@ -220,11 +221,12 @@ N_POSITIONS = 1_000_000
 BATCH_SIZE = 256
 STEPS_PER_ITERATION = SAMPLE_RATE * N_POSITIONS / BATCH_SIZE
 
+
 def schedule_learn_rate(model, iteration, batch_no):
 
     t = iteration + batch_no / STEPS_PER_ITERATION
     learn_rate = MIN_LEARN_RATE + (INITIAL_LEARN_RATE - MIN_LEARN_RATE) * 0.5 * (
-     1 + math.cos(t / 6 * math.pi)
+        1 + math.cos(t / 6 * math.pi)
     )
 
     # learn_rate = 1e-3
