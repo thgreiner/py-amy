@@ -27,67 +27,31 @@ class EdgeTpuModel:
             ],
         )
 
+        input_details = self.interpreter.get_input_details()
+        self.input_quantization = input_details[0]["quantization"]
+        self.input_index = input_details[0]["index"]
+
+        output_details = self.interpreter.get_output_details()
+        self.logits_index = output_details[0]["index"]
+        self.logits_quantization = output_details[0]["quantization"]
+
+        self.value_index = output_details[1]["index"]
+        self.value_quantization = output_details[1]["quantization"]
+
     def predict(self, input_board):
-        input_details = self.interpreter.get_input_details()[0]
-        scale, zero_point = input_details["quantization"]
+        scale, zero_point = self.input_quantization
         input_board = input_board / scale + zero_point
 
-        set_input(self.interpreter, input_board.astype("int8"))
+        self.interpreter.tensor(self.input_index)()[0][:,:] = input_board.astype("int8")
         self.interpreter.invoke()
 
-        output_details = self.interpreter.get_output_details()[0]
-        output_data = np.squeeze(self.interpreter.tensor(output_details["index"])())
-        scale, zero_point = output_details["quantization"]
+        output_data = np.squeeze(self.interpreter.tensor(self.logits_index)())
+        scale, zero_point = self.logits_quantization
         # print(scale, zero_point)
         logits = scale * (output_data - zero_point)
 
-        output_details = self.interpreter.get_output_details()[1]
-        output_data = np.squeeze(self.interpreter.tensor(output_details["index"])())
-        scale, zero_point = output_details["quantization"]
+        output_data = np.squeeze(self.interpreter.tensor(self.value_index)())
+        scale, zero_point = self.value_quantization
         value = scale * (output_data - zero_point)
 
-        return (logits, np.array([value]))
-
-
-def input_details(interpreter, key):
-    """Returns input details by specified key."""
-    return interpreter.get_input_details()[0][key]
-
-
-def input_size(interpreter):
-    """Returns input image size as (width, height) tuple."""
-    _, height, width, _ = input_details(interpreter, "shape")
-    return width, height
-
-
-def input_tensor(interpreter):
-    """Returns input tensor view as numpy array of shape (height, width, 3)."""
-    tensor_index = input_details(interpreter, "index")
-    return interpreter.tensor(tensor_index)()[0]
-
-
-def output_tensor(interpreter, dequantize=True):
-    """Returns output tensor of classification model.
-
-    Integer output tensor is dequantized by default.
-
-    Args:
-      interpreter: tflite.Interpreter;
-      dequantize: bool; whether to dequantize integer output tensor.
-
-    Returns:
-      Output tensor as numpy array.
-    """
-    output_details = interpreter.get_output_details()[0]
-    output_data = np.squeeze(interpreter.tensor(output_details["index"])())
-
-    if dequantize and np.issubdtype(output_details["dtype"], np.integer):
-        scale, zero_point = output_details["quantization"]
-        return scale * (output_data - zero_point)
-
-    return output_data
-
-
-def set_input(interpreter, data):
-    """Copies data to input tensor."""
-    input_tensor(interpreter)[:, :] = data
+        return (logits, value)
