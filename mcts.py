@@ -88,7 +88,6 @@ class MCTS:
     ):
         self.model = model
         self.repr = Repr2D()
-        self.select_root_move = select_root_move
 
         self.verbose = verbose
         self.prefix = prefix
@@ -101,9 +100,13 @@ class MCTS:
         self.best_move = None
 
         self.ucb_score = UCB(1.5)
+        self.kldgain_stop = 0.0
 
     def set_pb_c_init(self, pb_c_init):
         self.ucb_score = UCB(pb_c_init)
+
+    def set_kldgain_stop(self, kldgain):
+        self.kldgain_stop = kldgain
 
     def model_name(self):
         return self.model.name
@@ -326,7 +329,8 @@ class MCTS:
                         self.statistics(root, board)
                     kldgain = self.kld.update(root)
 
-                    if kldgain is not None and kldgain < 0.75e-3: break
+                    if kldgain is not None and kldgain < self.kldgain_stop:
+                        break
 
 
                 if root.visit_count >= max_visit_count:
