@@ -150,7 +150,7 @@ class MCTS:
         return value
 
     def mcts(self, board, prefix, sample=True, limit=None):
-        self.stats = MCTS_Stats(self.model_name(), self.verbose)
+        self.stats = MCTS_Stats(self.model_name(), self.verbose, self.prefix)
         self.kld = KLD()
 
         root = Node(0)

@@ -1,15 +1,16 @@
-from prometheus_client import Counter, Gauge, Histogram
+from prometheus_client import Counter, Histogram
 from colors import color
 from pv import variations
+from move_selection import select_root_move
 
 import textwrap
 import time
 import numpy as np
 import click
 
-
 class MCTS_Stats:
-    def __init__(self, model_name, verbose):
+
+    def __init__(self, model_name, verbose, prefix):
         self.max_depth = 0
         self.sum_depth = 0
         self.depth_list = []
@@ -18,6 +19,7 @@ class MCTS_Stats:
         self.start_time = time.perf_counter()
         self.model_name = model_name
         self.verbose = verbose
+        self.prefix = prefix
         self.best_move = None
         self.wrapper = textwrap.TextWrapper(
             initial_indent=9 * " ", subsequent_indent=11 * " ", width=119
@@ -46,7 +48,9 @@ class MCTS_Stats:
 
             click.clear()
 
-            print(f"{board}   {'White' if board.turn else 'Black'}: {self.model_name}")
+            print(
+                f"{board}   {'White' if board.turn else 'Black'}: {self.model_name}"
+            )
             print()
             print(board.fen())
             # print()
@@ -147,7 +151,6 @@ class MCTS_Stats:
                     get_color(root.children[best_move].value()),
                 )
             )
-
 
 nodes_counter = Counter("nodes", "Nodes visited")
 terminal_nodes_counter = Counter("terminal_nodes", "Terminal nodes visited")

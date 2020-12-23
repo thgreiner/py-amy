@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
 
-BATCH_SIZE = 32
-
 import math
-import numpy as np
 
-from ucb import FORCED_PLAYOUT, UCB
-from kld import KLD
 from move_selection import add_exploration_noise
 from tablebase import get_optimal_move
 from non_blocking_console import NonBlockingConsole
@@ -14,6 +9,8 @@ from chess_input import Repr2D
 from prometheus_client import Gauge
 from mcts_stats import MCTS_Stats
 from deferred_evaluator import DeferredEvaluator
+
+BATCH_SIZE = 32
 
 
 class Node(object):
@@ -203,8 +200,6 @@ class MCTS:
         input_board = self.repr.board_to_array(board).reshape(
             1, 8, 8, self.repr.num_planes
         )
-        input_non_progress = np.array([board.halfmove_clock / 100.0])
-
         self.deferred_evaluator.add(input_board)
 
         node.future_actions = [m for m in board.generate_legal_moves()]
@@ -221,7 +216,6 @@ class MCTS:
         if self.exploration_noise:
             add_exploration_noise(root)
 
-        best_move = None
         max_visit_count = self.max_simulations
         if limit is not None:
             max_visit_count = min(limit, max_visit_count)
@@ -232,7 +226,6 @@ class MCTS:
         with NonBlockingConsole() as nbc:
             for iteration in range(max_visit_count):
                 to_evaluate = []
-                evals = []
                 turns = []
 
                 self.deferred_evaluator.clear()

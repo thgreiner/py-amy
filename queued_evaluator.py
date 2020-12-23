@@ -28,8 +28,7 @@ class MultiplexingEvaluator:
         self.name = model.name
         self.model_loaded.set()
 
-        features_board = np.zeros(((self.batch_size, 8, 8, 18)), np.int8)
-        features_non_progress = np.zeros((self.batch_size, 1), np.float32)
+        features_board = np.zeros(((self.batch_size, 8, 8, 19)), np.int8)
 
         while True:
             response_queues = []
@@ -38,9 +37,8 @@ class MultiplexingEvaluator:
                 response_queues.append(request[0])
                 features = request[1]
                 features_board[i] = features[0]
-                features_non_progress[i] = features[1]
 
-            predictions = model.predict([features_board, features_non_progress])
+            predictions = model.predict([features_board])
 
             for i in range(self.batch_size):
                 response_queues[i].put([predictions[0][i], predictions[1][i]])
