@@ -24,6 +24,7 @@ def selfplay(
     mcts = MCTS(
         model, verbose, prefix, exploration_noise=True, max_simulations=num_simulations
     )
+    mcts.set_kldgain_stop(0.75e-3)
 
     if saver is None:
         saver = DefaultGameSaver("LearnGames")
@@ -144,7 +145,7 @@ if __name__ == "__main__":
         generator = pos_generator.generate_kqqk
 
     if args.model == "tflite":
-        model = EdgeTpuModel("models/tflite-96x11_edgetpu.tflite")
+        model = EdgeTpuModel("models/tflite-96x13_edgetpu.tflite")
     else:
         model = load_or_create_model(args.model)
 
