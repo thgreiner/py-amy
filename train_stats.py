@@ -27,7 +27,7 @@ class Stats(object):
         self.sum_loss += loss * cnt
         self.sum_cnt += cnt
 
-        return "loss: {:.2f} = {:.2f} + {:.2f} + {:.2f}, moves: {:4.1f}% top 5: {:4.1f}%, score: {:.2f} || avg: {:.3f}, {:.2f}% top 5: {:.2f}%, {:.3f}".format(
+        return "loss: {:.2f} = {:.2f} + {:.3f} + {:.3f}, moves: {:4.1f}% top 5: {:4.1f}%, score: {:.2f} || avg: {:.3f}, {:.2f}% top 5: {:.2f}%, {:.3f}".format(
             loss,
             moves_loss,
             score_loss,
