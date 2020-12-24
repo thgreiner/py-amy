@@ -10,7 +10,7 @@ import click
 
 class MCTS_Stats:
 
-    def __init__(self, model_name, verbose, prefix):
+    def __init__(self, model_name, verbose, prefix=None):
         self.max_depth = 0
         self.sum_depth = 0
         self.depth_list = []
@@ -43,8 +43,6 @@ class MCTS_Stats:
 
         if self.verbose:
             avg_depth = self.sum_depth / self.num_simulations
-            tmp = np.array(self.depth_list)
-            median_depth = np.median(tmp, overwrite_input=True)
 
             click.clear()
 
@@ -63,9 +61,8 @@ class MCTS_Stats:
             )
             print()
             print(
-                "Max depth: {} Median depth: {} Avg depth: {:.1f} Terminal nodes: {:.1f}%".format(
+                "Max depth: {}  Avg depth: {:.1f}  Terminal nodes: {:.1f}%".format(
                     self.max_depth,
-                    median_depth,
                     avg_depth,
                     100 * self.terminal_nodes / self.num_simulations,
                 )
