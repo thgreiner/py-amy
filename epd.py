@@ -22,7 +22,7 @@ from pos_generator import generate_kxk
 
 from network import load_or_create_model
 
-from edgetpu import EdgeTpuModel
+# from edgetpu import EdgeTpuModel
 
 from prometheus_client import start_http_server, Counter
 
@@ -39,6 +39,10 @@ if __name__ == "__main__":
     if args.model == "tflite":
         from mcts import MCTS
         model = EdgeTpuModel("models/tflite-96x13_edgetpu.tflite")
+    elif args.model == "tensorrt":
+        from mcts_batched import MCTS
+        from tensorrt_model import TensorRTModel
+        model = TensorRTModel()
     else:
         from mcts_batched import MCTS
         model = load_or_create_model(args.model)

@@ -208,10 +208,10 @@ def load_or_create_model(model_name):
             },
         )
 
-    model.summary()
-    print()
-    print('Model name is "{}"'.format(model.name))
-    print()
+    # model.summary()
+    # print()
+    # print('Model name is "{}"'.format(model.name))
+    # print()
 
     return model
 
