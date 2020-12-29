@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import numpy as np
 
 from ucb import FORCED_PLAYOUT, UCB
 from kld import KLD
