@@ -8,11 +8,9 @@ import time
 from chess import Board
 import pos_generator
 from network import load_or_create_model
-from mcts import MCTS
 from move_selection import select_root_move
 from pgn_writer import DefaultGameSaver, create_node_with_comment
 from prometheus_client import start_http_server
-from edgetpu import EdgeTpuModel
 
 MAX_HALFMOVES_IN_GAME = 200
 
@@ -145,8 +143,11 @@ if __name__ == "__main__":
         generator = pos_generator.generate_kqqk
 
     if args.model == "tflite":
+        from mcts import MCTS
+        from edgetpu import EdgeTpuModel
         model = EdgeTpuModel("models/tflite-96x13_edgetpu.tflite")
     else:
+        from mcts_batched import MCTS
         model = load_or_create_model(args.model)
 
     start_http_server(9100)

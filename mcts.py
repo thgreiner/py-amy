@@ -112,10 +112,7 @@ class MCTS:
             node.turn = board.turn
             return score(board, winner)
 
-        input_board = self.repr.board_to_array(board).reshape(
-            1, 8, 8, self.repr.num_planes
-        )
-
+        input_board = np.expand_dims(self.repr.board_to_array(board), axis=0)
         prediction = self.model.predict(input_board)
 
         value = (prediction[1].flatten())[0]
@@ -151,7 +148,7 @@ class MCTS:
 
     def mcts(self, board, prefix, sample=True, limit=None):
         self.stats = MCTS_Stats(self.model_name(), self.verbose, self.prefix)
-        self.kld = KLD()
+        kld = KLD()
 
         root = Node(0)
         root.is_root = True
@@ -187,7 +184,7 @@ class MCTS:
                 if iteration > 0 and iteration % 100 == 0:
                     if self.verbose and iteration % 400 == 0:
                         self.stats.statistics(root, board)
-                    kldgain = self.kld.update(root)
+                    kldgain = kld.update(root)
 
                     if kldgain is not None and kldgain < self.kldgain_stop:
                         break

@@ -2,6 +2,7 @@
 
 import math
 
+from kld import KLD
 from move_selection import add_exploration_noise
 from tablebase import get_optimal_move
 from non_blocking_console import NonBlockingConsole
@@ -114,6 +115,10 @@ class MCTS:
 
         self.best_move = None
         self.deferred_evaluator = DeferredEvaluator(model, BATCH_SIZE)
+        self.kldgain_stop = 0.0
+
+    def set_kldgain_stop(self, kldgain):
+        self.kldgain_stop = kldgain
 
     def move_prob(self, logits, move, xor):
         sq = move.to_square ^ xor
@@ -208,6 +213,7 @@ class MCTS:
 
     def mcts(self, board, prefix, sample=True, limit=None):
         self.stats = MCTS_Stats(self.model.name, self.verbose)
+        kld = KLD()
 
         root = Node(0)
         root.is_root = True
@@ -221,7 +227,8 @@ class MCTS:
             max_visit_count = min(limit, max_visit_count)
 
         num_simulations = 0
-        next_statistics = 100
+        next_statistics = 200
+        next_check = 100
 
         with NonBlockingConsole() as nbc:
             for iteration in range(max_visit_count):
@@ -268,9 +275,16 @@ class MCTS:
                     value = self.evaluate_deferred_post(path[-1], eval, turn)
                     backpropagate(path, value, turn)
 
-                if self.verbose and iteration > 0 and num_simulations > next_statistics:
-                    self.stats.statistics(root, board)
-                    next_statistics += 200
+                if iteration > 0 and num_simulations > next_check:
+                    if self.verbose and num_simulations > next_statistics:
+                        self.stats.statistics(root, board)
+                        next_statistics += 200
+
+                    kldgain = kld.update(root)
+
+                    if kldgain is not None and kldgain < self.kldgain_stop:
+                        break
+                    next_check += 100
 
                 if root.visit_count >= max_visit_count:
                     break
@@ -287,6 +301,10 @@ class MCTS:
         prop_gauge.labels(game=prefix).set(white_win_prop)
 
         return root
+
+    def correct_forced_playouts(self, tree: Node):
+        # No-op implementation
+        return tree
 
 
 prop_gauge = Gauge("white_prob", "Win probability white", ["game"])
