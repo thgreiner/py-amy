@@ -94,7 +94,7 @@ def backpropagate(search_path, value: float, to_play):
 
 
 def is_singular_move(search_path, threshold):
-    return len(search_path) >= 1 and search_path[1].visit_count > threshold
+    return len(search_path) > 1 and search_path[1].visit_count > threshold
 
 
 class MCTS:
