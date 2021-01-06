@@ -105,9 +105,9 @@ class MCTS:
         plane = self.repr.plane_index(move, xor)
         return math.exp(logits[sq, plane])
 
-    def evaluate(self, node, board):
+    def evaluate(self, node, board, check_draw=True):
         # Consider any repetition a draw
-        if (
+        if check_draw and (
             board.is_repetition(count=2)
             or board.is_insufficient_material()
             or board.is_fifty_moves()
@@ -158,7 +158,7 @@ class MCTS:
 
         root = Node(0)
         root.is_root = True
-        self.evaluate(root, board)
+        self.evaluate(root, board, check_draw=False)
 
         if self.exploration_noise:
             add_exploration_noise(root)

@@ -127,15 +127,6 @@ class MCTS:
         return math.exp(logits[sq, plane])
 
     def evaluate(self, node, board):
-        # Consider any repetition a draw
-        if (
-            board.is_repetition(count=2)
-            or board.is_insufficient_material()
-            or board.is_fifty_moves()
-        ):
-            self.stats.observe_terminal_node()
-            node.turn = board.turn
-            return 0.5
 
         legal_moves = [move for move in board.generate_legal_moves()]
         if len(legal_moves) == 0:
