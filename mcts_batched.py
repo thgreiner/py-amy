@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import numpy as np
 
 from kld import KLD
 from move_selection import add_exploration_noise
@@ -126,17 +127,25 @@ class MCTS:
         return math.exp(logits[sq, plane])
 
     def evaluate(self, node, board):
-        if board.is_game_over(claim_draw=True):
+        # Consider any repetition a draw
+        if (
+            board.is_repetition(count=2)
+            or board.is_insufficient_material()
+            or board.is_fifty_moves()
+        ):
+            self.stats.observe_terminal_node()
+            node.turn = board.turn
+            return 0.5
+
+        legal_moves = [move for move in board.generate_legal_moves()]
+        if len(legal_moves) == 0:
             self.stats.observe_terminal_node()
             winner = board.result(claim_draw=True)
             # print(winner)
             node.turn = board.turn
             return score(board, winner)
 
-        input_board = self.repr.board_to_array(board).reshape(
-            1, 8, 8, self.repr.num_planes
-        )
-
+        input_board = np.expand_dims(self.repr.board_to_array(board), axis=0)
         prediction = self.model.predict(input_board)
 
         value = (prediction[1].flatten())[0]
@@ -154,15 +163,9 @@ class MCTS:
         node.turn = board.turn
 
         if tb_value is not None and tb_value != "Draw":
-            policy = {
-                move: (1 if move == tb_move else 0)
-                for move in board.generate_legal_moves()
-            }
+            policy = {move: (1 if move == tb_move else 0) for move in legal_moves}
         else:
-            policy = {
-                move: (self.move_prob(logits, move, xor))
-                for move in board.generate_legal_moves()
-            }
+            policy = {move: (self.move_prob(logits, move, xor)) for move in legal_moves}
 
         policy_sum = sum(policy.values())
         for action, p in policy.items():
@@ -195,19 +198,28 @@ class MCTS:
         return value
 
     def evaluate_deferred(self, node, board):
-        if board.is_game_over(claim_draw=True):
+        # Consider any repetition a draw
+        if (
+            board.is_repetition(count=2)
+            or board.is_insufficient_material()
+            or board.is_fifty_moves()
+        ):
+            self.stats.observe_terminal_node()
+            node.turn = board.turn
+            return 0.5
+
+        legal_moves = [move for move in board.generate_legal_moves()]
+        if len(legal_moves) == 0:
             self.stats.observe_terminal_node()
             winner = board.result(claim_draw=True)
             # print(winner)
             node.turn = board.turn
             return score(board, winner)
 
-        input_board = self.repr.board_to_array(board).reshape(
-            1, 8, 8, self.repr.num_planes
-        )
+        input_board = np.expand_dims(self.repr.board_to_array(board), axis=0)
         self.deferred_evaluator.add(input_board)
 
-        node.future_actions = [m for m in board.generate_legal_moves()]
+        node.future_actions = legal_moves
 
         return None
 

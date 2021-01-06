@@ -106,7 +106,18 @@ class MCTS:
         return math.exp(logits[sq, plane])
 
     def evaluate(self, node, board):
-        if board.is_game_over(claim_draw=True):
+        # Consider any repetition a draw
+        if (
+            board.is_repetition(count=2)
+            or board.is_insufficient_material()
+            or board.is_fifty_moves()
+        ):
+            self.stats.observe_terminal_node()
+            node.turn = board.turn
+            return 0.5
+
+        legal_moves = [move for move in board.generate_legal_moves()]
+        if len(legal_moves) == 0:
             self.stats.observe_terminal_node()
             winner = board.result(claim_draw=True)
             # print(winner)
@@ -131,15 +142,9 @@ class MCTS:
         node.turn = board.turn
 
         if tb_value is not None and tb_value != "Draw":
-            policy = {
-                move: (1 if move == tb_move else 0)
-                for move in board.generate_legal_moves()
-            }
+            policy = {move: (1 if move == tb_move else 0) for move in legal_moves}
         else:
-            policy = {
-                move: (self.move_prob(logits, move, xor))
-                for move in board.generate_legal_moves()
-            }
+            policy = {move: (self.move_prob(logits, move, xor)) for move in legal_moves}
 
         policy_sum = sum(policy.values())
         for action, p in policy.items():
