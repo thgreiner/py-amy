@@ -126,7 +126,23 @@ class MCTS:
         plane = self.repr.plane_index(move, xor)
         return math.exp(logits[sq, plane])
 
-    def evaluate(self, node, board):
+    def evaluate(self, node, board, full_check=False):
+
+        node.turn = board.turn
+
+        if full_check:
+            if board.is_game_over(claim_draw=True):
+                self.stats.observe_terminal_node()
+                return score(board, board.result(claim_draw=True))
+        else:
+            # Consider any repetition a draw
+            if (
+                board.is_repetition(count=2)
+                or board.is_insufficient_material()
+                or board.is_fifty_moves()
+            ):
+                self.stats.observe_terminal_node()
+                return 0.5
 
         legal_moves = [move for move in board.generate_legal_moves()]
         if len(legal_moves) == 0:
@@ -149,9 +165,6 @@ class MCTS:
 
         # Check endgame tablebase
         tb_move, tb_value = get_optimal_move(board)
-
-        # Expand the node.
-        node.turn = board.turn
 
         if tb_value is not None and tb_value != "Draw":
             policy = {move: (1 if move == tb_move else 0) for move in legal_moves}
@@ -220,7 +233,7 @@ class MCTS:
 
         root = Node(0)
         root.is_root = True
-        self.evaluate(root, board)
+        self.evaluate(root, board, full_check=True)
 
         if self.exploration_noise:
             add_exploration_noise(root)
