@@ -55,3 +55,20 @@ class EdgeTpuModel:
         value = scale * (output_data - zero_point)
 
         return (logits, value)
+
+
+if __name__ == "__main__":
+    from time import perf_counter
+
+    N = 5000
+
+    model = EdgeTpuModel("models/tflite-128x19_edgetpu.tflite")
+
+    data = np.ones((1, 8, 8, 19)).astype("int8")
+
+    p_start = perf_counter()
+    for i in range(N):
+        _ = model.predict(data)
+    p_end = perf_counter()
+
+    print(f"{N} predictions in {p_end-p_start}s = {N/(p_end-p_start)} 1/s")
