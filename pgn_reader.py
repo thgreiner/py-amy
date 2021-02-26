@@ -134,6 +134,7 @@ def pos_generator(filename, test_mode, queue):
                 game, game.board(), queue, result, sample_rate
             )
 
+    print(f"Parsed {cnt} games, {positions_created} positions.")
     queue.put(end_of_input_item())
 
 
