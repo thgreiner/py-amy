@@ -87,7 +87,7 @@ class MCTS:
 
         self.best_move = None
 
-        self.ucb_score = UCB(1.5)
+        self.ucb_score = UCB(1.25)
         self.kldgain_stop = 0.0
 
     def set_pb_c_init(self, pb_c_init):
@@ -180,7 +180,7 @@ class MCTS:
                     search_path.append(node)
                     depth += 1
 
-                value = self.evaluate(node, board)
+                value = self.evaluate(node, board, depth < 2)
                 backpropagate(search_path, value, board.turn)
 
                 self.stats.observe_depth(depth)
