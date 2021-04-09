@@ -14,7 +14,6 @@ from prometheus_client import start_http_server
 
 MAX_HALFMOVES_IN_GAME = 200
 
-
 def selfplay(
     model, num_simulations, verbose=True, prefix="0", generator=None, saver=None
 ):
@@ -50,7 +49,7 @@ def selfplay(
         else:
             board = Board()
 
-        fully_playout_game = random.randint(0, 100) < 8
+        fully_playout_game = random.randint(0, 100) < 12
 
         while (
             not board.is_game_over(claim_draw=True)
@@ -145,7 +144,11 @@ if __name__ == "__main__":
     if args.model == "tflite":
         from mcts import MCTS
         from edgetpu import EdgeTpuModel
-        model = EdgeTpuModel("models/tflite-96x13_edgetpu.tflite")
+        model = EdgeTpuModel("models/tflite-128x19_edgetpu.tflite")
+    elif args.model.endswith("_edgetpu.tflite"):
+        from mcts import MCTS
+        from edgetpu import EdgeTpuModel
+        model = EdgeTpuModel(args.model)
     else:
         from mcts_batched import MCTS
         model = load_or_create_model(args.model)

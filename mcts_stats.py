@@ -37,6 +37,9 @@ class MCTS_Stats:
         self.terminal_nodes += 1
         terminal_nodes_counter.inc()
 
+    def observe_root_value(self, value):
+        self.root_value = value
+
     def statistics(self, root, board):
 
         elapsed = time.perf_counter() - self.start_time
@@ -61,10 +64,11 @@ class MCTS_Stats:
             )
             print()
             print(
-                "Max depth: {}  Avg depth: {:.1f}  Terminal nodes: {:.1f}%".format(
+                "Max depth: {}  Avg depth: {:.1f}  Terminal nodes: {:.1f}%  Root value: {:.1f}%".format(
                     self.max_depth,
                     avg_depth,
                     100 * self.terminal_nodes / self.num_simulations,
+                    100 * self.root_value
                 )
             )
             print()

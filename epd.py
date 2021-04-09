@@ -39,13 +39,21 @@ if __name__ == "__main__":
     if args.model == "tflite":
         from mcts import MCTS
         from edgetpu import EdgeTpuModel
-        model = EdgeTpuModel("models/tflite-96x13_edgetpu.tflite")
+
+        model = EdgeTpuModel("models/tflite-104x15_edgetpu.tflite")
+    elif args.model.endswith("_edgetpu.tflite"):
+        from mcts import MCTS
+        from edgetpu import EdgeTpuModel
+
+        model = EdgeTpuModel(args.model)
     elif args.model == "tensorrt":
         from mcts_batched import MCTS
         from tensorrt_model import TensorRTModel
+
         model = TensorRTModel()
     else:
         from mcts_batched import MCTS
+
         model = load_or_create_model(args.model)
 
     mcts = MCTS(model, True, None, max_simulations=5000000, exploration_noise=False)

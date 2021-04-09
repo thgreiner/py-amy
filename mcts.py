@@ -159,7 +159,7 @@ class MCTS:
 
         root = Node(0)
         root.is_root = True
-        self.evaluate(root, board, full_check=True)
+        self.stats.observe_root_value(self.evaluate(root, board, full_check=True))
 
         if self.exploration_noise:
             add_exploration_noise(root)

@@ -135,7 +135,7 @@ def create_model():
 
     board_input = keras.layers.Input(shape=(8, 8, repr.num_planes), name="board-input")
 
-    layers = [[96, 13]]
+    layers = [[128, 19]]
 
     dim = layers[0][0]
     temp = keras.layers.Conv2D(
@@ -224,11 +224,11 @@ STEPS_PER_ITERATION = SAMPLE_RATE * N_POSITIONS / BATCH_SIZE
 
 def schedule_learn_rate(model, iteration, batch_no):
 
-    t = iteration + batch_no / STEPS_PER_ITERATION
-    learn_rate = MIN_LEARN_RATE + (INITIAL_LEARN_RATE - MIN_LEARN_RATE) * 0.5 * (
-        1 + math.cos(t / 6 * math.pi)
-    )
+    # t = iteration + batch_no / STEPS_PER_ITERATION
+    # learn_rate = MIN_LEARN_RATE + (INITIAL_LEARN_RATE - MIN_LEARN_RATE) * 0.5 * (
+    #     1 + math.cos(t / 6 * math.pi)
+    # )
 
-    # learn_rate = 1e-3
+    learn_rate = 5e-3
     K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate
