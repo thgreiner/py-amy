@@ -10,7 +10,7 @@ from network import load_or_create_model
 
 import logging
 
-SAMPLE = 10
+SAMPLE = 50
 
 
 def representative_dataset_gen():
@@ -26,6 +26,8 @@ def representative_dataset_gen():
         except EOFError:
             pass
 
+    print(f"Provided {cnt} samples.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert and quantize a Keras model.")
@@ -36,7 +38,7 @@ if __name__ == "__main__":
     model = load_or_create_model(args.model)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_LATENCY]
+    converter.optimizations = [tf.lite.Optimize.DEFAULT]
     converter.representative_dataset = representative_dataset_gen
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
     converter.inference_input_type = tf.int8
