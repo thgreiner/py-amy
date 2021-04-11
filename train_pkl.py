@@ -146,8 +146,10 @@ if __name__ == "__main__":
                 train_data = [train_data_board]
                 train_labels = [train_labels1, train_labels2]
 
-                lr = schedule_learn_rate(model, iteration, batch_no)
-                learn_rate_gauge.set(lr)
+                if not args.test:
+                    lr = schedule_learn_rate(model, iteration, batch_no)
+                    learn_rate_gauge.set(lr)
+
                 batch_no += 1
                 batch_no_counter.inc()
 
