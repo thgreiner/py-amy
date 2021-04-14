@@ -21,6 +21,22 @@ class PrioritizedItem:
     data_board: Any = field(compare=False)
     label_moves: Any = field(compare=False)
     label_value: Any = field(compare=False)
+    label_wdl: Any = field(compare=False)
+
+
+def label_for_result(result, turn):
+    if result == '1-0':
+        if turn:
+            return [1, 0, 0]
+        else:
+            return [0, 0, 1]
+    if result == '0-1':
+        if turn:
+            return [0, 0, 1]
+        else:
+            return [1, 0, 0]
+
+    return [0, 1, 0]
 
 
 repr = Repr2D()
@@ -66,6 +82,7 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
 
         q, policy = parse_mcts_result(node.comment)
         q = q * 2 - 1.0
+        z = label_for_result(result, board.turn)
 
         train_data_board = repr.board_to_array(board)
         train_labels1 = repr.policy_to_array(board, policy)
@@ -75,6 +92,7 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
             train_data_board,
             train_labels1,
             q,
+            z
         )
         queue.put(item)
 
@@ -98,7 +116,7 @@ game_counter = Counter("training_game_total", "Games seen by training", ["result
 
 def pos_generator(filename, test_mode, queue):
 
-    sample_rate = 100  # if test_mode else 50
+    sample_rate = 100  if test_mode else 60
 
     cnt = 0
     with open(filename) as pgn:
@@ -122,7 +140,7 @@ def pos_generator(filename, test_mode, queue):
             game_counter.labels(result=result).inc()
 
             cnt += 1
-            if cnt % 100 == 0:
+            if cnt % 10 == 0:
                 print(
                     "Parsing game #{} {}, {} positions".format(
                         cnt, date_of_game, positions_created
@@ -139,4 +157,4 @@ def pos_generator(filename, test_mode, queue):
 
 
 def end_of_input_item():
-    return PrioritizedItem(MAX_PRIO, None, None, None)
+    return PrioritizedItem(MAX_PRIO, None, None, None, None)

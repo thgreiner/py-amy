@@ -127,7 +127,18 @@ def create_value_head(input):
         1, activation="tanh", kernel_regularizer=WEIGHT_REGULARIZER, name="value"
     )(temp)
 
-    return eval_head
+    temp = keras.layers.Dense(
+        128,
+        name="wdl-dense",
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        activity_regularizer=ACTIVITY_REGULARIZER,
+        activation=RECTIFIER,
+    )(temp)
+    wdl_head = keras.layers.Dense(
+        3, activation="softmax", kernel_regularizer=WEIGHT_REGULARIZER, name="wdl"
+    )(temp)
+
+    return eval_head, wdl_head
 
 
 def create_model():
@@ -163,14 +174,14 @@ def create_model():
     )(temp)
 
     move_output = create_policy_head(temp)
-    value_output = create_value_head(temp)
+    value_output, wdl_output = create_value_head(temp)
 
     return keras.Model(
         name="TFlite_{}".format(
             "-".join(["{}x{}".format(width, count) for width, count in layers])
         ),
         inputs=[board_input],
-        outputs=[move_output, value_output],
+        outputs=[move_output, value_output, wdl_output],
     )
 
 
@@ -187,10 +198,12 @@ def compile_model(model, prefix=""):
         loss={
             f"{prefix}moves": keras.losses.CategoricalCrossentropy(from_logits=True),
             f"{prefix}value": "mean_squared_error",
+            f"{prefix}wdl": keras.losses.CategoricalCrossentropy(),
         },
         metrics={
             f"{prefix}moves": ["accuracy", "top_k_categorical_accuracy"],
             f"{prefix}value": ["mae"],
+            f"{prefix}wdl": ["accuracy"]
         },
     )
 

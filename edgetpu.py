@@ -38,6 +38,9 @@ class EdgeTpuModel:
         self.value_index = output_details[1]["index"]
         self.value_quantization = output_details[1]["quantization"]
 
+        self.wdl_index = output_details[2]["index"]
+        self.wdl_quantization = output_details[2]["quantization"]
+
     def predict(self, input_board):
         scale, zero_point = self.input_quantization
         input_board = input_board / scale + zero_point
@@ -54,7 +57,11 @@ class EdgeTpuModel:
         scale, zero_point = self.value_quantization
         value = scale * (output_data - zero_point)
 
-        return (logits, value)
+        output_data = np.squeeze(self.interpreter.tensor(self.wdl_index)())
+        scale, zero_point = self.wdl_quantization
+        wdl = scale * (output_data - zero_point)
+
+        return (logits, value, wdl)
 
 
 if __name__ == "__main__":

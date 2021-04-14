@@ -87,13 +87,14 @@ if __name__ == "__main__":
 
     start_http_server(9099)
 
-    for iteration in range(6):
+    for iteration in range(1):
 
         stats = Stats()
 
         train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
         train_labels1 = np.zeros((batch_size, 4672), np.float32)
         train_labels2 = np.zeros((batch_size, 1), np.float32)
+        train_labels3 = np.zeros((batch_size, 3), np.float32)
 
         cnt = 0
         samples = 0
@@ -117,12 +118,14 @@ if __name__ == "__main__":
             train_data_board[cnt] = item.data_board
             train_labels1[cnt] = item.label_moves.todense().reshape(4672)
             train_labels2[cnt, 0] = item.label_value
+            train_labels3[cnt] = item.label_wdl
+
             cnt += 1
 
             if cnt >= batch_size:
                 # print(train_labels2)
                 train_data = [train_data_board]
-                train_labels = [train_labels1, train_labels2]
+                train_labels = [train_labels1, train_labels2, train_labels3]
 
                 lr = schedule_learn_rate(model, iteration, batch_no)
                 learn_rate_gauge.set(lr)
