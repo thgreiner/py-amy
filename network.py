@@ -114,6 +114,7 @@ def create_value_head(input):
 
     temp = keras.layers.Flatten(name="flatten-value")(temp)
     temp = keras.layers.BatchNormalization(name="value-dense-bn", renorm=RENORM)(temp)
+
     temp = keras.layers.Dense(
         128,
         name="value-dense",
@@ -122,21 +123,17 @@ def create_value_head(input):
         activation=RECTIFIER,
     )(temp)
 
-    temp = keras.layers.BatchNormalization(name="value-bn", renorm=RENORM)(temp)
+    fully_connected = keras.layers.BatchNormalization(name="value-bn", renorm=RENORM)(
+        temp
+    )
+
     eval_head = keras.layers.Dense(
         1, activation="tanh", kernel_regularizer=WEIGHT_REGULARIZER, name="value"
-    )(temp)
+    )(fully_connected)
 
-    temp = keras.layers.Dense(
-        128,
-        name="wdl-dense",
-        kernel_regularizer=WEIGHT_REGULARIZER,
-        activity_regularizer=ACTIVITY_REGULARIZER,
-        activation=RECTIFIER,
-    )(temp)
     wdl_head = keras.layers.Dense(
         3, activation="softmax", kernel_regularizer=WEIGHT_REGULARIZER, name="wdl"
-    )(temp)
+    )(fully_connected)
 
     return eval_head, wdl_head
 
@@ -203,7 +200,12 @@ def compile_model(model, prefix=""):
         metrics={
             f"{prefix}moves": ["accuracy", "top_k_categorical_accuracy"],
             f"{prefix}value": ["mae"],
-            f"{prefix}wdl": ["accuracy"]
+            f"{prefix}wdl": ["accuracy"],
+        },
+        loss_weights={
+            f"{prefix}moves": 1.0,
+            f"{prefix}value": 1.0,
+            f"{prefix}wdl": 0.25,
         },
     )
 
@@ -242,6 +244,6 @@ def schedule_learn_rate(model, iteration, batch_no):
     #     1 + math.cos(t / 6 * math.pi)
     # )
 
-    learn_rate = 5e-3
+    learn_rate = 3e-3
     K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate
