@@ -65,12 +65,6 @@ if __name__ == "__main__":
 
     pos_counter = Counter("training_position_total", "Positions seen by training")
     batch_no_counter = Counter("training_batch_total", "Training batches")
-    loss_gauge = Gauge("training_loss", "Training loss")
-    moves_accuracy_gauge = Gauge("training_move_accuracy", "Move accuracy")
-    moves_top5_accuracy_gauge = Gauge(
-        "training_move_top5_accuracy", "Top 5 move accuracy"
-    )
-    score_mae_gauge = Gauge("training_score_mae", "Score mean absolute error")
     learn_rate_gauge = Gauge("training_learn_rate", "Learn rate")
     qsize_gauge = Gauge("training_qsize", "Queue size")
 
@@ -145,11 +139,6 @@ if __name__ == "__main__":
                         iteration, samples, stats(results, cnt), elapsed
                     )
                 )
-
-                loss_gauge.set(results[0])
-                moves_accuracy_gauge.set(results[3] * 100)
-                moves_top5_accuracy_gauge.set(results[4] * 100)
-                score_mae_gauge.set(results[5])
 
                 start_time = time.perf_counter()
 

@@ -97,12 +97,6 @@ if __name__ == "__main__":
 
     pos_counter = Counter("training_position_total", "Positions seen by training")
     batch_no_counter = Counter("training_batch_total", "Training batches")
-    loss_gauge = Gauge("training_loss", "Training loss")
-    moves_accuracy_gauge = Gauge("training_move_accuracy", "Move accuracy")
-    moves_top5_accuracy_gauge = Gauge(
-        "training_move_top5_accuracy", "Top 5 move accuracy"
-    )
-    score_mae_gauge = Gauge("training_score_mae", "Score mean absolute error")
     learn_rate_gauge = Gauge("training_learn_rate", "Learn rate")
     qsize_gauge = Gauge("training_qsize", "Queue size")
 
@@ -117,6 +111,7 @@ if __name__ == "__main__":
         train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
         train_labels1 = np.zeros((batch_size, 4672), np.float32)
         train_labels2 = np.zeros((batch_size, 1), np.float32)
+        train_labels3 = np.zeros((batch_size, 3), np.float32)
 
         cnt = 0
         samples = 0
@@ -139,12 +134,14 @@ if __name__ == "__main__":
             train_data_board[cnt] = item.data_board
             train_labels1[cnt] = item.label_moves.todense().reshape(4672)
             train_labels2[cnt, 0] = item.label_value
+            train_labels3[cnt] = item.label_wdl
+
             cnt += 1
 
             if cnt >= batch_size:
                 # print(train_labels2)
                 train_data = [train_data_board]
-                train_labels = [train_labels1, train_labels2]
+                train_labels = [train_labels1, train_labels2, train_labels3]
 
                 if not args.test:
                     lr = schedule_learn_rate(model, iteration, batch_no)
@@ -162,11 +159,6 @@ if __name__ == "__main__":
 
                 samples += cnt
                 print(f"{iteration}.{samples}: {stats(results, cnt)} in {elapsed:.1f}s")
-
-                loss_gauge.set(results[0])
-                moves_accuracy_gauge.set(results[3] * 100)
-                moves_top5_accuracy_gauge.set(results[4] * 100)
-                score_mae_gauge.set(results[5])
 
                 start_time = time.perf_counter()
 
