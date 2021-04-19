@@ -7,17 +7,18 @@ import pickle
 from random import randint
 
 from network import load_or_create_model
+import tensorflow_model_optimization as tfmot
 
 import logging
 
-SAMPLE = 50
+SAMPLE = 20
 
 
 def representative_dataset_gen():
     with open("data/validation.pkl", "rb") as fin:
         try:
             cnt = 0
-            while cnt < 5000:
+            while cnt < 100:
                 item = pickle.load(fin)
                 if randint(0, 99) < SAMPLE:
                     features = item.data_board.reshape(1, 8, 8, 19).astype("float32")
@@ -36,7 +37,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    model = load_or_create_model(args.model)
+    with tfmot.quantization.keras.quantize_scope():
+        model = load_or_create_model(args.model)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]

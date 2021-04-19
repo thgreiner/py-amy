@@ -23,6 +23,8 @@ from pgn_reader import pos_generator, randomize_item
 
 from train_stats import Stats
 
+from quantized_training import create_quantization_aware_model
+
 # Checkpoint every "CHEKCPOINT" updates
 CHECKPOINT = 100_000
 
@@ -32,7 +34,7 @@ def wait_for_queue_to_fill(q):
     for i in range(900):
         time.sleep(1)
         print("Waiting for queue to fill, current size is {}     ".format(q.qsize()))
-        if q.qsize() > 100000:
+        if q.qsize() > 10000:
             break
         if old_qsize is not None and old_qsize == q.qsize():
             break
@@ -56,6 +58,8 @@ if __name__ == "__main__":
 
     model_name = args.model
     model = load_or_create_model(model_name)
+
+    model = create_quantization_aware_model(model)
 
     repr = Repr2D()
 
