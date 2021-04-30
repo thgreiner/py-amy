@@ -23,6 +23,7 @@ def representative_dataset_gen():
                     features = item.data_board.reshape(1, 8, 8, 19).astype("float32")
                     yield [features]
                     cnt += 1
+                    print(cnt, end='\r')
         except EOFError:
             pass
 
