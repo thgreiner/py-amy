@@ -25,12 +25,12 @@ class PrioritizedItem:
 
 
 def label_for_result(result, turn):
-    if result == '1-0':
+    if result == "1-0":
         if turn:
             return [1, 0, 0]
         else:
             return [0, 0, 1]
-    if result == '0-1':
+    if result == "0-1":
         if turn:
             return [0, 0, 1]
         else:
@@ -88,11 +88,7 @@ def traverse_game(node, board, queue, result, sample_rate, follow_variations=Fal
         train_labels1 = repr.policy_to_array(board, policy)
 
         item = PrioritizedItem(
-            random.randint(0, MAX_PRIO),
-            train_data_board,
-            train_labels1,
-            q,
-            z
+            random.randint(0, MAX_PRIO), train_data_board, train_labels1, q, z
         )
         queue.put(item)
 
@@ -116,7 +112,7 @@ game_counter = Counter("training_game_total", "Games seen by training", ["result
 
 def pos_generator(filename, test_mode, queue):
 
-    sample_rate = 100  if test_mode else 60
+    sample_rate = 100 if test_mode else 50
 
     cnt = 0
     with open(filename) as pgn:
@@ -142,8 +138,11 @@ def pos_generator(filename, test_mode, queue):
             cnt += 1
             if cnt % 10 == 0:
                 print(
-                    "Parsing game #{} {}, {} positions".format(
-                        cnt, date_of_game, positions_created
+                    "Parsing game #{} {}, {} positions (avg {:.1f} pos/game)".format(
+                        cnt,
+                        date_of_game,
+                        positions_created,
+                        positions_created / cnt,
                     ),
                     end="\r",
                 )
@@ -152,7 +151,9 @@ def pos_generator(filename, test_mode, queue):
                 game, game.board(), queue, result, sample_rate
             )
 
-    print(f"Parsed {cnt} games, {positions_created} positions.")
+    print(
+        f"Parsed {cnt} games, {positions_created} positions (avg {positions_created / cnt:.1f} pos/game)."
+    )
     queue.put(end_of_input_item())
 
 

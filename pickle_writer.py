@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     queue = PriorityQueue()
 
-    pos_gen = partial(pos_generator, args.filename, False, queue)
+    pos_gen = partial(pos_generator, args.filename, True, queue)
 
     t = Thread(target=pos_gen)
     t.start()
@@ -55,6 +55,7 @@ if __name__ == "__main__":
             train_cnt += 1
 
     validation_file.close()
-    for f in train_files: f.close()
+    for f in train_files:
+        f.close()
 
     print(f"Positions: {train_cnt}/{val_cnt} (training/validation)")
