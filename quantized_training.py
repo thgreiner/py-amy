@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import tensorflow_model_optimization as tfmot
-from network import compile_model
+from network import compile_model, load_or_create_model
 
 def apply_quantization(layer):
     if layer.name not in ['residual-block-20-bn', 'value-bn', 'value'] :
@@ -23,3 +23,9 @@ def create_quantization_aware_model(base_model):
     compile_model(quant_aware_model, prefix="quant_")
     quant_aware_model.summary()
     return quant_aware_model
+
+if __name__ == "__main__":
+
+    model = load_or_create_model("zero_wdl.h5")
+    qmodel = create_quantization_aware_model(model)
+    qmodel.save("zero_wdl_q.h5")
