@@ -20,6 +20,8 @@ from pgn_reader import end_of_input_item, randomize_item
 
 from train_stats import Stats
 
+import tensorflow_model_optimization as tfmot
+
 import pickle
 
 # Checkpoint every "CHEKCPOINT" updates
@@ -46,7 +48,7 @@ def read_pickle(queue, test_mode):
     else:
         files = [f"train-{i}.pkl" for i in range(10)]
         shuffle(files)
-        sample = 20
+        sample = 38
 
     for filename in files:
         print(f"Reading {filename}")
@@ -87,7 +89,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     model_name = args.model
-    model = load_or_create_model(model_name)
+
+    with tfmot.quantization.keras.quantize_scope():
+        model = load_or_create_model(model_name)
 
     repr = Repr2D()
 
@@ -104,7 +108,7 @@ if __name__ == "__main__":
 
     start_http_server(9099)
 
-    for iteration in range(100):
+    for iteration in range(2):
 
         stats = Stats()
 

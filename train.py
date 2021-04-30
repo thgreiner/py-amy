@@ -23,7 +23,7 @@ from pgn_reader import pos_generator, randomize_item
 
 from train_stats import Stats
 
-from quantized_training import create_quantization_aware_model
+import tensorflow_model_optimization as tfmot
 
 # Checkpoint every "CHEKCPOINT" updates
 CHECKPOINT = 100_000
@@ -57,9 +57,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     model_name = args.model
-    model = load_or_create_model(model_name)
 
-    model = create_quantization_aware_model(model)
+    with tfmot.quantization.keras.quantize_scope():
+        model = load_or_create_model(model_name)
 
     repr = Repr2D()
 
