@@ -9,7 +9,8 @@ import numpy as np
 nodes = 0
 
 TIME_LIMIT = 1000
-NODE_LIMIT = 10000
+NODE_LIMIT = 30000
+PRINT_LIMIT = 5000
 
 EPSILON = 0.01
 
@@ -297,7 +298,7 @@ class Searcher:
                         else:
                             score = -self.search(b, -beta, -alpha, depth - 1)
                             if is_pv and score <= alpha:
-                                if depth > 1:
+                                if self.nodes > PRINT_LIMIT:
                                     print(
                                         "{:2d}- {:5.1f}  {:+.3f}  {}".format(
                                             depth, self.elapsed, score, san
@@ -306,7 +307,7 @@ class Searcher:
                                 score = -self.search(b, -score, 1000, depth - 1)
                             if score >= beta:
                                 best_move = move
-                                if depth > 1:
+                                if self.nodes > PRINT_LIMIT:
                                     print(
                                         "{:2d}+ {:5.1f}  {:+.3f}  {}".format(
                                             depth, self.elapsed, score, san
@@ -325,7 +326,7 @@ class Searcher:
                         l.remove(move)
                         l.insert(0, move)
 
-                        if depth > 1:
+                        if self.nodes > PRINT_LIMIT:
                             print(
                                 "{:2d}+ {:5.1f}  {:+.3f}  {}".format(
                                     depth, self.elapsed, score, self.pv(b, best_move)
