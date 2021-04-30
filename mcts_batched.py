@@ -227,7 +227,7 @@ class MCTS:
 
         return None
 
-    def mcts(self, board, prefix, sample=True, limit=None):
+    def mcts(self, board, prefix, sample=True, limit=None, bias_move=None):
         self.stats = MCTS_Stats(self.model.name, self.verbose)
         kld = KLD()
 
@@ -237,6 +237,9 @@ class MCTS:
 
         if self.exploration_noise:
             add_exploration_noise(root)
+
+        if bias_move:
+            add_bias_move(root, bias_move)
 
         max_visit_count = self.max_simulations
         if limit is not None:

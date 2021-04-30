@@ -14,20 +14,31 @@ from prometheus_client import start_http_server
 
 MAX_HALFMOVES_IN_GAME = 200
 
+
 def selfplay(
-    model, num_simulations, verbose=True, prefix="0", generator=None, saver=None
+    model,
+    num_simulations,
+    verbose=True,
+    prefix="0",
+    generator=None,
+    saver=None,
+    eco=False,
 ):
 
     mcts = MCTS(
         model, verbose, prefix, exploration_noise=True, max_simulations=num_simulations
     )
-    mcts.set_kldgain_stop(0.75e-3)
+    mcts.set_kldgain_stop(0.85e-3)
 
     if saver is None:
         saver = DefaultGameSaver("LearnGames")
 
     total_positions = 0
     round = 0
+
+    if eco:
+        eco_in = open("PGN/eco.pgn", "r", encoding="ISO-8859-1")
+        print("Playing through ECO positions.")
 
     while total_positions < 1638400:
 
@@ -49,7 +60,17 @@ def selfplay(
         else:
             board = Board()
 
-        fully_playout_game = random.randint(0, 100) < 12
+        fully_playout_game = random.randint(0, 100) < 25
+
+        if eco:
+            fully_playout_game = True
+            while True:
+                line = eco_in.readline().split()
+                if len(line) > 12:
+                    break
+            line.reverse()
+        else:
+            line = None
 
         while (
             not board.is_game_over(claim_draw=True)
@@ -57,9 +78,19 @@ def selfplay(
         ):
             is_full_playout = fully_playout_game or (random.randint(0, 100) < 25)
 
-            if is_full_playout:
-                tree = mcts.mcts(board, prefix=prefix)
-                best_move = select_root_move(tree, board.fullmove_number, True)
+            try:
+                bias_move = board.parse_san(line.pop()) if line else None
+            except ValueError:
+                bias_move = None
+                line = None
+
+            if bias_move or is_full_playout:
+                tree = mcts.mcts(board, prefix=prefix, bias_move=bias_move)
+                best_move = (
+                    bias_move
+                    if bias_move
+                    else select_root_move(tree, board.fullmove_number, True)
+                )
                 node = create_node_with_comment(
                     node, mcts.correct_forced_playouts(tree), best_move, board
                 )
@@ -82,6 +113,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Self play.")
     parser.add_argument("--sims", type=int, help="number of simulations", default=800)
     parser.add_argument("--model", help="model file name")
+    parser.add_argument(
+        "--eco",
+        action="store_const",
+        const=True,
+        default=False,
+        help="play through standard ECO openings",
+    )
     parser.add_argument(
         "--kqk",
         action="store_const",
@@ -144,15 +182,24 @@ if __name__ == "__main__":
     if args.model == "tflite":
         from mcts import MCTS
         from edgetpu import EdgeTpuModel
+
         model = EdgeTpuModel("models/tflite-128x19_edgetpu.tflite")
     elif args.model.endswith("_edgetpu.tflite"):
         from mcts import MCTS
         from edgetpu import EdgeTpuModel
+
         model = EdgeTpuModel(args.model)
     else:
         from mcts_batched import MCTS
+
         model = load_or_create_model(args.model)
 
-    start_http_server(9100)
+    for port in range(9099, 9104):
+        try:
+            start_http_server(port)
+            print(f"Started http server on port {port}")
+            break
+        except OSerror:
+            pass
 
-    selfplay(model, args.sims, generator=generator, verbose=True)
+    selfplay(model, args.sims, generator=generator, verbose=True, eco=args.eco)

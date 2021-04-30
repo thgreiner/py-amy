@@ -5,7 +5,7 @@ import numpy as np
 
 from ucb import FORCED_PLAYOUT, UCB
 from kld import KLD
-from move_selection import add_exploration_noise
+from move_selection import add_exploration_noise, add_bias_move
 from tablebase import get_optimal_move
 from non_blocking_console import NonBlockingConsole
 from chess_input import Repr2D
@@ -153,7 +153,7 @@ class MCTS:
 
         return value
 
-    def mcts(self, board, prefix, sample=True, limit=None):
+    def mcts(self, board, prefix, sample=True, limit=None, bias_move=None):
         self.stats = MCTS_Stats(self.model_name(), self.verbose, self.prefix)
         kld = KLD()
 
@@ -163,6 +163,9 @@ class MCTS:
 
         if self.exploration_noise:
             add_exploration_noise(root)
+
+        if bias_move:
+            add_bias_move(root, bias_move)
 
         max_visit_count = self.max_simulations
         if limit is not None:

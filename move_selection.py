@@ -67,3 +67,10 @@ def add_exploration_noise(node):
     frac = root_exploration_fraction
     for a, n in zip(actions, noise):
         node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
+
+def add_bias_move(node, move):
+    node.children[move].prior += 0.9
+
+    s = sum([n.prior for m, n in node.children.items()])
+    for m, n in node.children.items():
+        n.prior /= s
