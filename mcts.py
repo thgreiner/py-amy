@@ -36,23 +36,24 @@ class Node(object):
 PB_C_INIT = 1.25
 PB_C_BASE = 19652
 
-def ucb_score(parent_visit_count, child: Node, forced_playouts : bool = False):
+
+def ucb_pb_c(parent_visit_count):
+    pb_c = log((parent_visit_count + PB_C_BASE + 1) / PB_C_BASE)
+    pb_c += PB_C_INIT
+    pb_c *= sqrt(parent_visit_count)
+    return pb_c
+
+
+def ucb_score(parent_visit_count, child: Node, forced_playouts: bool = False):
     if forced_playouts:
         n_forced_playouts = sqrt(child.prior * parent_visit_count * 2)
         if child.visit_count < n_forced_playouts:
             return FORCED_PLAYOUT
 
-    return ucb_score_calc(parent_visit_count, child.visit_count, child.prior, child.value())
+    return child.value() + child.prior * ucb_pb_c(parent_visit_count) / (
+        child.visit_count + 1
+    )
 
-def ucb_score_calc(parent_visit_count, child_visit_count, child_prior, child_value):
-    pb_c = log((parent_visit_count + PB_C_BASE + 1) / PB_C_BASE)
-    pb_c += PB_C_INIT
-    pb_c *= sqrt(parent_visit_count) / (child_visit_count + 1)
-
-    prior_score = pb_c * child_prior
-    value_score = child_value
-
-    return prior_score + value_score
 
 def score(board, winner):
     if board.turn and (winner == "1-0"):
@@ -69,18 +70,27 @@ def select_child(node: Node):
     parent_visit_count = node.visit_count
     is_root = node.is_root
 
-    score, action, child = max(
-        (
-            (ucb_score(parent_visit_count, child, is_root), action, child)
-            for action, child in node.children.items()
-        ),
-        key=lambda e: e[0],
-    )
+    max_action = None
+    max_ucb = None
+    max_child = None
+
+    if node.is_root:
+        for action, child in node.children.items():
+            u = ucb_score(parent_visit_count, child, True)
+            if max_ucb is None or u > max_ucb:
+                max_action, max_ucb, max_child = action, u, child
+
+    else:
+        k = ucb_pb_c(parent_visit_count)
+        for action, child in node.children.items():
+            u = child.value() + child.prior * k / (child.visit_count + 1)
+            if max_ucb is None or u > max_ucb:
+                max_action, max_ucb, max_child = action, u, child
 
     if score == FORCED_PLAYOUT:
-        child.forced_playouts += 1
+        max_child.forced_playouts += 1
 
-    return action, child
+    return max_action, max_child
 
 
 def backpropagate(search_path, value: float, to_play):
