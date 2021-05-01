@@ -1,104 +1,205 @@
 #!/usr/bin/env python3
 
-from chess import Board
 import chess.pgn
+import argparse
 import random
-import math
-import numpy as np
 import time
-import uuid
-import sys
 
-from datetime import date
-
-from chess_input import Repr2D
-
-import click
-
-from searcher import Searcher, AmySearcher
-import piece_square_eval
-from pos_generator import generate_kxk
-
+from chess import Board
+import pos_generator
 from network import load_or_create_model
-
-from mcts import MCTS
+from move_selection import select_root_move
+from pgn_writer import DefaultGameSaver, create_node_with_comment
+from prometheus_client import start_http_server
 
 MAX_HALFMOVES_IN_GAME = 200
 
-# For KQK training
-# MAX_HALFMOVES_IN_GAME = 60
 
+def selfplay(
+    model,
+    num_simulations,
+    verbose=True,
+    prefix="0",
+    generator=None,
+    saver=None,
+    eco=False,
+):
 
-def new_root(tree, move):
-    if tree is not None and move in tree.children:
-        return tree.children[move]
-    else:
-        return None
+    mcts = MCTS(
+        model, verbose, prefix, exploration_noise=True, max_simulations=num_simulations
+    )
+    mcts.set_kldgain_stop(0.85e-3)
 
-
-def format_root_moves(root, board):
-    if root.visit_count == 0:
-        return None
-
-    root_moves = []
-    for key, val in root.children.items():
-        prop = val.visit_count / root.visit_count
-        if prop >= 1e-3:
-            root_moves.append("{}:{:.3f}".format(board.san(key), prop))
-
-    return "q={:.3f}; p=[{}]".format(
-        1.0 - root.value_sum / root.visit_count,
-        ", ".join(root_moves))
-
-def selfplay(model, verbose=True, prefix=None):
-    suffix = str(uuid.uuid4())
-    mcts = MCTS(model, verbose, prefix)
+    if saver is None:
+        saver = DefaultGameSaver("LearnGames")
 
     total_positions = 0
-    while total_positions < 16384:
+    round = 0
+
+    if eco:
+        eco_in = open("PGN/eco.pgn", "r", encoding="ISO-8859-1")
+        print("Playing through ECO positions.")
+
+    while total_positions < 1638400:
+
+        player = "Amy Zero [{}]".format(model.name)
+
+        round += 1
 
         game = chess.pgn.Game()
         game.headers["Event"] = "Test Game"
-        game.headers["White"] = "Amy Zero"
-        game.headers["Black"] = "Amy Zero"
-        game.headers["Date"] = date.today().strftime("%Y.%m.%d")
-
-        # board, _ = Board.from_epd("4r2k/p5pp/8/3Q1b1q/2B2P1P/P1P2n2/5PK1/R6R b - -")
-
-        board = Board()
-        # board = generate_kxk()
-        # board.set_fen("8/k7/5Q2/8/8/8/8/4K3 b - - 0 1")
-
-        opening = None
-        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5"
-        # opening = "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 Nbd7 Nf3 O-O Bd3 dxc4 Bxc4 c6 O-O b5 Bd3 h6 Bf4 b4 Ne4 Nxe4 Bxe4 Ba6 Qa4 Bb5"
-        # opening = "d4 d5"
-        #opening = "d4 d5 c4 e6 Nc3 Nf6"
-        # opening = "e4 c5 Nf3 Nc6"
-
+        game.headers["White"] = player
+        game.headers["Black"] = player
+        game.headers["Round"] = str(round)
+        game.headers["Date"] = time.strftime("%Y.%m.%d")
         node = game
-        if opening:
-            for move in opening.split(" "):
-                m = board.parse_san(move)
-                board.push(m)
-                node = node.add_variation(m)
 
-        while not board.is_game_over(claim_draw = True) and board.halfmove_clock < MAX_HALFMOVES_IN_GAME:
-            best_move, tree = mcts.mcts(board)
-            node = node.add_variation(best_move)
-            node.comment = format_root_moves(tree, board)
+        if generator:
+            board = generator()
+            game.setup(board)
+        else:
+            board = Board()
+
+        fully_playout_game = random.randint(0, 100) < 25
+
+        if eco:
+            fully_playout_game = True
+            while True:
+                line = eco_in.readline().split()
+                if len(line) > 12:
+                    break
+            line.reverse()
+        else:
+            line = None
+
+        while (
+            not board.is_game_over(claim_draw=True)
+            and board.halfmove_clock < MAX_HALFMOVES_IN_GAME
+        ):
+            is_full_playout = fully_playout_game or (random.randint(0, 100) < 25)
+
+            try:
+                bias_move = board.parse_san(line.pop()) if line else None
+            except ValueError:
+                bias_move = None
+                line = None
+
+            if bias_move or is_full_playout:
+                tree = mcts.mcts(board, prefix=prefix, bias_move=bias_move)
+                best_move = (
+                    bias_move
+                    if bias_move
+                    else select_root_move(tree, board.fullmove_number, True)
+                )
+                node = create_node_with_comment(
+                    node, mcts.correct_forced_playouts(tree), best_move, board
+                )
+            else:
+                tree = mcts.mcts(board, prefix=prefix, limit=100)
+                best_move = select_root_move(tree, board.fullmove_number, True)
+                node = node.add_main_variation(best_move)
 
             board.push(best_move)
-            total_positions += 1
+
+            if node.comment:
+                total_positions += 1
 
         game.headers["Result"] = board.result(claim_draw=True)
-
-        with open("LearnGames-{}.pgn".format(suffix), "a") as f:
-            exporter = chess.pgn.FileExporter(f)
-            game.accept(exporter)
+        saver(game)
 
 
 if __name__ == "__main__":
 
-    model = load_or_create_model("combined-model.h5")
-    selfplay(model)
+    parser = argparse.ArgumentParser(description="Self play.")
+    parser.add_argument("--sims", type=int, help="number of simulations", default=800)
+    parser.add_argument("--model", help="model file name")
+    parser.add_argument(
+        "--eco",
+        action="store_const",
+        const=True,
+        default=False,
+        help="play through standard ECO openings",
+    )
+    parser.add_argument(
+        "--kqk",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+Q vs K games",
+    )
+    parser.add_argument(
+        "--kqkr",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+Q vs K+R games",
+    )
+    parser.add_argument(
+        "--krk",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+R vs K games",
+    )
+    parser.add_argument(
+        "--kxk",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+X vs K games",
+    )
+    parser.add_argument(
+        "--kpkp",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+P vs K+P games",
+    )
+    parser.add_argument(
+        "--kqqk",
+        action="store_const",
+        const=True,
+        default=False,
+        help="only play K+Q+Q vs K games",
+    )
+
+    args = parser.parse_args()
+
+    generator = None
+    if args.kqk:
+        generator = pos_generator.generate_kqk
+    if args.krk:
+        generator = pos_generator.generate_krk
+    if args.kxk:
+        generator = pos_generator.generate_kxk
+    if args.kpkp:
+        generator = pos_generator.generate_kpkp
+    if args.kqkr:
+        generator = pos_generator.generate_kqkr
+    if args.kqqk:
+        generator = pos_generator.generate_kqqk
+
+    if args.model == "tflite":
+        from mcts import MCTS
+        from edgetpu import EdgeTpuModel
+
+        model = EdgeTpuModel("models/tflite-128x19_edgetpu.tflite")
+    elif args.model.endswith("_edgetpu.tflite"):
+        from mcts import MCTS
+        from edgetpu import EdgeTpuModel
+
+        model = EdgeTpuModel(args.model)
+    else:
+        from mcts_batched import MCTS
+
+        model = load_or_create_model(args.model)
+
+    for port in range(9099, 9104):
+        try:
+            start_http_server(port)
+            print(f"Started http server on port {port}")
+            break
+        except OSerror:
+            pass
+
+    selfplay(model, args.sims, generator=generator, verbose=True, eco=args.eco)

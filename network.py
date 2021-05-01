@@ -6,163 +6,244 @@ from tensorflow.keras import backend as K
 
 from chess_input import Repr2D
 
-# We really need almost no regularization as the model has so few params
-REGULARIZATION_WEIGHT=1e-4
+import math
 
-L2_REGULARIZER = None # keras.regularizers.l2(REGULARIZATION_WEIGHT)
+WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
+ACTIVITY_REGULARIZER = None  # keras.regularizers.l1(1e-6)
+RECTIFIER = "relu"
+RENORM = True
 
-RECTIFIER='elu'
+INITIAL_LEARN_RATE = 1e-2
+MIN_LEARN_RATE = 1e-4
 
-def residual_block(y, dim, index, factor=3):
+
+def categorical_crossentropy_from_logits(target, output):
+    return K.categorical_crossentropy(target, output, from_logits=True)
+
+
+def residual_block(y, dim, index, residual=True):
+
     shortcut = y
 
-    y = keras.layers.Conv2D(factor * dim, (1, 1),
-                            padding='same',
-                            name="residual-block-{}-expand".format(index),
-                            kernel_initializer='lecun_normal',
-                            kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                            activation=RECTIFIER)(y)
+    y = keras.layers.Conv2D(
+        dim,
+        (3, 3),
+        padding="same",
+        name="residual-block-{}-conv1".format(index),
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        # activity_regularizer=ACTIVITY_REGULARIZER,
+        activation="linear",
+    )(y)
 
-    y = keras.layers.DepthwiseConv2D((3, 3), padding='same',
-                                             name="residual-block-{}-depthwise".format(index),
-                                             kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                                             kernel_initializer='lecun_normal',
-                                             activation=RECTIFIER)(y)
+    y = keras.layers.BatchNormalization(
+        name="residual-block-{}-bn1".format(index),
+        renorm=RENORM,
+    )(y)
 
-    y = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                         name="residual-block-{}-contract".format(index),
-                                         kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                                         kernel_initializer='lecun_normal',
-                                         activation='linear')(y)
+    y = keras.layers.Activation(
+        name="residual-block-{}-activation1".format(index), activation=RECTIFIER
+    )(y)
 
-    y = keras.layers.add([y, shortcut], name="residual-block-{}-add".format(index))
+    y = keras.layers.Conv2D(
+        dim,
+        (3, 3),
+        padding="same",
+        name="residual-block-{}-conv2".format(index),
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        # activity_regularizer=ACTIVITY_REGULARIZER,
+        activation="linear",
+    )(y)
+
+    y = keras.layers.BatchNormalization(
+        name="residual-block-{}-bn2".format(index),
+        renorm=RENORM,
+    )(y)
+
+    y = keras.layers.Activation(
+        name="residual-block-{}-activation2".format(index), activation=RECTIFIER
+    )(y)
+
+    if residual:
+        y = keras.layers.add([y, shortcut], name="residual-block-{}-add".format(index))
+
     return y
+
+
+def create_policy_head(input):
+    dim = input.shape.as_list()[-1]
+
+    temp = keras.layers.Conv2D(
+        dim,
+        (3, 3),
+        activation="linear",
+        name="pre-moves-conv",
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        padding="same",
+    )(input)
+
+    temp = keras.layers.Activation(name="pre-moves-activation", activation=RECTIFIER)(
+        temp
+    )
+
+    temp = keras.layers.add([temp, input], name="pre-moves-conv-add")
+
+    temp = keras.layers.Conv2D(
+        73,
+        (1, 1),
+        activation="linear",
+        name="moves-conv",
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        activity_regularizer=ACTIVITY_REGULARIZER,
+        padding="same",
+    )(temp)
+
+    return keras.layers.Flatten(name="moves")(temp)
+
+
+def create_value_head(input):
+    dim = input.shape.as_list()[-1]
+
+    temp = keras.layers.Conv2D(
+        16,
+        (1, 1),
+        padding="same",
+        name="pre-value-conv",
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        activation=RECTIFIER,
+    )(input)
+
+    temp = keras.layers.Flatten(name="flatten-value")(temp)
+    temp = keras.layers.BatchNormalization(name="value-dense-bn", renorm=RENORM)(temp)
+
+    temp = keras.layers.Dense(
+        128,
+        name="value-dense",
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        activity_regularizer=ACTIVITY_REGULARIZER,
+        activation=RECTIFIER,
+    )(temp)
+
+    fully_connected = keras.layers.BatchNormalization(name="value-bn", renorm=RENORM)(
+        temp
+    )
+
+    eval_head = keras.layers.Dense(
+        1, activation="tanh", kernel_regularizer=WEIGHT_REGULARIZER, name="value"
+    )(fully_connected)
+
+    wdl_head = keras.layers.Dense(
+        3, activation="softmax", kernel_regularizer=WEIGHT_REGULARIZER, name="wdl"
+    )(fully_connected)
+
+    return eval_head, wdl_head
 
 
 def create_model():
     repr = Repr2D()
 
-    board_input = keras.layers.Input(shape = (8, 8, repr.num_planes), name='board-input')
-    moves_input = keras.layers.Input(shape = (4672,), name='moves-input')
-    non_progress_input = keras.layers.Input(shape = (1,), name='non-progress-input')
+    board_input = keras.layers.Input(shape=(8, 8, repr.num_planes), name="board-input")
 
-    dim = 64
+    layers = [[128, 19]]
 
-    temp = keras.layers.Conv2D(dim, (3, 3), padding='same',
-                                            name="initial-conv",
-                                            kernel_regularizer=L2_REGULARIZER,
-                                            bias_regularizer=L2_REGULARIZER,
-                                            kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                                            kernel_initializer='lecun_normal',
-                                            activation=RECTIFIER)(board_input)
+    dim = layers[0][0]
+    temp = keras.layers.Conv2D(
+        dim,
+        (3, 3),
+        padding="same",
+        name="initial-conv",
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        # activity_regularizer=ACTIVITY_REGULARIZER,
+        activation="linear",
+    )(board_input)
 
     index = 1
-    for i in range(5):
-        temp = residual_block(temp, dim, index)
-        index += 1
+    residual = True
 
-    dim = 96
+    for width, count in layers:
+        for i in range(count):
+            temp = residual_block(temp, width, index, residual)
+            index += 1
+            residual = True
+        residual = False
 
-    # Scale up to new layer size
-    temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                            name="scale-up-1-conv",
-                                            kernel_initializer='lecun_normal',
-                                            kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                                            activation=RECTIFIER)(temp)
+    temp = keras.layers.BatchNormalization(
+        name="residual-block-{}-bn".format(index), renorm=RENORM
+    )(temp)
 
-    for i in range(5):
-        temp = residual_block(temp, dim, index)
-        index += 1
-
-    dim = 128
-
-    # Scale up to new layer size
-    temp = keras.layers.Conv2D(dim, (1, 1), padding='same',
-                                            name="scale-up-2-conv",
-                                            kernel_initializer='lecun_normal',
-                                            kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                                            activation=RECTIFIER)(temp)
-
-    for i in range(5):
-        temp = residual_block(temp, dim, index)
-        index += 1
-
-
-    # Create the policy head
-    t2 = residual_block(temp, dim, index)
-
-    t2 = keras.layers.Conv2D(73, (3, 3), activation='linear',
-                                         name="pre-moves-conv",
-                                         kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                                         padding='same')(t2)
-
-    t2 = keras.layers.Flatten(name='flatten-moves')(t2)
-    t2 = keras.layers.multiply([t2, moves_input], name='limit-to-legal-moves')
-    move_output = keras.layers.Activation("softmax", name='moves')(t2)
-
-    # Create the value head
-    temp = keras.layers.Conv2D(9, (1, 1), padding='same',
-                                          name="pre-value-conv",
-                                          kernel_regularizer=L2_REGULARIZER,
-                                          bias_regularizer=L2_REGULARIZER,
-                                          kernel_constraint=keras.constraints.UnitNorm(axis=[0, 1, 2]),
-                                          kernel_initializer='lecun_normal',
-                                          activation=RECTIFIER)(temp)
-    temp = keras.layers.Flatten(name="flatten-value")(temp)
-    temp = keras.layers.concatenate([temp, non_progress_input], name="concat-non-progress")
-    temp = keras.layers.Dense(128,
-                              name="value-dense",
-                              kernel_regularizer=L2_REGULARIZER,
-                              bias_regularizer=L2_REGULARIZER,
-                              kernel_initializer='lecun_normal',
-                              kernel_constraint=keras.constraints.UnitNorm(axis=0),
-                              activation=RECTIFIER)(temp)
-
-    value_output = keras.layers.Dense(1, activation='tanh',
-                                         kernel_regularizer=L2_REGULARIZER,
-                                         bias_regularizer=L2_REGULARIZER,
-                                         name='value')(temp)
+    move_output = create_policy_head(temp)
+    value_output, wdl_output = create_value_head(temp)
 
     return keras.Model(
-        name = "MobileNet V2-like (No BN, ELU, UnitNorm)",
-        inputs = [board_input, moves_input, non_progress_input],
-        outputs = [move_output, value_output])
+        name="TFlite_{}".format(
+            "-".join(["{}x{}".format(width, count) for width, count in layers])
+        ),
+        inputs=[board_input],
+        outputs=[move_output, value_output, wdl_output],
+    )
+
+
+def compile_model(model, prefix=""):
+    # optimizer = AdaBelief(lr=2e-3, weight_decay=1e-4)
+    # optimizer = keras.optimizers.SGD(
+    #     lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0
+    # )
+    optimizer = keras.optimizers.SGD(lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True)
+    # optimizer = keras.optimizers.Adam(lr=0.001)
+
+    model.compile(
+        optimizer=optimizer,
+        loss={
+            f"{prefix}moves": keras.losses.CategoricalCrossentropy(from_logits=True),
+            f"{prefix}value": "mean_squared_error",
+            f"{prefix}wdl": keras.losses.CategoricalCrossentropy(),
+        },
+        metrics={
+            f"{prefix}moves": ["accuracy", "top_k_categorical_accuracy"],
+            f"{prefix}value": ["mae"],
+            f"{prefix}wdl": ["accuracy"],
+        },
+        loss_weights={
+            f"{prefix}moves": 1.0,
+            f"{prefix}value": 1.0,
+            f"{prefix}wdl": 0.25,
+        },
+    )
 
 
 def load_or_create_model(model_name):
     if model_name is None:
         model = create_model()
+        compile_model(model)
     else:
-        print("Loading model from \"{}\"".format(model_name))
-        model = load_model(model_name)
+        print('Loading model from "{}"'.format(model_name))
+        model = load_model(
+            model_name,
+            custom_objects={
+                "categorical_crossentropy_from_logits": categorical_crossentropy_from_logits,
+            },
+        )
 
-    model.summary()
-    print()
-    print("Model name is \"{}\"".format(model.name))
-    print()
+    # model.summary()
+    # print()
+    # print('Model name is "{}"'.format(model.name))
+    # print()
 
-    optimizer = keras.optimizers.Adam(lr = 0.001)
-    # optimizer = keras.optimizers.SGD(lr=0.02, momentum=0.9, nesterov=True)
-
-    model.compile(optimizer=optimizer,
-                  loss={'moves': 'categorical_crossentropy', 'value': 'mean_squared_error' },
-                  metrics=['accuracy', 'mae'])
     return model
 
 
-def schedule_learn_rate(model, batch_no):
+SAMPLE_RATE = 0.2
+N_POSITIONS = 1_000_000
+BATCH_SIZE = 256
+STEPS_PER_ITERATION = SAMPLE_RATE * N_POSITIONS / BATCH_SIZE
 
-    min_rate = 0.02
-    max_rate = 0.2
 
-    peak = 1200
+def schedule_learn_rate(model, iteration, batch_no):
 
-    if batch_no < peak // 2:
-        learn_rate = min_rate + (batch_no / (peak // 2)) * (max_rate - min_rate)
-    elif batch_no < peak:
-        learn_rate = min_rate + ((peak - batch_no) / (peak // 2)) * (max_rate - min_rate)
-    else:
-        learn_rate = min_rate / (1 + (batch_no - 900) / 500)
+    # t = iteration + batch_no / STEPS_PER_ITERATION
+    # learn_rate = MIN_LEARN_RATE + (INITIAL_LEARN_RATE - MIN_LEARN_RATE) * 0.5 * (
+    #     1 + math.cos(t / 6 * math.pi)
+    # )
 
-    # K.set_value(model.optimizer.lr, learn_rate)
+    learn_rate = 3e-3
+    K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate

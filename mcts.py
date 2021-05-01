@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 
-from chess import Board
-import chess.pgn
-import random
 import math
 import numpy as np
-import time
-import uuid
 
-from datetime import date
-
+from ucb import FORCED_PLAYOUT, UCB
+from kld import KLD
+from move_selection import add_exploration_noise, add_bias_move
+from tablebase import get_optimal_move
+from non_blocking_console import NonBlockingConsole
 from chess_input import Repr2D
+from prometheus_client import Gauge
+from mcts_stats import MCTS_Stats
 
-import click
 
 class Node(object):
-
     def __init__(self, prior: float):
         self.visit_count = 0
         self.turn = None
         self.prior = prior
         self.value_sum = 0
         self.children = {}
+        self.is_root = False
+        self.forced_playouts = 0
 
     def expanded(self):
         return len(self.children) > 0
@@ -42,117 +42,94 @@ def score(board, winner):
     return 0
 
 
-def add_exploration_noise(node: Node):
-    root_dirichlet_alpha = 0.3
-    root_exploration_fraction = 0.25
-
-    actions = node.children.keys()
-    noise = np.random.gamma(root_dirichlet_alpha, 1, len(actions))
-    noise /= np.sum(noise)
-    frac = root_exploration_fraction
-    for a, n in zip(actions, noise):
-        node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
-
-
 # Select the child with the highest UCB score.
-def select_child(node: Node):
-    _, action, child = max(((ucb_score(node, child), action, child)
-                           for action, child in node.children.items()),
-                           key = lambda e: e[0])
+def select_child(node: Node, ucb_score):
+    score, action, child = max(
+        (
+            (ucb_score(node, child, node.is_root), action, child)
+            for action, child in node.children.items()
+        ),
+        key=lambda e: e[0],
+    )
+
+    if score == FORCED_PLAYOUT:
+        child.forced_playouts += 1
+
     return action, child
-
-
-def pv(board, node, variation):
-
-    best_move = None
-    best_visits = 0
-
-    for key, val in node.children.items():
-        if val.visit_count > 0:
-            if best_move is None or val.visit_count > best_visits:
-                best_move = key
-                best_visits = val.visit_count
-
-    if best_move is None:
-        return
-
-    variation.append(best_move)
-    board.push(best_move)
-    pv(board, node.children[best_move], variation)
-    board.pop()
-
-
-# The score for a node is based on its value, plus an exploration bonus
-# based on  the prior.
-def ucb_score(parent: Node, child: Node):
-    pb_c_base = 19652
-    pb_c_init = 2.2 # 1.25
-
-    pb_c = math.log((parent.visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init
-    pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
-
-    prior_score = pb_c * child.prior
-    value_score = child.value()
-
-    return prior_score + value_score
 
 
 def backpropagate(search_path, value: float, to_play):
     for node in search_path:
-        node.value_sum += (value if node.turn != to_play else (1 - value))
+        node.value_sum += value if node.turn != to_play else (1 - value)
         node.visit_count += 1
 
 
-def sample_gumbel(a):
-    b = [math.log(x) - math.log(-math.log(random.uniform(0, 1))) for x in a]
-    return np.argmax(b)
-
-
-def select_root_move(tree, move_count):
-    k = 2.0
-    moves = []
-    visits = []
-    for key, val in tree.children.items():
-        if val.visit_count > 0:
-            moves.append(key)
-            visits.append(val.visit_count ** k)
-
-    if move_count < 15:
-        idx = sample_gumbel(visits)
-    else:
-        idx = np.argmax(visits)
-
-    return moves[idx]
-
+def is_singular_move(search_path, threshold):
+    return len(search_path) > 1 and search_path[1].visit_count > threshold
 
 
 class MCTS:
-    
-    def __init__(self, model, verbose=True, prefix=None):
+    def __init__(
+        self,
+        model,
+        verbose=True,
+        prefix=None,
+        max_simulations=800,
+        exploration_noise=True,
+    ):
         self.model = model
         self.repr = Repr2D()
+
         self.verbose = verbose
         self.prefix = prefix
-        
+        self.max_simulations = max_simulations
+        self.exploration_noise = exploration_noise
 
-    def move_prob(self, logits, board, move, xor):
-        fr = move.from_square ^ xor
+        self.best_move = None
+
+        self.ucb_score = UCB(1.25)
+        self.kldgain_stop = 0.0
+
+    def set_pb_c_init(self, pb_c_init):
+        self.ucb_score = UCB(pb_c_init)
+
+    def set_kldgain_stop(self, kldgain):
+        self.kldgain_stop = kldgain
+
+    def model_name(self):
+        return self.model.name
+        # return f"{self.model.name}, {self.ucb_score}"
+
+    def move_prob(self, logits, move, xor):
+        sq = move.to_square ^ xor
         plane = self.repr.plane_index(move, xor)
-        return logits[fr, plane]
+        return math.exp(logits[sq, plane])
 
+    def evaluate(self, node, board, full_check=False):
 
-    def evaluate(self, node, board):
-        if board.is_game_over(claim_draw = True):
-            winner = board.result(claim_draw = True)
-            # print(winner)
-            node.turn = board.turn
-            return score(board, winner)
+        node.turn = board.turn
 
-        input_board = self.repr.board_to_array(board).reshape(1, 8, 8, self.repr.num_planes)
-        input_moves = self.repr.legal_moves_mask(board).reshape(1, 4672)
-        input_non_progress = np.array([ board.halfmove_clock / 100.0 ])
+        if full_check:
+            if board.is_game_over(claim_draw=True):
+                self.stats.observe_terminal_node()
+                return score(board, board.result(claim_draw=True))
+        else:
+            # Consider any repetition a draw
+            if (
+                board.is_repetition(count=2)
+                or board.is_insufficient_material()
+                or board.is_fifty_moves()
+            ):
+                self.stats.observe_terminal_node()
+                return 0.5
 
-        prediction = self.model.predict([input_board, input_moves, input_non_progress])
+        legal_moves = [move for move in board.generate_legal_moves()]
+        if len(legal_moves) == 0:
+            self.stats.observe_terminal_node()
+            return score(board, board.result(claim_draw=True))
+
+        input_board = np.expand_dims(self.repr.board_to_array(board), axis=0)
+        prediction = self.model.predict(input_board)
 
         value = (prediction[1].flatten())[0]
         # Transform [-1, 1] range to [0, 1]
@@ -162,111 +139,105 @@ class MCTS:
 
         xor = 0 if board.turn else 0x38
 
-        # Expand the node.
-        node.turn = board.turn
-        policy = {a: self.move_prob(logits, board, a, xor) for a in board.generate_legal_moves()}
-        # We don't need to normalize - softmax does this for us
-        # policy_sum = sum(policy.values())
+        # Check endgame tablebase
+        tb_move, tb_value = get_optimal_move(board)
+
+        if tb_value is not None and tb_value != "Draw":
+            policy = {move: (1 if move == tb_move else 0) for move in legal_moves}
+        else:
+            policy = {move: (self.move_prob(logits, move, xor)) for move in legal_moves}
+
+        policy_sum = sum(policy.values())
         for action, p in policy.items():
-            node.children[action] = Node(p)
+            node.children[action] = Node(p / policy_sum)
 
         return value
 
-
-    def statistics(self, root, board):
-
-        principal_variation = []
-        pv(board, root, principal_variation)
-        elapsed = time.perf_counter() - self.start_time
-        if self.verbose:
-            avg_depth = self.sum_depth / self.num_simulations
-            tmp = np.array(self.depth_list)
-            median_depth = np.median(tmp, overwrite_input=True)
-
-            click.clear()
-            print(board)
-            print()
-            print(board.fen())
-            print()
-            print(board.variation_san(principal_variation))
-            print()
-            print("{} simulations in {:.1f} seconds = {:.1f} simulations/sec".format(
-                self.num_simulations,
-                elapsed,
-                self.num_simulations / elapsed
-            ))
-            print()
-            print("Max depth: {} Median depth: {} Avg depth: {:.1f}".format(
-                self.max_depth, median_depth, avg_depth))
-            print()
-
-            stats = []
-            for key, val in root.children.items():
-                if val.visit_count > 0:
-                    stats.append((board.san(key), val.value(), val.visit_count, val.prior))
-
-            stats = sorted(stats, key = lambda e: e[2], reverse=True)
-
-            cnt = 0
-            for s1 in stats:
-                print("{:5s} {:5.1f}% {:5.0f} visits  [{:4.1f}%]".format(
-                    s1[0], 100 * s1[1], s1[2], 100 * s1[3]))
-                cnt += 1
-                if cnt >= 10:
-                    break
-        else:
-            print("{} - {}: {:4.1f}% {} [{:.1f} sims/s]".format(
-                self.prefix,
-                self.num_simulations,
-                100 * root.children.get(principal_variation[0]).value(),
-                board.variation_san(principal_variation),
-                self.num_simulations / elapsed))
-
-
-    def mcts(self, board):
-        self.start_time = time.perf_counter()
-        self.num_simulations = 0
-        self.max_depth = 0
-        self.sum_depth = 0
-        self.depth_list = []
+    def mcts(self, board, prefix, sample=True, limit=None, bias_move=None):
+        self.stats = MCTS_Stats(self.model_name(), self.verbose, self.prefix)
+        kld = KLD()
 
         root = Node(0)
-        self.evaluate(root, board)
+        root.is_root = True
+        self.stats.observe_root_value(self.evaluate(root, board, full_check=True))
 
-        if len(root.children) == 1:
-            for best_move in root.children.keys():
-                return best_move, root
+        if self.exploration_noise:
+            add_exploration_noise(root)
 
-        add_exploration_noise(root)
+        if bias_move:
+            add_bias_move(root, bias_move)
 
-        best_move = None
-        max_visit_count = 500
+        max_visit_count = self.max_simulations
+        if limit is not None:
+            max_visit_count = min(limit, max_visit_count)
 
-        for iteration in range(max_visit_count):
-            self.num_simulations += 1
-            depth = 0
+        with NonBlockingConsole() as nbc:
+            for iteration in range(max_visit_count):
+                depth = 0
 
-            node = root
-            search_path = [ node ]
-            scratch_board = board.copy()
-            while node.expanded():
-                move, node = select_child(node)
-                scratch_board.push(move)
-                search_path.append(node)
-                depth += 1
+                node = root
+                search_path = [node]
+                while node.expanded():
+                    move, node = select_child(node, self.ucb_score)
+                    board.push(move)
+                    search_path.append(node)
+                    depth += 1
 
-            value = self.evaluate(node, scratch_board)
-            backpropagate(search_path, value, scratch_board.turn)
+                value = self.evaluate(node, board, depth < 2)
+                backpropagate(search_path, value, board.turn)
 
-            self.max_depth = max(self.max_depth, depth)
-            self.sum_depth += depth
-            self.depth_list.append(depth)
+                self.stats.observe_depth(depth)
 
-            if iteration > 0 and iteration % 100 == 0:
-                self.statistics(root, board)
+                for i in range(depth):
+                    board.pop()
 
-            if root.visit_count >= max_visit_count:
-                break
+                if iteration > 0 and iteration % 100 == 0:
+                    if self.verbose and iteration % 400 == 0:
+                        self.stats.statistics(root, board)
+                    kldgain = kld.update(root)
 
-        self.statistics(root, board)
-        return select_root_move(root, board.fullmove_number), root
+                    if kldgain is not None and kldgain < self.kldgain_stop:
+                        break
+
+                if root.visit_count >= max_visit_count:
+                    break
+
+                if is_singular_move(search_path, 4 * max_visit_count / 5):
+                    break
+
+                if nbc.get_data() == "\x1b":
+                    break
+
+        self.stats.statistics(root, board)
+
+        white_win_prop = 1.0 - root.value() if board.turn else root.value()
+        prop_gauge.labels(game=prefix).set(white_win_prop)
+
+        return root
+
+    def correct_forced_playouts(self, tree: Node):
+
+        _, best_move = max(
+            ((child.visit_count, action) for action, child in tree.children.items()),
+            key=lambda e: e[0],
+        )
+
+        best_ucb_score = self.ucb_score(tree, tree.children[best_move])
+
+        for action, child in tree.children.items():
+            if action == best_move:
+                continue
+
+            actual_playouts = child.visit_count
+
+            for i in range(1, child.forced_playouts + 1):
+                child.visit_count = actual_playouts - i
+                tmp_ucb_score = self.ucb_score(tree, tree.children[best_move])
+                if tmp_ucb_score > best_ucb_score:
+                    child.visit_count = actual_playouts - i + 1
+                    break
+
+        return tree
+
+
+prop_gauge = Gauge("white_prob", "Win probability white", ["game"])

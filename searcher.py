@@ -8,74 +8,77 @@ import numpy as np
 
 nodes = 0
 
-TIME_LIMIT = 100
-NODE_LIMIT = 10000
+TIME_LIMIT = 1000
+NODE_LIMIT = 30000
+PRINT_LIMIT = 5000
 
 EPSILON = 0.01
 
+
 class TimeOutException(Exception):
     pass
+
 
 class Searcher:
     def __init__(self, evaluator, name="Tensorflow"):
         self.evaluator = evaluator
         self.name = name
 
-
     def pos_key(self, b):
         fen = b.fen()
-        parts = fen.split(' ')
+        parts = fen.split(" ")
         return "{} {}".format(parts[0], parts[1])
-
-
 
     def history_index(self, m):
         return (m.from_square << 6) + m.to_square
 
-
     def eval_cached(self, b):
         key = self.pos_key(b)
-        if (key in self.eval_cache):
+        if key in self.eval_cache:
             return self.eval_cache[key]
         else:
             eval = self.evaluator(b)
             self.eval_cache[key] = eval
             return eval
 
-
     def next_capture(self, board):
         victims = [
             board.pieces_mask(chess.QUEEN, not board.turn),
             board.pieces_mask(chess.ROOK, not board.turn),
-            board.pieces_mask(chess.KNIGHT, not board.turn) | board.pieces_mask(chess.BISHOP, not board.turn),
+            board.pieces_mask(chess.KNIGHT, not board.turn)
+            | board.pieces_mask(chess.BISHOP, not board.turn),
             board.pieces_mask(chess.PAWN, not board.turn),
         ]
         attackers = [
             board.pieces_mask(chess.PAWN, board.turn),
-            board.pieces_mask(chess.KNIGHT, board.turn) | board.pieces_mask(chess.BISHOP, board.turn),
+            board.pieces_mask(chess.KNIGHT, board.turn)
+            | board.pieces_mask(chess.BISHOP, board.turn),
             board.pieces_mask(chess.ROOK, board.turn),
             board.pieces_mask(chess.QUEEN, board.turn),
-            board.pieces_mask(chess.KING, board.turn)
+            board.pieces_mask(chess.KING, board.turn),
         ]
         for victim in range(0, 4):
             victims_mask = victims[victim]
-            for attacker in range(0, 4-victim):
+            for attacker in range(0, 4 - victim):
                 attackers_mask = attackers[attacker]
-                captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
+                captures = board.generate_pseudo_legal_captures(
+                    attackers_mask, victims_mask
+                )
                 for move in captures:
                     if board.is_legal(move):
                         yield move
         for victim in range(0, 4):
             victims_mask = victims[victim]
-            for attacker in range(4-victim, len(attackers)):
+            for attacker in range(4 - victim, len(attackers)):
                 attackers_mask = attackers[attacker]
-                captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
+                captures = board.generate_pseudo_legal_captures(
+                    attackers_mask, victims_mask
+                )
                 for move in captures:
                     if board.is_legal(move):
                         yield move
 
-
-    def qsearch(self, b, alpha, beta, ply = 0):
+    def qsearch(self, b, alpha, beta, ply=0):
         self.nodes += 1
 
         if b.is_insufficient_material():
@@ -92,7 +95,7 @@ class Searcher:
             b.push(move)
             t = -self.qsearch(b, -beta, -alpha, ply + 1)
             b.pop()
-            if (t > score):
+            if t > score:
                 score = t
                 if score >= beta:
                     return score
@@ -101,13 +104,11 @@ class Searcher:
 
         return score
 
-
     def move_score(self, move, board):
         board.push(move)
         score = self.eval_cached(board)
         board.pop()
         return score
-
 
     def next_move_old(self, board):
         key = self.pos_key(board)
@@ -117,7 +118,7 @@ class Searcher:
             yield hash_move
 
         l = list(board.generate_legal_moves())
-        l.sort(key = lambda m: self.move_score(m, board))
+        l.sort(key=lambda m: self.move_score(m, board))
         for move in l:
             if move != hash_move:
                 yield move
@@ -133,21 +134,25 @@ class Searcher:
         victims = [
             board.pieces_mask(chess.QUEEN, not board.turn),
             board.pieces_mask(chess.ROOK, not board.turn),
-            board.pieces_mask(chess.KNIGHT, not board.turn) | board.pieces_mask(chess.BISHOP, not board.turn),
+            board.pieces_mask(chess.KNIGHT, not board.turn)
+            | board.pieces_mask(chess.BISHOP, not board.turn),
             board.pieces_mask(chess.PAWN, not board.turn),
         ]
         attackers = [
             board.pieces_mask(chess.PAWN, board.turn),
-            board.pieces_mask(chess.KNIGHT, board.turn) | board.pieces_mask(chess.BISHOP, board.turn),
+            board.pieces_mask(chess.KNIGHT, board.turn)
+            | board.pieces_mask(chess.BISHOP, board.turn),
             board.pieces_mask(chess.ROOK, board.turn),
             board.pieces_mask(chess.QUEEN, board.turn),
-            board.pieces_mask(chess.KING, board.turn)
+            board.pieces_mask(chess.KING, board.turn),
         ]
         for victim in range(0, 4):
             victims_mask = victims[victim]
-            for attacker in range(0, 4-victim):
+            for attacker in range(0, 4 - victim):
                 attackers_mask = attackers[attacker]
-                captures = board.generate_pseudo_legal_captures(attackers_mask, victims_mask)
+                captures = board.generate_pseudo_legal_captures(
+                    attackers_mask, victims_mask
+                )
                 for move in captures:
                     if move != hash_move and board.is_legal(move):
                         captures_searched.add(move)
@@ -164,7 +169,9 @@ class Searcher:
         #                 yield move
 
         l = list(board.generate_pseudo_legal_moves())
-        l = sorted(l, key = lambda m : self.history_table[self.history_index(m)], reverse = True)
+        l = sorted(
+            l, key=lambda m: self.history_table[self.history_index(m)], reverse=True
+        )
 
         for move in l:
             if move != hash_move and not move in captures_searched:
@@ -195,7 +202,7 @@ class Searcher:
         max_score = -1000
         best_move = None
 
-        #if ply > 2:
+        # if ply > 2:
         #    b.push(Move.null())
         #    try:
         #        score = -self.search(b, -beta, -alpha, ply-2)
@@ -210,7 +217,7 @@ class Searcher:
                 if b.is_fivefold_repetition():
                     score = 0
                 else:
-                    score = -self.search(b, -beta, -alpha, depth-1)
+                    score = -self.search(b, -beta, -alpha, depth - 1)
             finally:
                 b.pop()
 
@@ -220,7 +227,7 @@ class Searcher:
             if max_score >= beta:
                 key = self.pos_key(b)
                 self.move_cache[key] = move
-                self.history_table[self.history_index(move)] += (1 << depth)
+                self.history_table[self.history_index(move)] += 1 << depth
                 return max_score
             if max_score > alpha:
                 alpha = max_score
@@ -236,8 +243,7 @@ class Searcher:
 
         return max_score
 
-
-    def pv(self, b, move, depth = 0):
+    def pv(self, b, move, depth=0):
         line = b.san(move)
         if depth < 10:
             b.push(move)
@@ -259,7 +265,7 @@ class Searcher:
         l = list(b.generate_legal_moves())
         if len(l) == 1:
             return l[0]
-        l.sort(key = lambda m: self.move_score(m, b))
+        l.sort(key=lambda m: self.move_score(m, b))
 
         self.start_time = time.perf_counter()
         self.next_time_check = self.nodes + 100
@@ -274,11 +280,13 @@ class Searcher:
                 is_pv = True
                 for move in l:
                     san = b.san(move)
-                    print("{:2d}  {:5.1f}          {}     ".format(
-                        depth,
-                        self.elapsed,
-                        san), end = '\r')
-                        
+                    print(
+                        "{:2d}  {:5.1f}          {}     ".format(
+                            depth, self.elapsed, san
+                        ),
+                        end="\r",
+                    )
+
                     b.push(move)
                     try:
                         alpha = max_score
@@ -288,25 +296,25 @@ class Searcher:
                         if b.is_fivefold_repetition():
                             score = 0
                         else:
-                            score = -self.search(b, -beta, -alpha, depth-1)
+                            score = -self.search(b, -beta, -alpha, depth - 1)
                             if is_pv and score <= alpha:
-                                if depth > 1:
-                                    print("{:2d}- {:5.1f}  {:+.3f}  {}".format(
-                                        depth,
-                                        self.elapsed,
-                                        score,
-                                        san))
-                                score = -self.search(b, -score, 1000, depth-1)
+                                if self.nodes > PRINT_LIMIT:
+                                    print(
+                                        "{:2d}- {:5.1f}  {:+.3f}  {}".format(
+                                            depth, self.elapsed, score, san
+                                        )
+                                    )
+                                score = -self.search(b, -score, 1000, depth - 1)
                             if score >= beta:
                                 best_move = move
-                                if depth > 1:
-                                    print("{:2d}+ {:5.1f}  {:+.3f}  {}".format(
-                                        depth,
-                                        self.elapsed,
-                                        score,
-                                        san))
-                                score = -self.search(b, -1000, -score, depth-1)
-                                
+                                if self.nodes > PRINT_LIMIT:
+                                    print(
+                                        "{:2d}+ {:5.1f}  {:+.3f}  {}".format(
+                                            depth, self.elapsed, score, san
+                                        )
+                                    )
+                                score = -self.search(b, -1000, -score, depth - 1)
+
                     finally:
                         b.pop()
 
@@ -317,41 +325,44 @@ class Searcher:
                         best_move = move
                         l.remove(move)
                         l.insert(0, move)
-                            
-                        if depth > 1:
-                            print("{:2d}+ {:5.1f}  {:+.3f}  {}".format(
-                                depth,
-                                self.elapsed,
-                                score,
-                                self.pv(b, best_move)))
+
+                        if self.nodes > PRINT_LIMIT:
+                            print(
+                                "{:2d}+ {:5.1f}  {:+.3f}  {}".format(
+                                    depth, self.elapsed, score, self.pv(b, best_move)
+                                )
+                            )
                     is_pv = False
 
-                print("{:2d}  {:5.1f}  {:+.3f}  {}, {} nodes/sec                    ".format(
-                    depth,
-                    self.elapsed,
-                    max_score,
-                    self.pv(b, best_move),
-                    int(self.nodes / self.elapsed)))
+                print(
+                    "{:2d}  {:5.1f}  {:+.3f}  {}, {} nodes/sec                    ".format(
+                        depth,
+                        self.elapsed,
+                        max_score,
+                        self.pv(b, best_move),
+                        int(self.nodes / self.elapsed),
+                    )
+                )
         except TimeOutException:
             pass
 
-        print("==> {} with score {:.3f}, {} nodes/sec                ".format(
-            b.san(best_move),
-            max_score,
-            int(self.nodes / self.elapsed)))
+        print(
+            "==> {} with score {:.3f}, {} nodes/sec                ".format(
+                b.san(best_move), max_score, int(self.nodes / self.elapsed)
+            )
+        )
         return best_move
 
 
 class AmySearcher:
-
     def __init__(self):
         self.name = "Amy"
 
     def select_move(self, b):
-        p = subprocess.Popen('Amy', stdin=PIPE, stdout=PIPE)
+        p = subprocess.Popen("Amy", stdin=PIPE, stdout=PIPE)
         fen = b.fen()
         commands = "easy\nlevel fixed/2\nepd {}\nxboard\ngo\n".format(fen)
-        out, err = p.communicate(bytes(commands, 'ASCII'))
-        reply = out.decode('ASCII')
-        m = re.search('move ([a-h][1-8][a-h][1-8][QRNB]?)', out.decode('ASCII'))
+        out, err = p.communicate(bytes(commands, "ASCII"))
+        reply = out.decode("ASCII")
+        m = re.search("move ([a-h][1-8][a-h][1-8][QRNB]?)", out.decode("ASCII"))
         return b.parse_uci(m[1].lower())

@@ -1,19 +1,20 @@
 import numpy as np
 import chess
 from chess import Board, Piece
+from scipy.sparse import csr_matrix
+
 
 class Repr2D:
-
     def __init__(self):
-        queen_dirs = [ -1, 1, -8, 8, -7, 7, -9, 9 ]
-        knight_dirs = [ -15, 15, -17, 17, -10, 10, -6, 6]
-        pawn_dirs = [ 7, 8, 9 ]
+        queen_dirs = [-1, 1, -8, 8, -7, 7, -9, 9]
+        knight_dirs = [-15, 15, -17, 17, -10, 10, -6, 6]
+        pawn_dirs = [7, 8, 9]
         self.queen_indexes = dict()
         self.knight_indexes = dict()
         self.underpromo_indexes = {
             chess.KNIGHT: dict(),
             chess.BISHOP: dict(),
-            chess.ROOK: dict()
+            chess.ROOK: dict(),
         }
 
         idx = 0
@@ -29,20 +30,20 @@ class Repr2D:
             idx += 1
 
         for delta in pawn_dirs:
-            for piece in [ chess.KNIGHT, chess.BISHOP, chess.ROOK ]:
+            for piece in [chess.KNIGHT, chess.BISHOP, chess.ROOK]:
                 self.underpromo_indexes[piece][delta] = idx
                 idx += 1
 
-        self.num_planes = 16
+        self.num_planes = 19
 
         # print("Generated {} indexes for moves.".format(idx))
-
 
     def _is_knight_move(self, move):
         file_dist = abs((move.from_square & 7) - (move.to_square & 7))
         rank_dist = abs((move.from_square >> 3) - (move.to_square >> 3))
-        return (file_dist == 1 and rank_dist == 2) or (file_dist == 2 and rank_dist == 1)
-
+        return (file_dist == 1 and rank_dist == 2) or (
+            file_dist == 2 and rank_dist == 1
+        )
 
     def plane_index(self, move, xor):
         delta = (move.to_square ^ xor) - (move.from_square ^ xor)
@@ -53,10 +54,8 @@ class Repr2D:
         else:
             return self.queen_indexes[delta]
 
-
     def _coords(self, sq):
         return (sq >> 3, sq & 7)
-
 
     def _store_board(self, b, buf, turn, plane_offset):
         xor = 0 if turn else 0x38
@@ -87,19 +86,20 @@ class Repr2D:
             buf[rank, file, offset] = 1
 
         if board.has_kingside_castling_rights(board.turn):
-            buf[0, 6, offset + 1] = 1
+            buf[:, :, offset + 1] = 1
         if board.has_queenside_castling_rights(board.turn):
-            buf[0, 2, offset + 1] = 1
+            buf[:, :, offset + 2] = 1
         if board.has_kingside_castling_rights(not board.turn):
-            buf[7, 6, offset + 2] = 1
+            buf[:, :, offset + 3] = 1
         if board.has_queenside_castling_rights(not board.turn):
-            buf[7, 2, offset + 2] = 1
+            buf[:, :, offset + 4] = 1
 
         # One plane just ones so the network can detect the board edge
-        buf[:, :, offset + 3] = 1
+        buf[:, :, offset + 5] = 1
+
+        buf[:, :, offset + 6] = board.halfmove_clock / 100.0
 
         return buf
-
 
     def legal_moves_mask(self, b):
         buf = np.zeros((64, 73), np.int8)
@@ -107,33 +107,15 @@ class Repr2D:
         xor = 0 if b.turn else 0x38
 
         for move in b.generate_legal_moves():
-            buf[move.from_square ^ xor, self.plane_index(move, xor)] = 1
+            buf[move.to_square ^ xor, self.plane_index(move, xor)] = 1
 
         return buf.flatten()
-
 
     def move_to_array(self, b, move):
         buf = np.zeros((64, 73), np.int8)
         xor = 0 if b.turn else 0x38
-        buf[move.from_square ^ xor, self.plane_index(move, xor)] = 1
+        buf[move.to_square ^ xor, self.plane_index(move, xor)] = 1
         return buf.reshape(4672)
-
-
-    def moves_to_array(self, b, children, current_move):
-        buf = np.zeros((64, 73), np.float32)
-        xor = 0 if b.turn else 0x38
-
-        if children:
-            for move, child in children.items():
-                buf[move.from_square ^ xor, self.plane_index(move, xor)] = child.visit_count
-
-        buf[current_move.from_square ^ xor, self.plane_index(current_move, xor)] += 1
-
-        buf = buf.reshape(4672)
-        buf /= np.sum(buf)
-        
-        return buf
-
 
     def policy_to_array(self, b, policy):
         # buf = np.zeros((64, 7), np.int8)
@@ -145,7 +127,8 @@ class Repr2D:
             move = b.parse_san(san)
             # buf[move.from_square ^ xor][0] = 1
             # buf[move.to_square ^ xor][piece] = 1
-            buf[move.from_square ^ xor, self.plane_index(move, xor)] = value
+            buf[move.to_square ^ xor, self.plane_index(move, xor)] = value
 
         # return buf.reshape(8, 8, 7)
-        return buf.reshape(4672)
+        buf = buf / np.sum(buf)
+        return csr_matrix(buf)
