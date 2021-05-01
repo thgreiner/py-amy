@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
-import math
 import numpy as np
 
-from ucb import FORCED_PLAYOUT, UCB
 from kld import KLD
 from move_selection import add_exploration_noise, add_bias_move
 from tablebase import get_optimal_move
@@ -11,6 +9,9 @@ from non_blocking_console import NonBlockingConsole
 from chess_input import Repr2D
 from prometheus_client import Gauge
 from mcts_stats import MCTS_Stats
+from math import sqrt, log, exp
+
+FORCED_PLAYOUT = 10000
 
 
 class Node(object):
@@ -32,6 +33,27 @@ class Node(object):
         return self.value_sum / self.visit_count
 
 
+PB_C_INIT = 1.25
+PB_C_BASE = 19652
+
+def ucb_score(parent_visit_count, child: Node, forced_playouts : bool = False):
+    if forced_playouts:
+        n_forced_playouts = sqrt(child.prior * parent_visit_count * 2)
+        if child.visit_count < n_forced_playouts:
+            return FORCED_PLAYOUT
+
+    return ucb_score_calc(parent_visit_count, child.visit_count, child.prior, child.value())
+
+def ucb_score_calc(parent_visit_count, child_visit_count, child_prior, child_value):
+    pb_c = log((parent_visit_count + PB_C_BASE + 1) / PB_C_BASE)
+    pb_c += PB_C_INIT
+    pb_c *= sqrt(parent_visit_count) / (child_visit_count + 1)
+
+    prior_score = pb_c * child_prior
+    value_score = child_value
+
+    return prior_score + value_score
+
 def score(board, winner):
     if board.turn and (winner == "1-0"):
         return 1
@@ -43,10 +65,13 @@ def score(board, winner):
 
 
 # Select the child with the highest UCB score.
-def select_child(node: Node, ucb_score):
+def select_child(node: Node):
+    parent_visit_count = node.visit_count
+    is_root = node.is_root
+
     score, action, child = max(
         (
-            (ucb_score(node, child, node.is_root), action, child)
+            (ucb_score(parent_visit_count, child, is_root), action, child)
             for action, child in node.children.items()
         ),
         key=lambda e: e[0],
@@ -87,11 +112,7 @@ class MCTS:
 
         self.best_move = None
 
-        self.ucb_score = UCB(1.25)
         self.kldgain_stop = 0.0
-
-    def set_pb_c_init(self, pb_c_init):
-        self.ucb_score = UCB(pb_c_init)
 
     def set_kldgain_stop(self, kldgain):
         self.kldgain_stop = kldgain
@@ -103,7 +124,7 @@ class MCTS:
     def move_prob(self, logits, move, xor):
         sq = move.to_square ^ xor
         plane = self.repr.plane_index(move, xor)
-        return math.exp(logits[sq, plane])
+        return exp(logits[sq, plane])
 
     def evaluate(self, node, board, full_check=False):
 
@@ -123,7 +144,7 @@ class MCTS:
                 self.stats.observe_terminal_node()
                 return 0.5
 
-        legal_moves = [move for move in board.generate_legal_moves()]
+        legal_moves = list(board.generate_legal_moves())
         if len(legal_moves) == 0:
             self.stats.observe_terminal_node()
             return score(board, board.result(claim_draw=True))
@@ -178,7 +199,7 @@ class MCTS:
                 node = root
                 search_path = [node]
                 while node.expanded():
-                    move, node = select_child(node, self.ucb_score)
+                    move, node = select_child(node)
                     board.push(move)
                     search_path.append(node)
                     depth += 1
@@ -222,7 +243,7 @@ class MCTS:
             key=lambda e: e[0],
         )
 
-        best_ucb_score = self.ucb_score(tree, tree.children[best_move])
+        best_ucb_score = ucb_score(tree.visit_count, tree.children[best_move])
 
         for action, child in tree.children.items():
             if action == best_move:
@@ -232,7 +253,7 @@ class MCTS:
 
             for i in range(1, child.forced_playouts + 1):
                 child.visit_count = actual_playouts - i
-                tmp_ucb_score = self.ucb_score(tree, tree.children[best_move])
+                tmp_ucb_score = ucb_score(tree.visit_count, tree.children[best_move])
                 if tmp_ucb_score > best_ucb_score:
                     child.visit_count = actual_playouts - i + 1
                     break

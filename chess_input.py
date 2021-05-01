@@ -3,6 +3,19 @@ import chess
 from chess import Board, Piece
 from scipy.sparse import csr_matrix
 
+from numpy import zeros, int8, float32, sum
+
+
+def _is_knight_move(from_square, to_square):
+    file_dist = abs((from_square & 7) - (to_square & 7))
+    rank_dist = abs((from_square >> 3) - (to_square >> 3))
+    return (file_dist == 1 and rank_dist == 2) or (
+        file_dist == 2 and rank_dist == 1
+    )
+
+def _coords(sq):
+    return (sq >> 3, sq & 7)
+
 
 class Repr2D:
     def __init__(self):
@@ -38,24 +51,14 @@ class Repr2D:
 
         # print("Generated {} indexes for moves.".format(idx))
 
-    def _is_knight_move(self, move):
-        file_dist = abs((move.from_square & 7) - (move.to_square & 7))
-        rank_dist = abs((move.from_square >> 3) - (move.to_square >> 3))
-        return (file_dist == 1 and rank_dist == 2) or (
-            file_dist == 2 and rank_dist == 1
-        )
-
     def plane_index(self, move, xor):
         delta = (move.to_square ^ xor) - (move.from_square ^ xor)
         if move.promotion and move.promotion != chess.QUEEN:
             return self.underpromo_indexes[move.promotion][delta]
-        elif self._is_knight_move(move):
+        elif _is_knight_move(move.from_square, move.to_square):
             return self.knight_indexes[delta]
         else:
             return self.queen_indexes[delta]
-
-    def _coords(self, sq):
-        return (sq >> 3, sq & 7)
 
     def _store_board(self, b, buf, turn, plane_offset):
         xor = 0 if turn else 0x38
@@ -64,15 +67,15 @@ class Repr2D:
             offset = plane_offset + 2 * (piece_type - 1)
             squares = b.pieces(piece_type, turn)
             for sq in squares:
-                rank, file = self._coords(sq ^ xor)
+                rank, file = _coords(sq ^ xor)
                 buf[rank, file, offset] = 1
             squares = b.pieces(piece_type, not turn)
             for sq in squares:
-                rank, file = self._coords(sq ^ xor)
+                rank, file = _coords(sq ^ xor)
                 buf[rank, file, offset + 1] = 1
 
     def board_to_array(self, board):
-        buf = np.zeros((8, 8, self.num_planes), np.int8)
+        buf = zeros((8, 8, self.num_planes), int8)
 
         turn = board.turn
 
@@ -82,7 +85,7 @@ class Repr2D:
 
         if board.ep_square:
             xor = 0 if turn else 0x38
-            rank, file = self._coords(board.ep_square ^ xor)
+            rank, file = _coords(board.ep_square ^ xor)
             buf[rank, file, offset] = 1
 
         if board.has_kingside_castling_rights(board.turn):
@@ -101,25 +104,15 @@ class Repr2D:
 
         return buf
 
-    def legal_moves_mask(self, b):
-        buf = np.zeros((64, 73), np.int8)
-
-        xor = 0 if b.turn else 0x38
-
-        for move in b.generate_legal_moves():
-            buf[move.to_square ^ xor, self.plane_index(move, xor)] = 1
-
-        return buf.flatten()
-
     def move_to_array(self, b, move):
-        buf = np.zeros((64, 73), np.int8)
+        buf = zeros((64, 73), int8)
         xor = 0 if b.turn else 0x38
         buf[move.to_square ^ xor, self.plane_index(move, xor)] = 1
         return buf.reshape(4672)
 
     def policy_to_array(self, b, policy):
         # buf = np.zeros((64, 7), np.int8)
-        buf = np.zeros((64, 73), np.float32)
+        buf = zeros((64, 73), float32)
 
         xor = 0 if b.turn else 0x38
 
@@ -130,5 +123,5 @@ class Repr2D:
             buf[move.to_square ^ xor, self.plane_index(move, xor)] = value
 
         # return buf.reshape(8, 8, 7)
-        buf = buf / np.sum(buf)
+        buf = buf / sum(buf)
         return csr_matrix(buf)
