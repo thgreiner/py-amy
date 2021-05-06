@@ -28,7 +28,7 @@ def selfplay(
     mcts = MCTS(
         model, verbose, prefix, exploration_noise=True, max_simulations=num_simulations
     )
-    mcts.set_kldgain_stop(0.85e-3)
+    mcts.set_kldgain_stop(2.0e-3)
 
     if saver is None:
         saver = DefaultGameSaver("LearnGames")
@@ -92,7 +92,7 @@ def selfplay(
                     else select_root_move(tree, board.fullmove_number, True)
                 )
                 node = create_node_with_comment(
-                    node, mcts.correct_forced_playouts(tree), best_move, board
+                    node, tree, best_move, board
                 )
             else:
                 tree = mcts.mcts(board, prefix=prefix, limit=100)
@@ -106,7 +106,6 @@ def selfplay(
 
         game.headers["Result"] = board.result(claim_draw=True)
         saver(game)
-
 
 if __name__ == "__main__":
 
@@ -194,7 +193,7 @@ if __name__ == "__main__":
 
         model = load_or_create_model(args.model)
 
-    for port in range(9099, 9104):
+    for port in range(9100, 9104):
         try:
             start_http_server(port)
             print(f"Started http server on port {port}")
