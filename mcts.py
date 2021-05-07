@@ -21,6 +21,8 @@ class Node(object):
         self.prior = prior
         self.value_sum = 0
         self.children = {}
+        self.is_root = False
+        self.forced_playouts = 0
 
     def expanded(self):
         return len(self.children) > 0
@@ -42,7 +44,12 @@ def ucb_pb_c(parent_visit_count):
     return pb_c
 
 
-def ucb_score(parent_visit_count, child: Node):
+def ucb_score(parent_visit_count, child: Node, forced_playouts: bool = False):
+    if forced_playouts:
+        n_forced_playouts = sqrt(child.prior * parent_visit_count * 2)
+        if child.visit_count < n_forced_playouts:
+            return FORCED_PLAYOUT
+
     return child.value() + child.prior * ucb_pb_c(parent_visit_count) / (
         child.visit_count + 1
     )
@@ -61,16 +68,27 @@ def score(board, winner):
 # Select the child with the highest UCB score.
 def select_child(node: Node):
     parent_visit_count = node.visit_count
+    is_root = node.is_root
 
     max_action = None
     max_ucb = None
     max_child = None
 
-    k = ucb_pb_c(parent_visit_count)
-    for action, child in node.children.items():
-        u = child.value() + child.prior * k / (child.visit_count + 1)
-        if max_ucb is None or u > max_ucb:
-            max_action, max_ucb, max_child = action, u, child
+    if node.is_root:
+        for action, child in node.children.items():
+            u = ucb_score(parent_visit_count, child, True)
+            if max_ucb is None or u > max_ucb:
+                max_action, max_ucb, max_child = action, u, child
+
+    else:
+        k = ucb_pb_c(parent_visit_count)
+        for action, child in node.children.items():
+            u = child.value() + child.prior * k / (child.visit_count + 1)
+            if max_ucb is None or u > max_ucb:
+                max_action, max_ucb, max_child = action, u, child
+
+    if score == FORCED_PLAYOUT:
+        max_child.forced_playouts += 1
 
     return max_action, max_child
 
@@ -171,6 +189,7 @@ class MCTS:
         kld = KLD()
 
         root = Node(0)
+        root.is_root = True
         self.stats.observe_root_value(self.evaluate(root, board, full_check=True))
 
         if self.exploration_noise:
@@ -226,5 +245,30 @@ class MCTS:
         prop_gauge.labels(game=prefix).set(white_win_prop)
 
         return root
+
+    def correct_forced_playouts(self, tree: Node):
+
+        _, best_move = max(
+            ((child.visit_count, action) for action, child in tree.children.items()),
+            key=lambda e: e[0],
+        )
+
+        best_ucb_score = ucb_score(tree.visit_count, tree.children[best_move])
+
+        for action, child in tree.children.items():
+            if action == best_move:
+                continue
+
+            actual_playouts = child.visit_count
+
+            for i in range(1, child.forced_playouts + 1):
+                child.visit_count = actual_playouts - i
+                tmp_ucb_score = ucb_score(tree.visit_count, tree.children[best_move])
+                if tmp_ucb_score > best_ucb_score:
+                    child.visit_count = actual_playouts - i + 1
+                    break
+
+        return tree
+
 
 prop_gauge = Gauge("white_prob", "Win probability white", ["game"])
