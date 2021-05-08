@@ -87,7 +87,7 @@ def select_child(node: Node):
             if max_ucb is None or u > max_ucb:
                 max_action, max_ucb, max_child = action, u, child
 
-    if score == FORCED_PLAYOUT:
+    if max_ucb == FORCED_PLAYOUT:
         max_child.forced_playouts += 1
 
     return max_action, max_child
