@@ -1,3 +1,5 @@
+#include <string>
+
 #include "board.h"
 
 #include "movegen.h"
@@ -76,4 +78,13 @@ bool Board::turn() const { return current_position()->turn; }
 
 bool Board::is_in_check() const {
     return is_king_in_check(current_position(), turn());
+}
+
+std::string Board::move_number_if_white() const {
+    if (turn()) {
+        int move_number = 1 + current_position()->ply/2;
+        return std::to_string(move_number) + ". ";
+    } else {
+        return "";
+    }
 }

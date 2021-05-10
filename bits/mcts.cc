@@ -68,9 +68,12 @@ void MCTS::mcts(Board &board) {
         auto child = root->children[move];
         if (child->visit_count > 0) {
             std::cout << board.san(move) << ":\t" << child->visit_count << ",\t"
-                      << (100.0 * child->visit_count / n) << "%" << std::endl;
+                      << 100.0 * child->value() << "%" << std::endl;
         }
     }
+
+    print_pv(root, board);
+    std::cout << std::endl;
 }
 
 float MCTS::evaluate(std::shared_ptr<Node> node, Board &board) {
@@ -183,4 +186,23 @@ void MCTS::add_exploration_noise(std::shared_ptr<Node> node) {
     for (const auto &[move, child] : node->children) {
         child->prior /= policy_sum;
     }
+}
+
+void MCTS::print_pv(std::shared_ptr<Node> node, Board &board) {
+    if (node->visit_count < 2) return;
+    if (node->children.size() == 0) return;
+
+    using pair = decltype(node->children)::value_type;
+
+    auto result = std::max_element(node->children.begin(), node->children.end(),
+        [](const pair &a, const pair &b) { return a.second->visit_count < b.second->visit_count; });
+
+    uint32_t move = result->first;
+
+    std::cout << board.move_number_if_white() << board.san(move) << " ";
+    board.do_move(move);
+
+    print_pv(result->second, board);
+
+    board.undo_move();
 }

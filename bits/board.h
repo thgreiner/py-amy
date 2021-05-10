@@ -20,6 +20,7 @@ class Board {
     position_t current_position() const;
     bool turn() const;
     bool is_in_check() const;
+    std::string move_number_if_white() const;
 
   private:
     std::vector<std::shared_ptr<struct position>> positions;
