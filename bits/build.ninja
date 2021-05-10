@@ -1,0 +1,37 @@
+CC=clang
+CXX=clang++
+CFLAGS=-march=native -O3 -DNDEBUG -DUSE_MAGIC
+# CFLAGS=-g
+
+rule cc
+  depfile = $out.d
+  command = $CC -MD -MF $out.d $CFLAGS -c $in -o $out
+
+rule cxx
+  depfile = $out.d
+  command = $CXX -MD -MF $out.d $CFLAGS -c $in -o $out --std=c++17 -I../../edgetpu_runtime/libedgetpu/ -I../../tensorflow/ -I../../flatbuffers-1.12.0/include/
+
+rule link
+  command = $CXX -o $out $in -L/usr/local/lib -ledgetpu.1 -ltensorflowlite
+
+build main: link main.o movegen.o magic.o attacks.o heap.o position.o perft.o edgetpu.o mcts.o board.o
+
+build main.o: cxx main.cc
+
+build movegen.o: cc movegen.c
+
+build magic.o: cc magic.c
+
+build attacks.o: cc attacks.c
+
+build heap.o: cc heap.c
+
+build position.o: cc position.c
+
+build perft.o: cc perft.c
+
+build edgetpu.o: cxx edgetpu.cc
+
+build mcts.o: cxx mcts.cc
+
+build board.o: cxx board.cc
