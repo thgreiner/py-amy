@@ -70,6 +70,10 @@ std::string Board::san(uint32_t move) {
     return std::string(buffer);
 }
 
-position_t Board::current_position() { return positions.back().get(); }
+position_t Board::current_position() const { return positions.back().get(); }
 
-bool Board::turn() { return current_position()->turn; }
+bool Board::turn() const { return current_position()->turn; }
+
+bool Board::is_in_check() const {
+    return is_king_in_check(current_position(), turn());
+}

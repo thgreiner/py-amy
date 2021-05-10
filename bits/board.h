@@ -17,8 +17,9 @@ class Board {
     void undo_move();
     std::string san(uint32_t);
     ~Board();
-    position_t current_position();
-    bool turn();
+    position_t current_position() const;
+    bool turn() const;
+    bool is_in_check() const;
 
   private:
     std::vector<std::shared_ptr<struct position>> positions;

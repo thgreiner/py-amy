@@ -414,12 +414,10 @@ void generate_to(heap_t heap, position_t p, int to, int piece) {
         attackers = knight_attacks(to) & p->by_type[KNIGHT] & movers;
     } else {
         if (piece == BISHOP || piece == QUEEN) {
-            attackers |= BISHOP_ATTACKS(to, all_pieces(p)) & movers &
-                         (p->by_type[BISHOP] | p->by_type[QUEEN]);
+            attackers |= BISHOP_ATTACKS(to, all_pieces(p)) & movers & p->by_type[piece];
         }
         if (piece == ROOK || piece == QUEEN) {
-            attackers |= ROOK_ATTACKS(to, all_pieces(p)) & movers &
-                         (p->by_type[ROOK] | p->by_type[QUEEN]);
+            attackers |= ROOK_ATTACKS(to, all_pieces(p)) & movers & p->by_type[piece];
         }
     }
 
@@ -476,7 +474,7 @@ void san(char *buffer, heap_t heap, position_t pos, uint32_t move) {
             for (int i = heap->current_section->start;
                  i < heap->current_section->end; i++) {
                 uint32_t alt_move = heap->data[i];
-                if (alt_move != move) {
+                if (alt_move != move && move_piece(alt_move) == move_piece(move)) {
                     struct position tmp;
                     do_move(pos, &tmp, alt_move);
                     if (is_king_in_check(&tmp, !tmp.turn))

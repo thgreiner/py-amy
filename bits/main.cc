@@ -14,6 +14,7 @@
 #include <time.h>
 
 #include <iostream>
+#include <fstream>
 
 void san_test(void) {
     heap_t heap = allocate_heap();
@@ -206,13 +207,22 @@ int main(int argc, char *argv[]) {
 
             std::shared_ptr<EdgeTpuModel> model =
                 std::make_shared<EdgeTpuModel>(argv[i]);
-            model->test();
-
             MCTS mcts(model);
 
-            Board board;
+            i++;
 
-            mcts.mcts(board);
+            if (i == argc) {
+                Board board;
+                mcts.mcts(board);
+            } else {
+                std::ifstream infile(argv[i]);
+                std::string line;
+
+                while (std::getline(infile, line)) {
+                    Board board(line);
+                    mcts.mcts(board);
+                }
+            }
         } else if (0 == strcmp("--board", argv[i])) {
             Board b;
 

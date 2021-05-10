@@ -1,6 +1,7 @@
 #include <iostream>
 #include <random>
 #include <sys/time.h>
+#include <algorithm>
 
 #include "mcts.h"
 #include "movegen.h"
@@ -59,9 +60,16 @@ void MCTS::mcts(Board &board) {
 
     std::cout << " = " << (n / elapsed) << " 1/s." << std::endl;
 
-    for (const auto &[move, child] : root->children) {
-        std::cout << board.san(move) << ":\t" << child->visit_count << ",\t"
-                  << (100.0 * child->visit_count / n) << "%" << std::endl;
+    std::vector<uint32_t> moves;
+    board.generate_legal_moves(moves);
+
+    std::sort(moves.begin(), moves.end(), [root](uint32_t a, uint32_t b) { return root->children[a]->visit_count > root->children[b]->visit_count; });
+    for (auto move : moves) {
+        auto child = root->children[move];
+        if (child->visit_count > 0) {
+            std::cout << board.san(move) << ":\t" << child->visit_count << ",\t"
+                      << (100.0 * child->visit_count / n) << "%" << std::endl;
+        }
     }
 }
 
@@ -71,6 +79,14 @@ float MCTS::evaluate(std::shared_ptr<Node> node, Board &board) {
     node->turn = board.turn();
 
     board.generate_legal_moves(moves);
+
+    if (moves.size() == 0) {
+        if (board.is_in_check()) {
+            return 0.0f;
+        } else {
+            return 0.5f;
+        }
+    }
 
     // std::cout << "Generated " << moves.size() << " legal moves." <<
     // std::endl;
