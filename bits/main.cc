@@ -253,6 +253,10 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
             selfplay(argv[i]);
+        } else if (0 == strcmp("--insufficient", argv[i])) {
+            std::string epd("k7/8/K7/8/8/8/8/8 w - -");
+            Board b(epd);
+            std::cout << b.is_insufficient_material() << std::endl;
         }
     }
 

@@ -7,9 +7,7 @@
 #include "mcts.h"
 #include "movegen.h"
 
-std::shared_ptr<Node> MCTS::mcts(Board &board) {
-
-    auto n = 800;
+std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
 
     struct timeval begin, end;
     gettimeofday(&begin, 0);
@@ -303,22 +301,9 @@ void MCTS::correct_forced_playouts(std::shared_ptr<Node> node) {
         for (int i = 1; i <= child->forced_playouts; i++) {
             child->visit_count = playouts - i;
             if (ucb_score(node, child) > best_ucb_score) {
-                /*
-                                std::cout << std::setprecision(2)
-                                          << "After reducing forced playouts by
-                   " << i
-                                          << " the resulting ucb_score of "
-                                          << ucb_score(node, child) << " is
-                   higher than "
-                                          << best_ucb_score << std::endl;
-                */
                 child->visit_count = playouts - i + 1;
                 break;
             }
-        }
-        if (child->visit_count != playouts) {
-            std::cout << "Reduced visit count from " << playouts << " to "
-                      << child->visit_count << std::endl;
         }
     }
 }

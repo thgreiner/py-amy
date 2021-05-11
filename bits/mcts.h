@@ -36,7 +36,7 @@ class MCTS {
     MCTS(std::shared_ptr<EdgeTpuModel> m) : model(m) {
         heap = allocate_heap();
     };
-    std::shared_ptr<Node> mcts(Board &);
+    std::shared_ptr<Node> mcts(Board &, const int n = 800);
     void correct_forced_playouts(std::shared_ptr<Node>);
 
     static constexpr float FORCED_PLAYOUT = 1e5;

@@ -265,7 +265,7 @@ bool is_insufficient_material(position_t p) {
             __builtin_popcountll(p->by_type[BISHOP] & dark_squares);
         const int light_squared_bishops =
             __builtin_popcountll(p->by_type[BISHOP] & light_squares);
-        return dark_squared_bishops != 0 && light_squared_bishops != 0;
+        return dark_squared_bishops == 0 || light_squared_bishops == 0;
     } else {
         if (p->by_type[BISHOP])
             return false;
