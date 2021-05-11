@@ -220,7 +220,12 @@ int main(int argc, char *argv[]) {
 
                 while (std::getline(infile, line)) {
                     Board board(line);
+
+                    std::cout << line << std::endl;
+                    board.print();
                     mcts.mcts(board);
+
+                    std::cout << std::endl;
                 }
             }
         } else if (0 == strcmp("--board", argv[i])) {

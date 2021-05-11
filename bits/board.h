@@ -17,10 +17,16 @@ class Board {
     void undo_move();
     std::string san(uint32_t);
     ~Board();
+
     position_t current_position() const;
     bool turn() const;
+
     bool is_in_check() const;
+    bool is_repeated(int count) const;
+    bool is_insufficient_material() const;
+
     std::string move_number_if_white() const;
+    void print();
 
   private:
     std::vector<std::shared_ptr<struct position>> positions;

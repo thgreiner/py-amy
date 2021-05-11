@@ -2,13 +2,14 @@
 #include <random>
 #include <sys/time.h>
 #include <algorithm>
+#include <iomanip>
 
 #include "mcts.h"
 #include "movegen.h"
 
 void MCTS::mcts(Board &board) {
 
-    auto n = 800;
+    auto n = 8000;
 
     struct timeval begin, end;
     gettimeofday(&begin, 0);
@@ -16,7 +17,7 @@ void MCTS::mcts(Board &board) {
     std::shared_ptr<Node> root = std::make_shared<Node>(0);
 
     float value = evaluate(root, board);
-    std::cout << "Value: " << 100 * value << "%." << std::endl;
+    // std::cout << "Value: " << 100 * value << "%." << std::endl;
 
     add_exploration_noise(root);
 
@@ -52,34 +53,42 @@ void MCTS::mcts(Board &board) {
 
     gettimeofday(&end, 0);
 
+    print_pv(root, board);
+    std::cout << std::endl;
+
     long seconds = end.tv_sec - begin.tv_sec;
     long microseconds = end.tv_usec - begin.tv_usec;
     float elapsed = seconds + microseconds * 1e-6;
 
-    std::cout << "Inference took " << elapsed << "secs." << std::endl;
+    std::cout << std::fixed << std::setprecision(1);
 
-    std::cout << " = " << (n / elapsed) << " 1/s." << std::endl;
+    std::cout << "Inference took " << elapsed << "s, "
+              << (n / elapsed) << " 1/s." << std::endl;
 
     std::vector<uint32_t> moves;
     board.generate_legal_moves(moves);
 
     std::sort(moves.begin(), moves.end(), [root](uint32_t a, uint32_t b) { return root->children[a]->visit_count > root->children[b]->visit_count; });
+
+    int cnt = 0;
     for (auto move : moves) {
         auto child = root->children[move];
         if (child->visit_count > 0) {
-            std::cout << board.san(move) << ":\t" << child->visit_count << ",\t"
+            std::cout << board.san(move) << ":\t" << std::setw(4) << child->visit_count << "\t"
                       << 100.0 * child->value() << "%" << std::endl;
         }
+        if (++cnt >= 5) break;
     }
-
-    print_pv(root, board);
-    std::cout << std::endl;
 }
 
 float MCTS::evaluate(std::shared_ptr<Node> node, Board &board) {
     std::vector<uint32_t> moves;
 
     node->turn = board.turn();
+
+    if (board.is_repeated(3) || board.is_insufficient_material()) {
+        return 0.5f;
+    }
 
     board.generate_legal_moves(moves);
 

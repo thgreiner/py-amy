@@ -65,7 +65,6 @@ make_interpreter(const std::string model_file) {
 
     auto *delegate =
         edgetpu_create_delegate(device.type, device.path, nullptr, 0);
-    // interpreter->ModifyGraphWithDelegate({delegate, edgetpu_free_delegate});
     interpreter->ModifyGraphWithDelegate(delegate);
 
     // Allocate tensors.

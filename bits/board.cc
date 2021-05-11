@@ -80,6 +80,14 @@ bool Board::is_in_check() const {
     return is_king_in_check(current_position(), turn());
 }
 
+bool Board::is_repeated(int count) const {
+    return ::is_repeated(current_position(), count);
+}
+
+bool Board::is_insufficient_material() const {
+    return ::is_insufficient_material(current_position());
+}
+
 std::string Board::move_number_if_white() const {
     if (turn()) {
         int move_number = 1 + current_position()->ply/2;
@@ -87,4 +95,8 @@ std::string Board::move_number_if_white() const {
     } else {
         return "";
     }
+}
+
+void Board::print() {
+    print_position(current_position());
 }
