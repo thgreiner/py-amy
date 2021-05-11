@@ -136,8 +136,8 @@ float ucb_score(std::shared_ptr<Node> parent, std::shared_ptr<Node> child) {
     static float pb_c_base = 19652.0f;
 
     float pb_c =
-        log((parent->visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init;
-    pb_c *= sqrt(parent->visit_count) / (child->visit_count + 1);
+        logf((parent->visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init;
+    pb_c *= sqrtf(parent->visit_count) / (child->visit_count + 1);
 
     return child->value() + child->prior * pb_c;
 }
