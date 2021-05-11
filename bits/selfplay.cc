@@ -28,7 +28,7 @@ void format_root_node(std::ostream &game_text, std::shared_ptr<Node> root,
 void header(std::ostream &pgn_file, int round, std::string &outcome) {
 
     std::time_t t = std::time(nullptr);
-    std::strftime(game_date_buffer, sizeof(game_date_buffer), "%Y-%m-%d",
+    std::strftime(game_date_buffer, sizeof(game_date_buffer), "%Y.%m.%d",
                   std::localtime(&t));
 
     pgn_file << "[Event \"Test Game\"]" << std::endl;
@@ -37,7 +37,7 @@ void header(std::ostream &pgn_file, int round, std::string &outcome) {
     pgn_file << "[Round \"" << round << "\"]" << std::endl;
     pgn_file << "[White \"Amy Zero\"]" << std::endl;
     pgn_file << "[Black \"Amy Zero\"]" << std::endl;
-    pgn_file << "[Result " << outcome << "]" << std::endl;
+    pgn_file << "[Result \"" << outcome << "\"]" << std::endl;
 }
 
 void selfplay(char *model_name) {
@@ -74,7 +74,6 @@ void selfplay(char *model_name) {
 
             game_text << b.move_number_if_white() << b.san(move) << " ";
             format_root_node(game_text, root, b);
-            std::cout << game_text.str() << std::endl;
 
             b.do_move(move);
         }
