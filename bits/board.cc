@@ -135,3 +135,22 @@ bool Board::game_ended() const {
     generate_legal_moves(legal_moves);
     return legal_moves.size() == 0;
 }
+
+std::string Board::outcome() const {
+    if (is_insufficient_material() || is_repeated(3) || is_fifty_move_rule()) {
+        return "1/2-1/2";
+    }
+
+    std::vector<uint32_t> legal_moves;
+    generate_legal_moves(legal_moves);
+
+    if (legal_moves.size() == 0) {
+        if (is_in_check()) {
+            return turn() ? "0-1" : "1-0";
+        } else {
+            return "1/2-1/2";
+        }
+    }
+
+    return "*";
+}

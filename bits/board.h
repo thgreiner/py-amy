@@ -17,6 +17,7 @@ class Board {
     void undo_move();
     std::string san(uint32_t) const;
     std::string variation_san(const std::vector<uint32_t> &variation);
+    std::string outcome() const;
 
     ~Board();
 
