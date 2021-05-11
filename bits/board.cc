@@ -88,6 +88,10 @@ bool Board::is_insufficient_material() const {
     return ::is_insufficient_material(current_position());
 }
 
+bool Board::is_fifty_move_rule() const {
+    return current_position()->irrev_count >= 100;
+}
+
 std::string Board::move_number_if_white() const {
     if (turn()) {
         return std::to_string(move_number()) + ". ";
@@ -123,6 +127,9 @@ bool Board::game_ended() const {
         return true;
     if (is_repeated(3))
         return true;
+    if (is_fifty_move_rule()) {
+        return true;
+    }
 
     std::vector<uint32_t> legal_moves;
     generate_legal_moves(legal_moves);

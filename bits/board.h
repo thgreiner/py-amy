@@ -27,6 +27,7 @@ class Board {
     bool is_in_check() const;
     bool is_repeated(int count) const;
     bool is_insufficient_material() const;
+    bool is_fifty_move_rule() const;
 
     bool game_ended() const;
 

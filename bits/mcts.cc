@@ -105,7 +105,8 @@ float MCTS::evaluate(std::shared_ptr<Node> node, Board &board) {
 
     node->turn = board.turn();
 
-    if (board.is_repeated(3) || board.is_insufficient_material()) {
+    if (board.is_repeated(3) || board.is_insufficient_material() ||
+        board.is_fifty_move_rule()) {
         return 0.5f;
     }
 
@@ -302,13 +303,15 @@ void MCTS::correct_forced_playouts(std::shared_ptr<Node> node) {
         for (int i = 1; i <= child->forced_playouts; i++) {
             child->visit_count = playouts - i;
             if (ucb_score(node, child) > best_ucb_score) {
-/*
-                std::cout << std::setprecision(2)
-                          << "After reducing forced playouts by " << i
-                          << " the resulting ucb_score of "
-                          << ucb_score(node, child) << " is higher than "
-                          << best_ucb_score << std::endl;
-*/
+                /*
+                                std::cout << std::setprecision(2)
+                                          << "After reducing forced playouts by
+                   " << i
+                                          << " the resulting ucb_score of "
+                                          << ucb_score(node, child) << " is
+                   higher than "
+                                          << best_ucb_score << std::endl;
+                */
                 child->visit_count = playouts - i + 1;
                 break;
             }
