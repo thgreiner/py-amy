@@ -12,21 +12,26 @@ class Board {
   public:
     Board();
     Board(std::string &);
-    void generate_legal_moves(std::vector<uint32_t> &moves);
+    void generate_legal_moves(std::vector<uint32_t> &moves) const;
     void do_move(uint32_t move);
     void undo_move();
-    std::string san(uint32_t);
+    std::string san(uint32_t) const;
+    std::string variation_san(const std::vector<uint32_t> &variation);
+
     ~Board();
 
     position_t current_position() const;
     bool turn() const;
+    int move_number() const;
 
     bool is_in_check() const;
     bool is_repeated(int count) const;
     bool is_insufficient_material() const;
 
+    bool game_ended() const;
+
     std::string move_number_if_white() const;
-    void print();
+    void print() const;
 
   private:
     std::vector<std::shared_ptr<struct position>> positions;

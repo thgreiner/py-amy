@@ -3,6 +3,7 @@
 
 #include <map>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "board.h"
@@ -26,10 +27,8 @@ class Node {
     bool is_expanded() const { return children.size() != 0; }
 
     float value_sum = 0.0;
-
-  private:
-    bool is_root;
-    int forced_playouts;
+    bool is_root = false;
+    int forced_playouts = 0;
 };
 
 class MCTS {
@@ -37,16 +36,21 @@ class MCTS {
     MCTS(std::shared_ptr<EdgeTpuModel> m) : model(m) {
         heap = allocate_heap();
     };
-    void mcts(Board &);
+    std::shared_ptr<Node> mcts(Board &);
+
+    static constexpr float FORCED_PLAYOUT = 1e5;
 
   private:
     std::shared_ptr<EdgeTpuModel> model;
     float evaluate(std::shared_ptr<Node> node, Board &board);
-    uint32_t select_child(std::shared_ptr<Node>);
+    std::pair<uint32_t, float> select_child(std::shared_ptr<Node>);
     void backpropagate(std::vector<std::shared_ptr<Node>>, float, bool);
     void add_exploration_noise(std::shared_ptr<Node>);
     void print_pv(std::shared_ptr<Node>, Board &board);
     heap_t heap;
 };
+
+uint32_t select_most_visited_move(std::shared_ptr<Node>);
+uint32_t select_randomized_move(std::shared_ptr<Node>);
 
 #endif

@@ -22,7 +22,7 @@ Board::Board(std::string &epd) {
 
 Board::~Board() { free_heap(heap); }
 
-void Board::generate_legal_moves(std::vector<uint32_t> &moves) {
+void Board::generate_legal_moves(std::vector<uint32_t> &moves) const {
     position_t pos = positions.back().get();
 
     push_section(heap);
@@ -63,7 +63,7 @@ void Board::do_move(uint32_t move) {
 
 void Board::undo_move() { positions.pop_back(); }
 
-std::string Board::san(uint32_t move) {
+std::string Board::san(uint32_t move) const {
     position_t pos = positions.back().get();
 
     static char buffer[16];
@@ -90,13 +90,41 @@ bool Board::is_insufficient_material() const {
 
 std::string Board::move_number_if_white() const {
     if (turn()) {
-        int move_number = 1 + current_position()->ply/2;
-        return std::to_string(move_number) + ". ";
+        return std::to_string(move_number()) + ". ";
     } else {
         return "";
     }
 }
 
-void Board::print() {
-    print_position(current_position());
+void Board::print() const { print_position(current_position()); }
+
+std::string Board::variation_san(const std::vector<uint32_t> &variation) {
+    std::string buffer;
+
+    if (!turn()) {
+        buffer += std::to_string(move_number()) + "... ";
+    }
+
+    for (auto move : variation) {
+        buffer += move_number_if_white() + san(move) + " ";
+        do_move(move);
+    }
+
+    for (auto move : variation)
+        undo_move();
+
+    return buffer;
+}
+
+int Board::move_number() const { return 1 + current_position()->ply / 2; }
+
+bool Board::game_ended() const {
+    if (is_insufficient_material())
+        return true;
+    if (is_repeated(3))
+        return true;
+
+    std::vector<uint32_t> legal_moves;
+    generate_legal_moves(legal_moves);
+    return legal_moves.size() == 0;
 }

@@ -1,20 +1,21 @@
+#include <algorithm>
+#include <iomanip>
 #include <iostream>
 #include <random>
 #include <sys/time.h>
-#include <algorithm>
-#include <iomanip>
 
 #include "mcts.h"
 #include "movegen.h"
 
-void MCTS::mcts(Board &board) {
+std::shared_ptr<Node> MCTS::mcts(Board &board) {
 
-    auto n = 8000;
+    auto n = 800;
 
     struct timeval begin, end;
     gettimeofday(&begin, 0);
 
     std::shared_ptr<Node> root = std::make_shared<Node>(0);
+    root->is_root = true;
 
     float value = evaluate(root, board);
     // std::cout << "Value: " << 100 * value << "%." << std::endl;
@@ -35,13 +36,18 @@ void MCTS::mcts(Board &board) {
         int depth = 0;
 
         while (node->is_expanded()) {
-            uint32_t move = select_child(node);
+            std::pair<uint32_t, float> selection = select_child(node);
+            uint32_t move = selection.first;
 
             board.do_move(move);
             depth++;
 
             node = node->children[move];
             search_path.push_back(node);
+
+            if (selection.second == FORCED_PLAYOUT) {
+                node->forced_playouts++;
+            }
         }
 
         float value = evaluate(node, board);
@@ -49,10 +55,17 @@ void MCTS::mcts(Board &board) {
 
         for (auto i = 0; i < depth; i++)
             board.undo_move();
+
+        if (simulation > 0 && simulation % 800 == 0) {
+            std::cout << std::setw(5) << simulation << ": ";
+            print_pv(root, board);
+            std::cout << std::endl;
+        }
     }
 
     gettimeofday(&end, 0);
 
+    std::cout << std::setw(5) << n << ": ";
     print_pv(root, board);
     std::cout << std::endl;
 
@@ -62,23 +75,29 @@ void MCTS::mcts(Board &board) {
 
     std::cout << std::fixed << std::setprecision(1);
 
-    std::cout << "Inference took " << elapsed << "s, "
-              << (n / elapsed) << " 1/s." << std::endl;
+    std::cout << "Inference took " << elapsed << "s, " << (n / elapsed)
+              << " 1/s." << std::endl;
 
     std::vector<uint32_t> moves;
     board.generate_legal_moves(moves);
 
-    std::sort(moves.begin(), moves.end(), [root](uint32_t a, uint32_t b) { return root->children[a]->visit_count > root->children[b]->visit_count; });
+    std::sort(moves.begin(), moves.end(), [root](uint32_t a, uint32_t b) {
+        return root->children[a]->visit_count > root->children[b]->visit_count;
+    });
 
     int cnt = 0;
     for (auto move : moves) {
         auto child = root->children[move];
         if (child->visit_count > 0) {
-            std::cout << board.san(move) << ":\t" << std::setw(4) << child->visit_count << "\t"
-                      << 100.0 * child->value() << "%" << std::endl;
+            std::cout << board.san(move) << ":\t" << std::setw(5)
+                      << child->visit_count << "\t" << 100.0 * child->value()
+                      << "%" << std::endl;
         }
-        if (++cnt >= 5) break;
+        if (++cnt >= 5)
+            break;
     }
+
+    return root;
 }
 
 float MCTS::evaluate(std::shared_ptr<Node> node, Board &board) {
@@ -135,6 +154,14 @@ float ucb_score(std::shared_ptr<Node> parent, std::shared_ptr<Node> child) {
     static float pb_c_init = 1.25f;
     static float pb_c_base = 19652.0f;
 
+    if (parent->is_root) {
+        float n_forced_playouts =
+            sqrtf(child->prior * parent->visit_count * 2.0);
+        if (child->visit_count < n_forced_playouts) {
+            return MCTS::FORCED_PLAYOUT;
+        }
+    }
+
     float pb_c =
         logf((parent->visit_count + pb_c_base + 1) / pb_c_base) + pb_c_init;
     pb_c *= sqrtf(parent->visit_count) / (child->visit_count + 1);
@@ -142,7 +169,7 @@ float ucb_score(std::shared_ptr<Node> parent, std::shared_ptr<Node> child) {
     return child->value() + child->prior * pb_c;
 }
 
-uint32_t MCTS::select_child(std::shared_ptr<Node> node) {
+std::pair<uint32_t, float> MCTS::select_child(std::shared_ptr<Node> node) {
     uint32_t best_action = 0;
     float best_value = 0.0;
 
@@ -155,7 +182,7 @@ uint32_t MCTS::select_child(std::shared_ptr<Node> node) {
     }
     // std::cout << best_value << " ";
 
-    return best_action;
+    return std::pair<uint32_t, float>(best_action, best_value);
 }
 
 void MCTS::backpropagate(std::vector<std::shared_ptr<Node>> search_path,
@@ -197,21 +224,64 @@ void MCTS::add_exploration_noise(std::shared_ptr<Node> node) {
     }
 }
 
-void MCTS::print_pv(std::shared_ptr<Node> node, Board &board) {
-    if (node->visit_count < 2) return;
-    if (node->children.size() == 0) return;
+void recurse_pv(std::shared_ptr<Node> node, Board &board,
+                std::vector<uint32_t> &line) {
+    if (node->visit_count < 2)
+        return;
+    if (node->children.size() == 0)
+        return;
 
     using pair = decltype(node->children)::value_type;
 
     auto result = std::max_element(node->children.begin(), node->children.end(),
-        [](const pair &a, const pair &b) { return a.second->visit_count < b.second->visit_count; });
+                                   [](const pair &a, const pair &b) {
+                                       return a.second->visit_count <
+                                              b.second->visit_count;
+                                   });
 
     uint32_t move = result->first;
+    line.push_back(move);
 
-    std::cout << board.move_number_if_white() << board.san(move) << " ";
     board.do_move(move);
-
-    print_pv(result->second, board);
-
+    recurse_pv(result->second, board, line);
     board.undo_move();
+}
+
+void MCTS::print_pv(std::shared_ptr<Node> node, Board &board) {
+    std::vector<uint32_t> line;
+    recurse_pv(node, board, line);
+
+    std::cout << board.variation_san(line);
+}
+
+uint32_t select_most_visited_move(std::shared_ptr<Node> node) {
+    using pair = decltype(node->children)::value_type;
+
+    auto result = std::max_element(node->children.begin(), node->children.end(),
+                                   [](const pair &a, const pair &b) {
+                                       return a.second->visit_count <
+                                              b.second->visit_count;
+                                   });
+
+    return result->first;
+}
+
+uint32_t select_randomized_move(std::shared_ptr<Node> node) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> d(0, 1);
+
+    std::map<uint32_t, float> move_to_prob;
+
+    for (auto n : node->children) {
+        move_to_prob[n.first] =
+            logf(powf(n.second->visit_count, 2.0)) - logf(-logf(d(gen)));
+    }
+
+    using pair = decltype(move_to_prob)::value_type;
+    auto result = std::max_element(
+        move_to_prob.begin(), move_to_prob.end(),
+        [](const pair &a, const pair &b) { return a.second < b.second; });
+
+    return result->first;
 }
