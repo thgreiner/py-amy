@@ -37,6 +37,7 @@ class MCTS {
         heap = allocate_heap();
     };
     std::shared_ptr<Node> mcts(Board &);
+    void correct_forced_playouts(std::shared_ptr<Node>);
 
     static constexpr float FORCED_PLAYOUT = 1e5;
 

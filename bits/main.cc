@@ -186,6 +186,8 @@ void selfplay(char *model_name) {
         while (!b.game_ended()) {
             b.print();
             std::shared_ptr<Node> root = mcts.mcts(b);
+            mcts.correct_forced_playouts(root);
+
             uint32_t move;
             if (b.move_number() <= 30) {
                 move = select_randomized_move(root);

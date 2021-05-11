@@ -150,11 +150,12 @@ float MCTS::evaluate(std::shared_ptr<Node> node, Board &board) {
     return model->get_value();
 }
 
-float ucb_score(std::shared_ptr<Node> parent, std::shared_ptr<Node> child) {
+float ucb_score(std::shared_ptr<Node> parent, std::shared_ptr<Node> child,
+                bool force_playouts = false) {
     static float pb_c_init = 1.25f;
     static float pb_c_base = 19652.0f;
 
-    if (parent->is_root) {
+    if (force_playouts) {
         float n_forced_playouts =
             sqrtf(child->prior * parent->visit_count * 2.0);
         if (child->visit_count < n_forced_playouts) {
@@ -174,7 +175,7 @@ std::pair<uint32_t, float> MCTS::select_child(std::shared_ptr<Node> node) {
     float best_value = 0.0;
 
     for (const auto &[action, child] : node->children) {
-        auto value = ucb_score(node, child);
+        auto value = ucb_score(node, child, node->is_root);
         if (best_action == 0 || value > best_value) {
             best_action = action;
             best_value = value;
@@ -284,4 +285,37 @@ uint32_t select_randomized_move(std::shared_ptr<Node> node) {
         [](const pair &a, const pair &b) { return a.second < b.second; });
 
     return result->first;
+}
+
+void MCTS::correct_forced_playouts(std::shared_ptr<Node> node) {
+    uint32_t best_move = select_most_visited_move(node);
+    auto best_child = node->children[best_move];
+
+    float best_ucb_score = ucb_score(node, best_child);
+
+    for (auto n : node->children) {
+        if (n.first == best_move)
+            continue;
+        auto child = n.second;
+
+        int playouts = child->visit_count;
+        for (int i = 1; i <= child->forced_playouts; i++) {
+            child->visit_count = playouts - i;
+            if (ucb_score(node, child) > best_ucb_score) {
+/*
+                std::cout << std::setprecision(2)
+                          << "After reducing forced playouts by " << i
+                          << " the resulting ucb_score of "
+                          << ucb_score(node, child) << " is higher than "
+                          << best_ucb_score << std::endl;
+*/
+                child->visit_count = playouts - i + 1;
+                break;
+            }
+        }
+        if (child->visit_count != playouts) {
+            std::cout << "Reduced visit count from " << playouts << " to "
+                      << child->visit_count << std::endl;
+        }
+    }
 }

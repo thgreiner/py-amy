@@ -263,7 +263,7 @@ class MCTS:
 
             for i in range(1, child.forced_playouts + 1):
                 child.visit_count = actual_playouts - i
-                tmp_ucb_score = ucb_score(tree.visit_count, tree.children[best_move])
+                tmp_ucb_score = ucb_score(tree.visit_count, tree.children[action])
                 if tmp_ucb_score > best_ucb_score:
                     child.visit_count = actual_playouts - i + 1
                     break
