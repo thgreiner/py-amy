@@ -7,6 +7,7 @@
 
 #include <prometheus/counter.h>
 #include <prometheus/exposer.h>
+#include <prometheus/gauge.h>
 #include <prometheus/registry.h>
 
 #include "edgetpu.h"
@@ -97,6 +98,12 @@ void selfplay(char *model_name) {
                                   .Register(*registry)
                                   .Add({});
 
+    auto &evaluation_gauge = prometheus::BuildGauge()
+                                 .Name("white_prob")
+                                 .Help("Win probability white")
+                                 .Register(*registry)
+                                 .Add({});
+
     // ask the exposer to scrape the registry on incoming HTTP requests
     exposer.RegisterCollectable(registry);
 
@@ -134,6 +141,8 @@ void selfplay(char *model_name) {
             if (is_move_fully_playedout) {
                 format_root_node(game_text, root, b);
                 positions_counter.Increment();
+
+                evaluation_gauge.Set(1.0 - root->value());
             }
 
             b.do_move(move);
