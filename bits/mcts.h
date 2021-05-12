@@ -38,6 +38,9 @@ class MCTS {
     };
     std::shared_ptr<Node> mcts(Board &, const int n = 800);
     void correct_forced_playouts(std::shared_ptr<Node>);
+    void use_exploration_noise(bool use_noise) {
+        exploration_noise = use_noise;
+    }
 
     static constexpr float FORCED_PLAYOUT = 1e5;
 
@@ -49,7 +52,9 @@ class MCTS {
     void add_exploration_noise(std::shared_ptr<Node>);
     void print_search_status(std::shared_ptr<Node>, Board &, int);
     void print_pv(std::shared_ptr<Node>, Board &board);
+
     heap_t heap;
+    bool exploration_noise = false;
 };
 
 uint32_t select_most_visited_move(std::shared_ptr<Node>);

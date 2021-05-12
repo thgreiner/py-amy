@@ -18,7 +18,10 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
     float value = evaluate(root, board);
     // std::cout << "Value: " << 100 * value << "%." << std::endl;
 
-    add_exploration_noise(root);
+    if (exploration_noise) {
+        add_exploration_noise(root);
+        std::cout << "Using exploration noise." << std::endl;
+    }
 
     std::vector<std::shared_ptr<Node>> search_path;
 

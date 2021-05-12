@@ -78,6 +78,9 @@ make_interpreter(const std::string model_file) {
 
 EdgeTpuModel::EdgeTpuModel(const std::string model_name) {
     interpreter = make_interpreter(model_name);
+
+    if (!interpreter)
+        throw std::runtime_error("Could not initialize EdgeTPu.");
 }
 
 void EdgeTpuModel::test() {

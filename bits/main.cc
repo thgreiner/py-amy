@@ -226,29 +226,6 @@ int main(int argc, char *argv[]) {
             play_random_game();
     }
 
-    if (result.count("epd")) {
-        auto model_name = result["model"].as<std::string>();
-
-        std::shared_ptr<EdgeTpuModel> model =
-            std::make_shared<EdgeTpuModel>(model_name);
-        MCTS mcts(model);
-
-        for (auto filename : result.unmatched()) {
-            std::ifstream infile(filename);
-            std::string line;
-
-            while (std::getline(infile, line)) {
-                Board board(line);
-
-                std::cout << line << std::endl;
-                board.print();
-                mcts.mcts(board, result["sims"].as<int>());
-
-                std::cout << std::endl;
-            }
-        }
-    }
-
     if (result.count("test_board")) {
         Board b;
 
@@ -274,10 +251,38 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (result.count("selfplay")) {
-        auto model_name = result["model"].as<std::string>();
+    try {
 
-        selfplay(model_name);
+        if (result.count("epd")) {
+            auto model_name = result["model"].as<std::string>();
+
+            std::shared_ptr<EdgeTpuModel> model =
+                std::make_shared<EdgeTpuModel>(model_name);
+            MCTS mcts(model);
+
+            for (auto filename : result.unmatched()) {
+                std::ifstream infile(filename);
+                std::string line;
+
+                while (std::getline(infile, line)) {
+                    Board board(line);
+
+                    std::cout << line << std::endl;
+                    board.print();
+                    mcts.mcts(board, result["sims"].as<int>());
+
+                    std::cout << std::endl;
+                }
+            }
+        }
+
+        if (result.count("selfplay")) {
+            auto model_name = result["model"].as<std::string>();
+
+            selfplay(model_name);
+        }
+    } catch (std::runtime_error &e) {
+        return 1;
     }
 
     return 0;

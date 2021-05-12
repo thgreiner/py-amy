@@ -63,9 +63,12 @@ bool fully_playout_move() {
 }
 
 void selfplay(std::string model_name) {
+
     std::shared_ptr<EdgeTpuModel> model =
         std::make_shared<EdgeTpuModel>(model_name);
+
     MCTS mcts(model);
+    mcts.use_exploration_noise(true);
 
     std::time_t t = std::time(nullptr);
     std::strftime(file_name_buffer, sizeof(file_name_buffer),
