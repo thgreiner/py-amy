@@ -200,10 +200,16 @@ int main(int argc, char *argv[]) {
         ("epd", "Run search on an EPD file")
         ("m,model", "Specify the EdgeTpu model", cxxopts::value<std::string>())
         ("sims", "Number of MCTS simulations to use",
-                 cxxopts::value<int>()->implicit_value("800"));
+                 cxxopts::value<int>()->implicit_value("800"))
+        ("h,help", "Print usage");
     // clang-format on
 
     auto result = options.parse(argc, argv);
+
+    if (result.count("help")) {
+        std::cout << options.help() << std::endl;
+        exit(0);
+    }
 
     if (result.count("test_san")) {
         san_test();
