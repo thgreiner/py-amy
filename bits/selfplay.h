@@ -1,1 +1,1 @@
-void selfplay(char *model_name);
+void selfplay(std::string);

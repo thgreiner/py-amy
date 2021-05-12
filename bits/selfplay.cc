@@ -62,7 +62,7 @@ bool fully_playout_move() {
     return d(gen) == 0;
 }
 
-void selfplay(char *model_name) {
+void selfplay(std::string model_name) {
     std::shared_ptr<EdgeTpuModel> model =
         std::make_shared<EdgeTpuModel>(model_name);
     MCTS mcts(model);

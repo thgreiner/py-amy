@@ -1,5 +1,6 @@
 #include "bits.h"
 #include "board.h"
+#include "cxxopts.hpp"
 #include "edgetpu.h"
 #include "heap.h"
 #include "magic.h"
@@ -185,79 +186,92 @@ int main(int argc, char *argv[]) {
     init_bishop_table();
 #endif
 
-    for (int i = 1; i < argc; i++) {
-        if (0 == strcmp("--san", argv[i])) {
-            san_test();
-        } else if (0 == strcmp("--perft", argv[i])) {
-            int depth = 6;
-            if (++i < argc)
-                depth = atoi(argv[i]);
+    cxxopts::Options options("Amy", "A chess playing program.");
 
-            perft(depth);
-        } else if (0 == strcmp("--game", argv[i])) {
-            int count = 1000;
-            if (++i < argc)
-                count = atoi(argv[i]);
+    // clang-format off
+    options.add_options()
+        ("test_san", "Test the SAN generation")
+        ("test_game", "Play random games",
+                      cxxopts::value<int>()->implicit_value("1000"))
+        ("test_board", "Test Board")
+        ("perft", "Run the perft test",
+                  cxxopts::value<int>()->implicit_value("6"))
+        ("selfplay", "Perform selfplay")
+        ("epd", "Run search on an EPD file")
+        ("m,model", "Specify the EdgeTpu model", cxxopts::value<std::string>())
+        ("sims", "Number of MCTS simulations to use",
+                 cxxopts::value<int>()->implicit_value("800"));
+    // clang-format on
 
-            for (int j = count; j > 0; j--)
-                play_random_game();
-        } else if (0 == strcmp("--edgetpu", argv[i])) {
-            if (++i >= argc) {
-                return 1;
+    auto result = options.parse(argc, argv);
+
+    if (result.count("test_san")) {
+        san_test();
+    }
+
+    if (result.count("perft")) {
+        int depth = result["perft"].as<int>();
+        perft(depth);
+    }
+
+    if (result.count("test_game")) {
+        int count = result["test_game"].as<int>();
+        for (int j = count; j > 0; j--)
+            play_random_game();
+    }
+
+    if (result.count("epd")) {
+        auto model_name = result["model"].as<std::string>();
+
+        std::shared_ptr<EdgeTpuModel> model =
+            std::make_shared<EdgeTpuModel>(model_name);
+        MCTS mcts(model);
+
+        for (auto filename : result.unmatched()) {
+            std::ifstream infile(filename);
+            std::string line;
+
+            while (std::getline(infile, line)) {
+                Board board(line);
+
+                std::cout << line << std::endl;
+                board.print();
+                mcts.mcts(board, result["sims"].as<int>());
+
+                std::cout << std::endl;
             }
+        }
+    }
 
-            std::shared_ptr<EdgeTpuModel> model =
-                std::make_shared<EdgeTpuModel>(argv[i]);
-            MCTS mcts(model);
+    if (result.count("test_board")) {
+        Board b;
 
-            i++;
+        std::vector<uint32_t> moves;
+        b.generate_legal_moves(moves);
 
-            if (i == argc) {
-                Board board;
-                mcts.mcts(board);
-            } else {
-                std::ifstream infile(argv[i]);
-                std::string line;
+        for (auto move : moves) {
+            std::cout << b.san(move) << std::endl;
 
-                while (std::getline(infile, line)) {
-                    Board board(line);
+            b.do_move(move);
 
-                    std::cout << line << std::endl;
-                    board.print();
-                    mcts.mcts(board);
+            std::vector<uint32_t> moves2;
+            b.generate_legal_moves(moves2);
 
-                    std::cout << std::endl;
-                }
+            for (auto move2 : moves2) {
+                std::cout << "  " << b.san(move2) << std::endl;
             }
-        } else if (0 == strcmp("--board", argv[i])) {
-            Board b;
+            b.undo_move();
 
-            std::vector<uint32_t> moves;
-            b.generate_legal_moves(moves);
-
-            for (auto move : moves) {
-                std::cout << b.san(move) << std::endl;
-
-                b.do_move(move);
-
-                std::vector<uint32_t> moves2;
-                b.generate_legal_moves(moves2);
-
-                for (auto move2 : moves2) {
-                    std::cout << "  " << b.san(move2) << std::endl;
-                }
-                b.undo_move();
-            }
-        } else if (0 == strcmp("--selfplay", argv[i])) {
-            if (++i >= argc) {
-                return 1;
-            }
-            selfplay(argv[i]);
-        } else if (0 == strcmp("--insufficient", argv[i])) {
             std::string epd("k7/8/K7/8/8/8/8/8 w - -");
             Board b(epd);
             std::cout << b.is_insufficient_material() << std::endl;
         }
+    }
+
+    if (result.count("selfplay")) {
+        auto model_name = result["model"].as<std::string>();
+
+        selfplay(model_name);
     }
 
     return 0;
