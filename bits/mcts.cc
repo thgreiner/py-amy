@@ -22,6 +22,8 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
 
     std::vector<std::shared_ptr<Node>> search_path;
 
+    std::cout << std::fixed << std::setprecision(1);
+
     for (int simulation = 0; simulation < n; simulation++) {
 
         // std::cout << simulation << ": ";
@@ -54,28 +56,22 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
         for (auto i = 0; i < depth; i++)
             board.undo_move();
 
-        if (simulation > 0 && simulation % 800 == 0) {
-            std::cout << std::setw(5) << simulation << ": ";
-            print_pv(root, board);
-            std::cout << std::endl;
-        }
+        if (simulation > 0 && simulation % 800 == 0)
+            print_search_status(root, board, simulation);
     }
 
     gettimeofday(&end, 0);
 
-    std::cout << std::setw(5) << n << ": ";
-    print_pv(root, board);
-    std::cout << std::endl;
+    print_search_status(root, board, n);
 
     long seconds = end.tv_sec - begin.tv_sec;
     long microseconds = end.tv_usec - begin.tv_usec;
     float elapsed = seconds + microseconds * 1e-6;
 
-    std::cout << std::fixed << std::setprecision(1);
-
     std::cout << "Inference took " << elapsed << "s, " << (n / elapsed)
               << " 1/s." << std::endl;
 
+    /*
     std::vector<uint32_t> moves;
     board.generate_legal_moves(moves);
 
@@ -94,8 +90,19 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
         if (++cnt >= 5)
             break;
     }
+    */
 
     return root;
+}
+
+void MCTS::print_search_status(std::shared_ptr<Node> root, Board &board,
+                               int simulation) {
+    auto best_move = select_most_visited_move(root);
+    std::cout << std::setw(5) << simulation << ":  ";
+    std::cout << std::setw(5) << (root->children[best_move]->value() * 100)
+              << "%  ";
+    print_pv(root, board);
+    std::cout << std::endl;
 }
 
 float MCTS::evaluate(std::shared_ptr<Node> node, Board &board) {
@@ -180,7 +187,6 @@ std::pair<uint32_t, float> MCTS::select_child(std::shared_ptr<Node> node) {
             best_value = value;
         }
     }
-    // std::cout << best_value << " ";
 
     return std::pair<uint32_t, float>(best_action, best_value);
 }
@@ -231,19 +237,11 @@ void recurse_pv(std::shared_ptr<Node> node, Board &board,
     if (node->children.size() == 0)
         return;
 
-    using pair = decltype(node->children)::value_type;
-
-    auto result = std::max_element(node->children.begin(), node->children.end(),
-                                   [](const pair &a, const pair &b) {
-                                       return a.second->visit_count <
-                                              b.second->visit_count;
-                                   });
-
-    uint32_t move = result->first;
+    uint32_t move = select_most_visited_move(node);
     line.push_back(move);
 
     board.do_move(move);
-    recurse_pv(result->second, board, line);
+    recurse_pv(node->children[move], board, line);
     board.undo_move();
 }
 

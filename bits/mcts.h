@@ -47,6 +47,7 @@ class MCTS {
     std::pair<uint32_t, float> select_child(std::shared_ptr<Node>);
     void backpropagate(std::vector<std::shared_ptr<Node>>, float, bool);
     void add_exploration_noise(std::shared_ptr<Node>);
+    void print_search_status(std::shared_ptr<Node>, Board &, int);
     void print_pv(std::shared_ptr<Node>, Board &board);
     heap_t heap;
 };
