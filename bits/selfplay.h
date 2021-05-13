@@ -1,1 +1,1 @@
-void selfplay(std::string);
+void selfplay(std::string, int);

@@ -62,13 +62,14 @@ bool fully_playout_move() {
     return d(gen) == 0;
 }
 
-void selfplay(std::string model_name) {
+void selfplay(std::string model_name, const int sims) {
 
     std::shared_ptr<EdgeTpuModel> model =
         std::make_shared<EdgeTpuModel>(model_name);
 
     MCTS mcts(model);
     mcts.use_exploration_noise(true);
+    mcts.set_kldgain_stop(5e-6f);
 
     std::time_t t = std::time(nullptr);
     std::strftime(file_name_buffer, sizeof(file_name_buffer),
@@ -124,7 +125,7 @@ void selfplay(std::string model_name) {
             bool is_move_fully_playedout =
                 is_full_playout || fully_playout_move();
 
-            int visits = is_move_fully_playedout ? 800 : 100;
+            int visits = is_move_fully_playedout ? sims : 100;
 
             std::shared_ptr<Node> root = mcts.mcts(b, visits);
 

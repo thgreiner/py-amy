@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
         if (result.count("selfplay")) {
             auto model_name = result["model"].as<std::string>();
 
-            selfplay(model_name);
+            selfplay(model_name, result["sims"].as<int>());
         }
     } catch (std::runtime_error &e) {
         return 1;

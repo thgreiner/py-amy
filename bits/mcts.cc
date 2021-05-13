@@ -7,6 +7,8 @@
 #include "mcts.h"
 #include "movegen.h"
 
+float update_kldgain(std::shared_ptr<Node> root, std::map<uint32_t, int> &last_visit_count);
+
 std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
 
     struct timeval begin, end;
@@ -23,11 +25,16 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
         std::cout << "Using exploration noise." << std::endl;
     }
 
+    // Track the last visit count for kldgain evaluation
+    std::map<uint32_t, int> last_visit_count;
+
+    // search_path tracks the current expansion path of the MCTS search
     std::vector<std::shared_ptr<Node>> search_path;
 
     std::cout << std::fixed << std::setprecision(1);
 
-    for (int simulation = 0; simulation < n; simulation++) {
+    int simulation = 0;
+    for (; simulation < n; simulation++) {
 
         // std::cout << simulation << ": ";
 
@@ -61,17 +68,22 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
 
         if (simulation > 0 && simulation % 800 == 0)
             print_search_status(root, board, simulation);
+
+        if (kldgain_stop > 0.0 && simulation >0 && simulation % 100 == 0) {
+            auto kldgain = update_kldgain(root, last_visit_count);
+            if (root->visit_count >= 200 && kldgain < kldgain_stop) break;
+        }
     }
 
     gettimeofday(&end, 0);
 
-    print_search_status(root, board, n);
+    print_search_status(root, board, simulation);
 
     long seconds = end.tv_sec - begin.tv_sec;
     long microseconds = end.tv_usec - begin.tv_usec;
     float elapsed = seconds + microseconds * 1e-6;
 
-    std::cout << "Inference took " << elapsed << "s, " << (n / elapsed)
+    std::cout << "Inference took " << elapsed << "s, " << (simulation / elapsed)
               << " 1/s." << std::endl;
 
     /*
@@ -96,6 +108,42 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
     */
 
     return root;
+}
+
+float update_kldgain(std::shared_ptr<Node> root, std::map<uint32_t, int> &last_visit_count) {
+    std::map<uint32_t, int> new_visit_count;
+
+    float visit_sum_last = 0;
+    float visit_sum_new = 0;
+
+    for (const auto &[action, child] : root->children) {
+        new_visit_count[action] = child->visit_count;
+
+        visit_sum_new += child->visit_count;
+        visit_sum_last += last_visit_count[action];
+    }
+
+    float kld = 0.0;
+
+    for (const auto &[action, visits] : new_visit_count) {
+        float last_p = last_visit_count[action] / visit_sum_last;
+        float new_p = visits / visit_sum_new;
+        if (last_p > 0)     
+            kld += last_p * logf(last_p / new_p);
+    }
+
+    /*
+    std::ios_base::fmtflags ff;
+    ff = std::cout.flags();
+
+    std::cout << "kld = " << std::scientific << std::setprecision(3) << kld / (visit_sum_new - visit_sum_last) << std::endl;
+
+    std::cout.flags(ff);
+    */
+
+    std::swap(last_visit_count, new_visit_count);
+
+    return kld / (visit_sum_new - visit_sum_last);
 }
 
 void MCTS::print_search_status(std::shared_ptr<Node> root, Board &board,
