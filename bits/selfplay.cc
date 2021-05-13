@@ -69,7 +69,7 @@ void selfplay(std::string model_name, const int sims) {
 
     MCTS mcts(model);
     mcts.use_exploration_noise(true);
-    mcts.set_kldgain_stop(5e-6f);
+    mcts.set_kldgain_stop(1e-5);
 
     std::time_t t = std::time(nullptr);
     std::strftime(file_name_buffer, sizeof(file_name_buffer),
