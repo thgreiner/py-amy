@@ -7,7 +7,8 @@
 #include "mcts.h"
 #include "movegen.h"
 
-float update_kldgain(std::shared_ptr<Node> root, std::map<uint32_t, int> &last_visit_count);
+float update_kldgain(std::shared_ptr<Node> root,
+                     std::map<uint32_t, int> &last_visit_count);
 
 std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
 
@@ -66,12 +67,15 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
         for (auto i = 0; i < depth; i++)
             board.undo_move();
 
+        depth_observer(depth);
+
         if (simulation > 0 && simulation % 800 == 0)
             print_search_status(root, board, simulation);
 
-        if (kldgain_stop > 0.0 && simulation >0 && simulation % 100 == 0) {
+        if (kldgain_stop > 0.0 && simulation > 0 && simulation % 100 == 0) {
             auto kldgain = update_kldgain(root, last_visit_count);
-            if (root->visit_count >= 200 && kldgain < kldgain_stop) break;
+            if (root->visit_count >= 200 && kldgain < kldgain_stop)
+                break;
         }
     }
 
@@ -110,7 +114,8 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
     return root;
 }
 
-float update_kldgain(std::shared_ptr<Node> root, std::map<uint32_t, int> &last_visit_count) {
+float update_kldgain(std::shared_ptr<Node> root,
+                     std::map<uint32_t, int> &last_visit_count) {
     std::map<uint32_t, int> new_visit_count;
 
     float visit_sum_last = 0;
@@ -128,7 +133,7 @@ float update_kldgain(std::shared_ptr<Node> root, std::map<uint32_t, int> &last_v
     for (const auto &[action, visits] : new_visit_count) {
         float last_p = last_visit_count[action] / visit_sum_last;
         float new_p = visits / visit_sum_new;
-        if (last_p > 0)     
+        if (last_p > 0)
             kld += last_p * logf(last_p / new_p);
     }
 
@@ -136,7 +141,8 @@ float update_kldgain(std::shared_ptr<Node> root, std::map<uint32_t, int> &last_v
     std::ios_base::fmtflags ff;
     ff = std::cout.flags();
 
-    std::cout << "kld = " << std::scientific << std::setprecision(3) << kld / (visit_sum_new - visit_sum_last) << std::endl;
+    std::cout << "kld = " << std::scientific << std::setprecision(3) << kld /
+    (visit_sum_new - visit_sum_last) << std::endl;
 
     std::cout.flags(ff);
     */

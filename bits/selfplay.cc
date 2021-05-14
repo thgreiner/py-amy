@@ -8,6 +8,7 @@
 #include <prometheus/counter.h>
 #include <prometheus/exposer.h>
 #include <prometheus/gauge.h>
+#include <prometheus/histogram.h>
 #include <prometheus/registry.h>
 
 #include "edgetpu.h"
@@ -62,6 +63,8 @@ bool fully_playout_move() {
     return d(gen) == 0;
 }
 
+void depth_observer(int depth) { std::cout << depth << std::endl; }
+
 void selfplay(std::string model_name, const int sims) {
 
     std::shared_ptr<EdgeTpuModel> model =
@@ -70,6 +73,7 @@ void selfplay(std::string model_name, const int sims) {
     MCTS mcts(model);
     mcts.use_exploration_noise(true);
     mcts.set_kldgain_stop(1e-5);
+    // mcts.set_depth_observer(&depth_observer);
 
     std::time_t t = std::time(nullptr);
     std::strftime(file_name_buffer, sizeof(file_name_buffer),
@@ -107,6 +111,19 @@ void selfplay(std::string model_name, const int sims) {
                                  .Help("Win probability white")
                                  .Register(*registry)
                                  .Add({});
+
+    std::vector<double> depth_buckets({1,  2,  3,  4,  5,  6,  7,  8,
+                                       9,  10, 12, 14, 16, 18, 20, 24,
+                                       28, 32, 36, 40, 48, 56, 64});
+
+    auto &depth_histogram = prometheus::BuildHistogram()
+                                 .Name("depth")
+                                 .Help("Search depth")
+                                 .Register(*registry)
+                                 .Add({}, depth_buckets);
+
+    mcts.set_depth_observer(
+        [&depth_histogram] (int depth) -> void  { depth_histogram.Observe(depth); });
 
     // ask the exposer to scrape the registry on incoming HTTP requests
     exposer.RegisterCollectable(registry);
