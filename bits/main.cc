@@ -5,6 +5,7 @@
 #include "heap.h"
 #include "magic.h"
 #include "mcts.h"
+#include "monitoring.h"
 #include "movegen.h"
 #include "perft.h"
 #include "position.h"
@@ -180,6 +181,8 @@ void play_random_game() {
 int main(int argc, char *argv[]) {
 
     srand(time(NULL));
+
+    monitoring::monitoring::initialize("0.0.0.0:9100");
 
 #ifdef USE_MAGIC
     init_rook_table();

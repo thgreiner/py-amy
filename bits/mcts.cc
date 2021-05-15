@@ -5,6 +5,7 @@
 #include <sys/time.h>
 
 #include "mcts.h"
+#include "monitoring.h"
 #include "movegen.h"
 
 float update_kldgain(std::shared_ptr<Node> root,
@@ -67,7 +68,8 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
         for (auto i = 0; i < depth; i++)
             board.undo_move();
 
-        depth_observer(depth);
+        monitoring::monitoring::instance()->observe_depth(depth);
+        monitoring::monitoring::instance()->observe_node();
 
         if (simulation > 0 && simulation % 800 == 0)
             print_search_status(root, board, simulation);
@@ -169,12 +171,14 @@ float MCTS::evaluate(std::shared_ptr<Node> node, Board &board) {
 
     if (board.is_repeated(3) || board.is_insufficient_material() ||
         board.is_fifty_move_rule()) {
+        monitoring::monitoring::instance()->observe_terminal_node();
         return 0.5f;
     }
 
     board.generate_legal_moves(moves);
 
     if (moves.size() == 0) {
+        monitoring::monitoring::instance()->observe_terminal_node();
         if (board.is_in_check()) {
             return 0.0f;
         } else {

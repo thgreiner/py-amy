@@ -50,10 +50,6 @@ class MCTS {
 
     void set_kldgain_stop(float value) { kldgain_stop = value; }
 
-    void set_depth_observer(std::function<void(int)> cb) {
-        depth_observer = cb;
-    }
-
     static constexpr float FORCED_PLAYOUT = 1e5;
 
   private:
@@ -69,8 +65,6 @@ class MCTS {
     bool exploration_noise = false;
     bool forced_playouts = false;
     float kldgain_stop = 0.0;
-
-    std::function<void(int)> depth_observer = [](int depth) {};
 };
 
 uint32_t select_most_visited_move(std::shared_ptr<Node>);
