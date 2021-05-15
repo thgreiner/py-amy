@@ -32,7 +32,7 @@ void format_root_node(std::ostream &game_text, std::shared_ptr<Node> root,
     game_text << "] } ";
 }
 
-void header(std::ostream &pgn_file, int round, std::string &outcome) {
+void header(std::ostream &pgn_file, int round, const std::string &outcome) {
 
     std::time_t t = std::time(nullptr);
     std::strftime(game_date_buffer, sizeof(game_date_buffer), "%Y.%m.%d",
@@ -50,7 +50,7 @@ void header(std::ostream &pgn_file, int round, std::string &outcome) {
 bool fully_playout_game() {
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<int> d(0, 4);
+    static std::uniform_int_distribution<int> d(0, 10);
 
     return d(gen) == 0;
 }
@@ -133,54 +133,46 @@ void selfplay(std::string model_name, const int sims) {
         std::stringstream game_text;
         game_text << std::fixed << std::setprecision(3);
 
-        bool is_full_playout = fully_playout_game();
+        const bool is_full_playout = fully_playout_game();
 
         while (!b.game_ended()) {
 
-            bool is_move_fully_playedout =
+            const bool is_move_fully_playedout =
                 is_full_playout || fully_playout_move();
 
             if (is_move_fully_playedout) {
-
                 b.print();
+            }
 
-                mcts.use_exploration_noise(true);
-                mcts.use_forced_playouts(true);
+            mcts.use_exploration_noise(is_move_fully_playedout);
+            mcts.use_forced_playouts(is_move_fully_playedout);
 
-                std::shared_ptr<Node> root = mcts.mcts(b, sims);
-                nodes_counter.Increment(root->visit_count);
+            const std::shared_ptr<Node> root =
+                mcts.mcts(b, is_move_fully_playedout ? sims : 100);
 
+            nodes_counter.Increment(root->visit_count);
+
+            if (is_move_fully_playedout) {
                 mcts.correct_forced_playouts(root);
+            }
 
-                const uint32_t move = (b.move_number() <= 15)
-                                          ? select_randomized_move(root)
-                                          : select_most_visited_move(root);
+            const uint32_t move =
+                (is_move_fully_playedout && (b.move_number() <= 15))
+                    ? select_randomized_move(root)
+                    : select_most_visited_move(root);
 
-                game_text << b.move_number_if_white() << b.san(move) << " ";
+            game_text << b.move_number_if_white() << b.san(move) << " ";
 
+            if (is_move_fully_playedout) {
                 format_root_node(game_text, root, b);
                 positions_counter.Increment();
-
                 evaluation_gauge.Set(1.0 - root->value());
-                b.do_move(move);
-
-            } else {
-
-                mcts.use_exploration_noise(false);
-                mcts.use_forced_playouts(false);
-
-                std::shared_ptr<Node> root = mcts.mcts(b, 100);
-                nodes_counter.Increment(root->visit_count);
-
-                const uint32_t move = select_most_visited_move(root);
-
-                game_text << b.move_number_if_white() << b.san(move) << " ";
-
-                b.do_move(move);
             }
-        }
-        auto outcome = b.outcome();
 
+            b.do_move(move);
+        }
+
+        const auto outcome = b.outcome();
         game_text << outcome;
 
         header(pgn_file, round, outcome);
