@@ -238,7 +238,7 @@ std::pair<uint32_t, float> MCTS::select_child(std::shared_ptr<Node> node) {
     float best_value = 0.0;
 
     for (const auto &[action, child] : node->children) {
-        auto value = ucb_score(node, child, node->is_root);
+        auto value = ucb_score(node, child, forced_playouts && node->is_root);
         if (best_action == 0 || value > best_value) {
             best_action = action;
             best_value = value;

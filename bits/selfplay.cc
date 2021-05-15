@@ -50,7 +50,7 @@ void header(std::ostream &pgn_file, int round, std::string &outcome) {
 bool fully_playout_game() {
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<int> d(0, 12);
+    static std::uniform_int_distribution<int> d(0, 4);
 
     return d(gen) == 0;
 }
@@ -71,7 +71,6 @@ void selfplay(std::string model_name, const int sims) {
         std::make_shared<EdgeTpuModel>(model_name);
 
     MCTS mcts(model);
-    mcts.use_exploration_noise(true);
     mcts.set_kldgain_stop(1e-5);
     // mcts.set_depth_observer(&depth_observer);
 
@@ -87,6 +86,8 @@ void selfplay(std::string model_name, const int sims) {
     // Monitoring
     prometheus::Exposer exposer{"0.0.0.0:9100"};
     auto registry = std::make_shared<prometheus::Registry>();
+    // ask the exposer to scrape the registry on incoming HTTP requests
+    exposer.RegisterCollectable(registry);
 
     auto &nodes_counter = prometheus::BuildCounter()
                               .Name("nodes_total")
@@ -117,16 +118,14 @@ void selfplay(std::string model_name, const int sims) {
                                        28, 32, 36, 40, 48, 56, 64});
 
     auto &depth_histogram = prometheus::BuildHistogram()
-                                 .Name("depth")
-                                 .Help("Search depth")
-                                 .Register(*registry)
-                                 .Add({}, depth_buckets);
+                                .Name("depth")
+                                .Help("Search depth")
+                                .Register(*registry)
+                                .Add({}, depth_buckets);
 
-    mcts.set_depth_observer(
-        [&depth_histogram] (int depth) -> void  { depth_histogram.Observe(depth); });
-
-    // ask the exposer to scrape the registry on incoming HTTP requests
-    exposer.RegisterCollectable(registry);
+    mcts.set_depth_observer([&depth_histogram](int depth) -> void {
+        depth_histogram.Observe(depth);
+    });
 
     for (int round = 1;; round++) {
         Board b;
@@ -137,36 +136,48 @@ void selfplay(std::string model_name, const int sims) {
         bool is_full_playout = fully_playout_game();
 
         while (!b.game_ended()) {
-            b.print();
 
             bool is_move_fully_playedout =
                 is_full_playout || fully_playout_move();
 
-            int visits = is_move_fully_playedout ? sims : 100;
-
-            std::shared_ptr<Node> root = mcts.mcts(b, visits);
-
-            nodes_counter.Increment(root->visit_count);
-
-            mcts.correct_forced_playouts(root);
-
-            uint32_t move;
-            if (b.move_number() <= 30) {
-                move = select_randomized_move(root);
-            } else {
-                move = select_most_visited_move(root);
-            }
-
-            game_text << b.move_number_if_white() << b.san(move) << " ";
-
             if (is_move_fully_playedout) {
+
+                b.print();
+
+                mcts.use_exploration_noise(true);
+                mcts.use_forced_playouts(true);
+
+                std::shared_ptr<Node> root = mcts.mcts(b, sims);
+                nodes_counter.Increment(root->visit_count);
+
+                mcts.correct_forced_playouts(root);
+
+                const uint32_t move = (b.move_number() <= 15)
+                                          ? select_randomized_move(root)
+                                          : select_most_visited_move(root);
+
+                game_text << b.move_number_if_white() << b.san(move) << " ";
+
                 format_root_node(game_text, root, b);
                 positions_counter.Increment();
 
                 evaluation_gauge.Set(1.0 - root->value());
-            }
+                b.do_move(move);
 
-            b.do_move(move);
+            } else {
+
+                mcts.use_exploration_noise(false);
+                mcts.use_forced_playouts(false);
+
+                std::shared_ptr<Node> root = mcts.mcts(b, 100);
+                nodes_counter.Increment(root->visit_count);
+
+                const uint32_t move = select_most_visited_move(root);
+
+                game_text << b.move_number_if_white() << b.san(move) << " ";
+
+                b.do_move(move);
+            }
         }
         auto outcome = b.outcome();
 

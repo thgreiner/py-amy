@@ -1,11 +1,11 @@
 #ifndef MCTS_H
 #define MCTS_H
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <utility>
 #include <vector>
-#include <functional>
 
 #include "board.h"
 #include "edgetpu.h"
@@ -41,12 +41,18 @@ class MCTS {
     };
     std::shared_ptr<Node> mcts(Board &, const int n = 800);
     void correct_forced_playouts(std::shared_ptr<Node>);
+
     void use_exploration_noise(bool use_noise) {
         exploration_noise = use_noise;
     }
+
+    void use_forced_playouts(bool use_forced) { forced_playouts = use_forced; }
+
     void set_kldgain_stop(float value) { kldgain_stop = value; }
 
-    void set_depth_observer(std::function<void(int)> cb) { depth_observer = cb; }
+    void set_depth_observer(std::function<void(int)> cb) {
+        depth_observer = cb;
+    }
 
     static constexpr float FORCED_PLAYOUT = 1e5;
 
@@ -61,9 +67,10 @@ class MCTS {
 
     heap_t heap;
     bool exploration_noise = false;
+    bool forced_playouts = false;
     float kldgain_stop = 0.0;
 
-    std::function<void(int)> depth_observer = [] (int depth) {};
+    std::function<void(int)> depth_observer = [](int depth) {};
 };
 
 uint32_t select_most_visited_move(std::shared_ptr<Node>);
