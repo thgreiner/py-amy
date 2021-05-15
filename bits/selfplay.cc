@@ -50,17 +50,17 @@ void header(std::ostream &pgn_file, int round, const std::string &outcome) {
 bool fully_playout_game() {
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<int> d(0, 10);
+    static std::uniform_int_distribution<int> d(0, 99);
 
-    return d(gen) == 0;
+    return d(gen) < 9;
 }
 
 bool fully_playout_move() {
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<int> d(0, 4);
+    static std::uniform_int_distribution<int> d(0, 99);
 
-    return d(gen) == 0;
+    return d(gen) < 25;
 }
 
 void depth_observer(int depth) { std::cout << depth << std::endl; }
