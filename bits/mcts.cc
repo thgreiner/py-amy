@@ -186,13 +186,9 @@ float MCTS::evaluate(std::shared_ptr<Node> node, Board &board) {
         }
     }
 
-    // std::cout << "Generated " << moves.size() << " legal moves." <<
-    // std::endl;
-    // TODO
-
     model->predict(board.current_position());
 
-    int eor = board.turn() ? 0 : 0x38;
+    const int eor = board.turn() ? 0 : 0x38;
 
     std::map<uint32_t, float> move_probs;
     float prob_sum = 0.0f;
@@ -346,17 +342,17 @@ uint32_t select_randomized_move(std::shared_ptr<Node> node) {
 }
 
 void MCTS::correct_forced_playouts(std::shared_ptr<Node> node) {
-    uint32_t best_move = select_most_visited_move(node);
-    auto best_child = node->children[best_move];
+    const uint32_t best_move = select_most_visited_move(node);
+    const auto best_child = node->children[best_move];
 
-    float best_ucb_score = ucb_score(node, best_child);
+    const float best_ucb_score = ucb_score(node, best_child);
 
     for (auto n : node->children) {
         if (n.first == best_move)
             continue;
         auto child = n.second;
 
-        int playouts = child->visit_count;
+        const int playouts = child->visit_count;
         for (int i = 1; i <= child->forced_playouts; i++) {
             child->visit_count = playouts - i;
             if (ucb_score(node, child) > best_ucb_score) {

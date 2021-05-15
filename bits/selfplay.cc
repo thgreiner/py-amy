@@ -24,10 +24,12 @@ void format_root_node(std::ostream &game_text, std::shared_ptr<Node> root,
 
     bool emit_comma = false;
     for (auto n : root->children) {
-        if (emit_comma)
-            game_text << ", ";
-        game_text << b.san(n.first) << ":" << n.second->visit_count;
-        emit_comma = true;
+        if (n.second->visit_count > 0) {
+            if (emit_comma)
+                game_text << ", ";
+            game_text << b.san(n.first) << ":" << n.second->visit_count;
+            emit_comma = true;
+        }
     }
 
     game_text << "] } ";
@@ -85,7 +87,7 @@ void selfplay(std::string model_name, const int sims) {
         Board b;
 
         std::stringstream game_text;
-        game_text << std::fixed << std::setprecision(3);
+        game_text << std::fixed << std::setprecision(4);
 
         const bool is_full_playout = fully_playout_game();
 
