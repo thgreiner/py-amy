@@ -8,8 +8,7 @@
 #include "monitoring.h"
 #include "movegen.h"
 
-float update_kldgain(std::shared_ptr<Node> root,
-                     std::map<uint32_t, int> &last_visit_count);
+float update_kldgain(std::shared_ptr<Node>, std::map<uint32_t, int> &);
 
 std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
 
@@ -330,7 +329,7 @@ uint32_t select_randomized_move(std::shared_ptr<Node> node) {
 
     for (auto n : node->children) {
         move_to_prob[n.first] =
-            logf(powf(n.second->visit_count, 2.0)) - logf(-logf(d(gen)));
+            logf(powf(n.second->visit_count, 1.03)) - logf(-logf(d(gen)));
     }
 
     using pair = decltype(move_to_prob)::value_type;
