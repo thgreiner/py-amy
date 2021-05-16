@@ -1,6 +1,7 @@
 import tflite_runtime.interpreter as tflite
 import platform
 import numpy as np
+import re
 
 EDGETPU_SHARED_LIB = {
     "Linux": "libedgetpu.so.1",
@@ -14,7 +15,11 @@ class EdgeTpuModel:
         print(f"Loading EdgeTPU model from {model_file}")
         self.make_interpreter(model_file)
         self.interpreter.allocate_tensors()
-        self.name = "EdgeTPU"
+        m = re.match('(.*/)?(.*)_edgetpu.tflite', model_file)
+        if m:
+            self.name = f"EdgeTPU ({m.group(2)})"
+        else:
+            self.name = "EdgeTPU"
 
     def make_interpreter(self, model_file):
         model_file, *device = model_file.split("@")

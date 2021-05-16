@@ -93,14 +93,15 @@ class MCTS_Stats:
                 message = "   (since iteration {})".format(self.best_move_found)
 
             for move, child_node in stats[:10]:
+                visit_count = f"{child_node.visit_count - child_node.forced_playouts}+{child_node.forced_playouts}"
                 print(
                     color(
-                        "{:5.1f}% {:10s} {:5.1f}% [{:4.1f}%] {:6d} visits {}".format(
+                        "{:5.1f}% {:10s} {:5.1f}% [{:4.1f}%] {:>8} visits {}".format(
                             100 * child_node.value(),
                             board.variation_san([move]),
                             100 * child_node.visit_count / self.num_simulations,
                             100 * child_node.prior,
-                            child_node.visit_count,
+                            visit_count,
                             message,
                         ),
                         get_color(child_node.value()),
@@ -123,10 +124,11 @@ class MCTS_Stats:
                 for move, child_node in stats[10:]:
                     remaining_moves.append(
                         color(
-                            "{} ({:.1f}%, {})".format(
+                            "{} ({:.1f}%, {}+{})".format(
                                 board.san(move),
                                 100 * child_node.value(),
-                                child_node.visit_count,
+                                child_node.visit_count - child_node.forced_playouts,
+                                child_node.forced_playouts,
                             ),
                             get_color(child_node.value()),
                         )
