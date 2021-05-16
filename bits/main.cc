@@ -267,6 +267,8 @@ int main(int argc, char *argv[]) {
                 std::ifstream infile(filename);
                 std::string line;
 
+                mcts.use_forced_playouts(true);
+
                 while (std::getline(infile, line)) {
                     Board board(line);
 
