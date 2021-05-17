@@ -154,3 +154,10 @@ std::string Board::outcome() const {
 
     return "*";
 }
+
+std::string Board::epd() const {
+    char buffer[256];
+    ::to_epd(current_position(), buffer);
+
+    return buffer;
+}

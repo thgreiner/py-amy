@@ -33,6 +33,8 @@ class Board {
     bool game_ended() const;
 
     std::string move_number_if_white() const;
+    std::string epd() const;
+
     void print() const;
 
   private:
