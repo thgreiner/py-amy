@@ -259,6 +259,8 @@ int main(int argc, char *argv[]) {
             std::string epd("k7/8/K7/8/8/8/8/8 w - -");
             Board b(epd);
             std::cout << b.is_insufficient_material() << std::endl;
+
+            std::cout << b.epd() << std::endl;
         }
     }
 
