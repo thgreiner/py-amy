@@ -1,6 +1,8 @@
 #include "position.h"
 #include "attacks.h"
 #include "bits.h"
+
+#include <ctype.h>
 #include <stdio.h>
 
 // Initial position as EPD.
@@ -211,31 +213,47 @@ bool is_king_in_check(position_t p, bool turn) {
     return is_square_attacked_by(p, sq, !turn);
 }
 
+char piece_on(position_t p, int sq) {
+    if (is_bit_set(p->by_type[PAWN], sq))
+        return 'P';
+    if (is_bit_set(p->by_type[KNIGHT], sq))
+        return 'N';
+    if (is_bit_set(p->by_type[BISHOP], sq))
+        return 'B';
+    if (is_bit_set(p->by_type[ROOK], sq))
+        return 'R';
+    if (is_bit_set(p->by_type[QUEEN], sq))
+        return 'Q';
+    if (is_bit_set(p->by_type[KING], sq))
+        return 'K';
+
+    return ' ';
+}
+
+bool is_white_on(position_t p, int sq) {
+    return is_bit_set(p->by_color[1], sq);
+}
+
+bool is_black_on(position_t p, int sq) {
+    return is_bit_set(p->by_color[0], sq);
+}
+
+bool is_enpassant_on(position_t p, int sq) {
+    return is_bit_set(p->en_passant, sq);
+}
+
 void print_position(position_t p) {
     for (int row = 7; row >= 0; row--) {
         printf("+---+---+---+---+---+---+---+---+\n|");
         for (int col = 0; col < 8; col++) {
             int sq = col + row * 8;
-            char piece = ' ';
-            if (is_bit_set(p->by_type[PAWN], sq))
-                piece = 'P';
-            if (is_bit_set(p->by_type[KNIGHT], sq))
-                piece = 'N';
-            if (is_bit_set(p->by_type[BISHOP], sq))
-                piece = 'B';
-            if (is_bit_set(p->by_type[ROOK], sq))
-                piece = 'R';
-            if (is_bit_set(p->by_type[QUEEN], sq))
-                piece = 'Q';
-            if (is_bit_set(p->by_type[KING], sq))
-                piece = 'K';
-            if (is_bit_set(p->en_passant, sq))
+            char piece = piece_on(p, sq);
+            if (is_enpassant_on(p, sq))
                 piece = '.';
 
-            if (is_bit_set(p->by_color[0], sq))
+            if (is_black_on(p, sq))
                 printf("*%c*", piece);
-            else if (is_bit_set(p->by_color[1], sq) ||
-                     is_bit_set(p->en_passant, sq))
+            else if (is_white_on(p, sq) || is_enpassant_on(p, sq))
                 printf(" %c ", piece);
             else
                 printf("   ");
@@ -251,6 +269,60 @@ void print_position(position_t p) {
         printf("\n");
     }
     printf("+---+---+---+---+---+---+---+---+\n");
+}
+
+void to_epd(position_t p, char *buffer) {
+    char *c = buffer;
+    for (int rank = 7; rank >= 0; rank--) {
+        int empty = 0;
+        if (rank < 7)
+            *(c++) = '/';
+        for (int file = 0; file < 8; file++) {
+            int piece = piece_on(p, 8 * rank + file);
+            if (piece != ' ') {
+                if (empty != 0) {
+                    *(c++) = '0' + empty;
+                    empty = 0;
+                }
+                if (is_black_on(p, 8 * rank + file))
+                    *(c++) = tolower(piece);
+                else
+                    *(c++) = piece;
+            } else
+                empty++;
+        }
+        if (empty != 0)
+            *(c++) = '0' + empty;
+    }
+
+    *(c++) = ' ';
+    *(c++) = (p->turn) ? 'w' : 'b';
+    *(c++) = ' ';
+
+    bool any_castling_rights = p->can_castle[0][0] | p->can_castle[0][1] |
+                               p->can_castle[1][0] | p->can_castle[1][1];
+    if (any_castling_rights) {
+        if (p->can_castle[true][true])
+            *(c++) = 'K';
+        if (p->can_castle[true][false])
+            *(c++) = 'Q';
+        if (p->can_castle[false][true])
+            *(c++) = 'k';
+        if (p->can_castle[false][false])
+            *(c++) = 'q';
+    } else
+        *(c++) = '-';
+
+    *(c++) = ' ';
+
+    if (p->en_passant) {
+        int ep = ctzll(p->en_passant);
+        *(c++) = 'a' + (ep & 7);
+        *(c++) = '1' + (ep / 8);
+    } else
+        *(c++) = '-';
+
+    *c = '\0';
 }
 
 const static uint64_t dark_squares = 0xaa55aa55aa55aa55ULL;

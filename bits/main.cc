@@ -33,6 +33,16 @@ void san_test(void) {
             continue;
         }
 
+        static char epd_buffer[256];
+
+        to_epd(&pos, epd_buffer);
+        printf("%s\n", epd_buffer);
+
+        if (strcmp(epd, epd_buffer)) {
+            printf("EPDs don't match!\n");
+            printf("%s\n", epd);
+        }
+
         print_position(&pos);
         push_section(heap);
         generate_pseudolegal_moves(heap, &pos);
@@ -182,8 +192,6 @@ int main(int argc, char *argv[]) {
 
     srand(time(NULL));
 
-    monitoring::monitoring::initialize("0.0.0.0:9100");
-
 #ifdef USE_MAGIC
     init_rook_table();
     init_bishop_table();
@@ -255,6 +263,8 @@ int main(int argc, char *argv[]) {
     }
 
     try {
+
+        monitoring::monitoring::initialize("0.0.0.0:9100");
 
         if (result.count("epd")) {
             auto model_name = result["model"].as<std::string>();

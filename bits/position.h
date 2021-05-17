@@ -35,6 +35,7 @@ static uint64_t all_pieces(position_t p) {
 }
 
 bool parse_epd(position_t, const char *);
+void to_epd(position_t p, char *buffer);
 bool is_square_attacked_by(position_t, int, bool);
 bool is_king_in_check(position_t, bool);
 void print_position(position_t);
