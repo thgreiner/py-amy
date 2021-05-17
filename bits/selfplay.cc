@@ -2,10 +2,10 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
 #include <random>
 #include <sstream>
 #include <thread>
-#include <mutex>
 
 #include <served/served.hpp>
 
@@ -103,12 +103,13 @@ void selfplay(std::string model_name, const int sims) {
 
         while (!b.game_ended()) {
 
+            update_epd(b);
+
             const bool is_move_fully_playedout =
                 is_full_playout || fully_playout_move();
 
             if (is_move_fully_playedout) {
                 b.print();
-                update_epd(b);
             }
 
             mcts.use_exploration_noise(is_move_fully_playedout);
@@ -152,17 +153,17 @@ void selfplay(std::string model_name, const int sims) {
 }
 
 void setup_server(void) {
-	// Create a multiplexer for handling requests
-	served::multiplexer mux;
+    // Create a multiplexer for handling requests
+    served::multiplexer mux;
 
-	// GET /hello
-	mux.handle("/epd")
-		.get([](served::response & res, const served::request & req) {
+    // GET /hello
+    mux.handle("/epd").get(
+        [](served::response &res, const served::request &req) {
             const std::lock_guard<std::mutex> lock(epd_mutex);
-			res << current_epd;
-		});
+            res << current_epd;
+        });
 
-	// Create the server and run with 10 handler threads.
-	served::net::server server("127.0.0.1", "8080", mux);
-	server.run(1);
+    // Create the server and run with 10 handler threads.
+    served::net::server server("127.0.0.1", "8080", mux);
+    server.run(1);
 }
