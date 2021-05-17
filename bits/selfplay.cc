@@ -4,16 +4,16 @@
 #include <iostream>
 #include <random>
 #include <sstream>
+#include <thread>
+#include <mutex>
 
-#include <prometheus/counter.h>
-#include <prometheus/exposer.h>
-#include <prometheus/gauge.h>
-#include <prometheus/histogram.h>
-#include <prometheus/registry.h>
+#include <served/served.hpp>
 
 #include "edgetpu.h"
 #include "mcts.h"
 #include "monitoring.h"
+
+void setup_server(void);
 
 static char file_name_buffer[128];
 static char game_date_buffer[128];
@@ -66,7 +66,17 @@ bool fully_playout_move() {
     return d(gen) < 25;
 }
 
+static std::string current_epd;
+static std::mutex epd_mutex;
+
+void update_epd(Board &board) {
+    const std::lock_guard<std::mutex> lock(epd_mutex);
+    current_epd = board.epd();
+}
+
 void selfplay(std::string model_name, const int sims) {
+
+    std::thread server_thread(setup_server);
 
     std::shared_ptr<EdgeTpuModel> model =
         std::make_shared<EdgeTpuModel>(model_name);
@@ -98,6 +108,7 @@ void selfplay(std::string model_name, const int sims) {
 
             if (is_move_fully_playedout) {
                 b.print();
+                update_epd(b);
             }
 
             mcts.use_exploration_noise(is_move_fully_playedout);
@@ -138,4 +149,20 @@ void selfplay(std::string model_name, const int sims) {
 
         monitoring::monitoring::instance()->observe_game();
     }
+}
+
+void setup_server(void) {
+	// Create a multiplexer for handling requests
+	served::multiplexer mux;
+
+	// GET /hello
+	mux.handle("/epd")
+		.get([](served::response & res, const served::request & req) {
+            const std::lock_guard<std::mutex> lock(epd_mutex);
+			res << current_epd;
+		});
+
+	// Create the server and run with 10 handler threads.
+	served::net::server server("127.0.0.1", "8080", mux);
+	server.run(1);
 }
