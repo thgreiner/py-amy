@@ -37,6 +37,8 @@ class Board {
 
     void print() const;
 
+    bool parse_san(std::string &, uint32_t &);
+
   private:
     std::vector<std::shared_ptr<struct position>> positions;
     heap_t heap;
