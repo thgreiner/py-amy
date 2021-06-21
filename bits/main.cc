@@ -10,6 +10,7 @@
 #include "perft.h"
 #include "position.h"
 #include "selfplay.h"
+#include "cli.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -212,6 +213,7 @@ int main(int argc, char *argv[]) {
         ("m,model", "Specify the EdgeTpu model", cxxopts::value<std::string>())
         ("sims", "Number of MCTS simulations to use",
                  cxxopts::value<int>()->implicit_value("800"))
+        ("cli", "Command line interface")
         ("h,help", "Print usage");
     // clang-format on
 
@@ -298,6 +300,14 @@ int main(int argc, char *argv[]) {
 
             selfplay(model_name, result["sims"].as<int>());
         }
+
+        if (result.count("cli")) {
+            auto model_name = result["model"].as<std::string>();
+
+            cli(model_name, result["sims"].as<int>());
+        }
+
+
     } catch (std::runtime_error &e) {
         return 1;
     }
