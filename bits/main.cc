@@ -1,5 +1,6 @@
 #include "bits.h"
 #include "board.h"
+#include "cli.h"
 #include "cxxopts.hpp"
 #include "edgetpu.h"
 #include "heap.h"
@@ -10,7 +11,6 @@
 #include "perft.h"
 #include "position.h"
 #include "selfplay.h"
-#include "cli.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -306,7 +306,6 @@ int main(int argc, char *argv[]) {
 
             cli(model_name, result["sims"].as<int>());
         }
-
 
     } catch (std::runtime_error &e) {
         return 1;

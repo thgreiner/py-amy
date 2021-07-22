@@ -162,7 +162,6 @@ std::string Board::epd() const {
     return buffer;
 }
 
-
 bool Board::parse_san(std::string &san, uint32_t &move) {
     return ::parse_san(san.c_str(), heap, current_position(), &move);
 }

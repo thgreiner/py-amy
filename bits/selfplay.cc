@@ -69,6 +69,8 @@ bool fully_playout_move() {
 static std::string current_epd;
 static std::mutex epd_mutex;
 
+static std::shared_ptr<std::stringstream> pgn_short;
+
 void update_epd(Board &board) {
     const std::lock_guard<std::mutex> lock(epd_mutex);
     current_epd = board.epd();
@@ -99,11 +101,12 @@ void selfplay(std::string model_name, const int sims) {
         std::stringstream game_text;
         game_text << std::fixed << std::setprecision(4);
 
+        pgn_short = std::make_shared<std::stringstream>();
+        *pgn_short << std::fixed << std::setprecision(1);
+
         const bool is_full_playout = fully_playout_game();
 
         while (!b.game_ended()) {
-
-            update_epd(b);
 
             const bool is_move_fully_playedout =
                 is_full_playout || fully_playout_move();
@@ -134,7 +137,17 @@ void selfplay(std::string model_name, const int sims) {
                 monitoring::monitoring::instance()->observe_position();
                 monitoring::monitoring::instance()->observe_evaluation(
                     1.0 - root->value());
+
+                *pgn_short << b.move_number_if_white();
+                *pgn_short << "<span class=\"highlight\">";
+                *pgn_short << b.san(move) << " "
+                           << " " << 100 * (1.0 - root->value()) << "% ";
+                *pgn_short << "</span>";
+            } else {
+                *pgn_short << b.move_number_if_white() << b.san(move) << " ";
             }
+
+            update_epd(b);
 
             b.do_move(move);
         }
@@ -156,14 +169,21 @@ void setup_server(void) {
     // Create a multiplexer for handling requests
     served::multiplexer mux;
 
-    // GET /hello
+    // GET /epd
     mux.handle("/epd").get(
         [](served::response &res, const served::request &req) {
             const std::lock_guard<std::mutex> lock(epd_mutex);
             res << current_epd;
         });
 
+    // GET /pgn
+    mux.handle("/pgn").get(
+        [](served::response &res, const served::request &req) {
+            if (pgn_short)
+                res << pgn_short->str();
+        });
+
     // Create the server and run with 10 handler threads.
-    served::net::server server("127.0.0.1", "8080", mux);
+    served::net::server server("127.0.0.1", "8088", mux);
     server.run(1);
 }
