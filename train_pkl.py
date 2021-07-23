@@ -92,6 +92,7 @@ if __name__ == "__main__":
 
     with tfmot.quantization.keras.quantize_scope():
         model = load_or_create_model(model_name)
+        model.summary()
 
     repr = Repr2D()
 
