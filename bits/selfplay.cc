@@ -104,7 +104,7 @@ void selfplay(std::string model_name, const int sims) {
         pgn_short = std::make_shared<std::stringstream>();
         *pgn_short << std::fixed << std::setprecision(1);
 
-        const bool is_full_playout = fully_playout_game();
+        const bool is_full_playout = true; // fully_playout_game();
 
         while (!b.game_ended()) {
 
