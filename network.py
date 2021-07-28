@@ -194,17 +194,17 @@ def compile_model(model, prefix=""):
         optimizer=optimizer,
         loss={
             f"{prefix}moves": keras.losses.CategoricalCrossentropy(from_logits=True),
-            f"{prefix}value": "mean_squared_error",
+            f"value": "mean_squared_error",
             f"{prefix}wdl": keras.losses.CategoricalCrossentropy(),
         },
         metrics={
             f"{prefix}moves": ["accuracy", "top_k_categorical_accuracy"],
-            f"{prefix}value": ["mae"],
+            f"value": ["mae"],
             f"{prefix}wdl": ["accuracy"],
         },
         loss_weights={
             f"{prefix}moves": 1.0,
-            f"{prefix}value": 1.0,
+            f"value": 1.0,
             f"{prefix}wdl": 0.25,
         },
     )
@@ -244,6 +244,6 @@ def schedule_learn_rate(model, iteration, batch_no):
     #     1 + math.cos(t / 6 * math.pi)
     # )
 
-    learn_rate = 3e-3
+    learn_rate = 1e-4
     K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate
