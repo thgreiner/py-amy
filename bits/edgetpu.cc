@@ -187,7 +187,7 @@ void EdgeTpuModel::predict(position_t pos) {
                       eor);
     }
 
-    fill_plane(data, plane++, pos->en_passant);
+    fill_plane_bb(data, plane++, pos->en_passant, eor);
 
     if (pos->can_castle[me][true])
         fill_plane(data, plane);
