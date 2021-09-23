@@ -16,7 +16,6 @@ RENORM = True
 INITIAL_LEARN_RATE = 1e-2
 MIN_LEARN_RATE = 1e-4
 
-
 def categorical_crossentropy_from_logits(target, output):
     return K.categorical_crossentropy(target, output, from_logits=True)
 
@@ -104,7 +103,7 @@ def create_value_head(input):
     dim = input.shape.as_list()[-1]
 
     temp = keras.layers.Conv2D(
-        16,
+        32,
         (1, 1),
         padding="same",
         name="pre-value-conv",
