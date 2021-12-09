@@ -34,6 +34,9 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
 
     std::cout << std::fixed << std::setprecision(1);
 
+    int decision_simulation = 0;
+    std::shared_ptr<Node> best_child;
+
     int simulation = 0;
     for (; simulation < n; simulation++) {
 
@@ -78,6 +81,14 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
             if (root->visit_count >= 200 && kldgain < kldgain_stop)
                 break;
         }
+
+	if (search_path.size() > 1) {
+	    if (!best_child || (search_path[1] != best_child && search_path[1]->visit_count > best_child->visit_count)) {
+		decision_simulation = simulation;
+                if (simulation > 0) print_search_status(root, board, simulation);
+		best_child = search_path[1];
+            }
+        }
     }
 
     gettimeofday(&end, 0);
@@ -90,6 +101,8 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
 
     std::cout << "Inference took " << elapsed << "s, " << (simulation / elapsed)
               << " 1/s." << std::endl;
+
+    monitoring::monitoring::instance()->observe_decision(decision_simulation);
 
     /*
     std::vector<uint32_t> moves;

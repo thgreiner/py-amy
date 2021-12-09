@@ -68,5 +68,19 @@ void monitoring::setup(void) {
     observe_depth = [&depth_histogram](int depth) {
         depth_histogram.Observe(depth);
     };
+
+    std::vector<double> decision_buckets({1, 2, 4, 8, 16, 32, 64, 128,
+		                          256, 512, 1024, 2048, 4096,
+					  8192, 16384, 32768, 65536 });
+
+    auto &decision_histogram = prometheus::BuildHistogram()
+                                .Name("decision")
+                                .Help("Decision iteration")
+                                .Register(*registry)
+                                .Add({}, decision_buckets);
+
+    observe_decision = [&decision_histogram](int decision) {
+        decision_histogram.Observe(decision);
+    };
 }
 } // namespace monitoring
