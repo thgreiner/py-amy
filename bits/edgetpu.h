@@ -25,13 +25,18 @@ class EdgeTpuModel {
     EdgeTpuModel(const std::string model_name);
     void predict(position_t);
     void test();
+    bool has_changed_on_disc();
 
     float get_value();
     float get_logit(uint32_t move, int eor);
 
   private:
+    std::string model_name;
     std::unique_ptr<tflite::Interpreter> interpreter;
     ChessRepr repr;
+    time_t mtime;
+
+    time_t get_modification_time();
 };
 
 #endif

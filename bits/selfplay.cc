@@ -84,7 +84,7 @@ void selfplay(std::string model_name, const int sims) {
         std::make_shared<EdgeTpuModel>(model_name);
 
     MCTS mcts(model);
-    mcts.set_kldgain_stop(1e-5);
+    mcts.set_kldgain_stop(1.8e-5);
 
     std::time_t t = std::time(nullptr);
     std::strftime(file_name_buffer, sizeof(file_name_buffer),
@@ -162,6 +162,11 @@ void selfplay(std::string model_name, const int sims) {
         pgn_file.flush();
 
         monitoring::monitoring::instance()->observe_game();
+
+	if (model->has_changed_on_disc()) {
+            std::cout << "Model has changed on disc. Exiting selfplay." << std::endl;
+	    return;
+	}
     }
 }
 

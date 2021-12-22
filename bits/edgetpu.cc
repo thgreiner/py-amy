@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <sys/time.h>
+#include <sys/stat.h>
 
 #include "edgetpu_c.h"
 #include "tensorflow/lite/kernels/register.h"
@@ -76,11 +77,27 @@ make_interpreter(const std::string model_file) {
     return interpreter;
 }
 
-EdgeTpuModel::EdgeTpuModel(const std::string model_name) {
-    interpreter = make_interpreter(model_name);
+EdgeTpuModel::EdgeTpuModel(const std::string model_file) {
+    model_name = model_file;
+    interpreter = make_interpreter(model_file);
 
     if (!interpreter)
         throw std::runtime_error("Could not initialize EdgeTPu.");
+
+    mtime = get_modification_time();
+}
+
+time_t EdgeTpuModel::get_modification_time() {
+    struct stat buf;
+    if (stat(model_name.c_str(), &buf) == 0) {
+        return buf.st_mtime;
+    }
+    return -1;
+}
+
+
+bool EdgeTpuModel::has_changed_on_disc() {
+    return mtime != get_modification_time();
 }
 
 void EdgeTpuModel::test() {
