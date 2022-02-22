@@ -69,39 +69,34 @@ def randomize_item(item):
     return item
 
 
-def traverse_game(node, board, queue, result, sample_rate, follow_variations=False):
+def traverse_game(game, board, queue, result, sample_rate):
 
     positions_created = 0
 
-    if not follow_variations and not node.is_mainline():
-        return positions_created
+    for node in game.mainline():
 
-    move = node.move
+        move = node.move
 
-    if node.comment and random.randint(0, 100) < sample_rate:
+        if node.comment and random.randint(0, 100) < sample_rate:
 
-        q, policy = parse_mcts_result(node.comment)
-        q = q * 2 - 1.0
-        z = label_for_result(result, board.turn)
+            q, policy = parse_mcts_result(node.comment)
+            q = q * 2 - 1.0
+            z = label_for_result(result, board.turn)
 
-        train_data_board = repr.board_to_array(board)
-        train_labels1 = repr.policy_to_array(board, policy)
+            # q = 0.5 * (q + z[0] - z[2])
 
-        item = PrioritizedItem(
-            random.randint(0, MAX_PRIO), train_data_board, train_labels1, q, z
-        )
-        queue.put(item)
+            train_data_board = repr.board_to_array(board)
+            train_labels1 = repr.policy_to_array(board, policy)
 
-        positions_created += 1
+            item = PrioritizedItem(
+                random.randint(0, MAX_PRIO), train_data_board, train_labels1, q, z
+            )
+            queue.put(item)
 
-    if move is not None:
-        board.push(move)
+            positions_created += 1
 
-    for sibling in node.variations:
-        positions_created += traverse_game(sibling, board, queue, result, sample_rate)
-
-    if move is not None:
-        board.pop()
+        if move is not None:
+            board.push(move)
 
     return positions_created
 
@@ -112,13 +107,13 @@ game_counter = Counter("training_game_total", "Games seen by training", ["result
 
 def pos_generator(filename, test_mode, queue):
 
-    sample_rate = 100 if test_mode else 50
+    sample_rate = 100 if test_mode else 10
 
     cnt = 0
     with open(filename) as pgn:
 
         positions_created = 0
-        while positions_created < 2500000:
+        while True:
             skip_training = False
 
             try:
@@ -136,7 +131,7 @@ def pos_generator(filename, test_mode, queue):
             game_counter.labels(result=result).inc()
 
             cnt += 1
-            if cnt % 10 == 0:
+            if cnt % 100 == 0:
                 print(
                     "Parsing game #{} {}, {} positions (avg {:.1f} pos/game)".format(
                         cnt,

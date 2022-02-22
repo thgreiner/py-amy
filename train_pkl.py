@@ -48,7 +48,7 @@ def read_pickle(queue, test_mode):
     else:
         files = [f"train-{i}.pkl" for i in range(10)]
         shuffle(files)
-        sample = 38
+        sample = 5
 
     for filename in files:
         print(f"Reading {filename}")
@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
     start_http_server(9099)
 
-    for iteration in range(2):
+    for iteration in range(20):
 
         stats = Stats()
 
@@ -163,7 +163,7 @@ if __name__ == "__main__":
                 elapsed = time.perf_counter() - start_time
 
                 samples += cnt
-                print(f"{iteration}.{samples}: {stats(results, cnt)} in {elapsed:.1f}s")
+                print(f"{iteration}.{samples}: {stats(results, cnt)} in {elapsed:.1f}s", end='\r')
 
                 start_time = time.perf_counter()
 

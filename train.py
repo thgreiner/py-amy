@@ -34,7 +34,7 @@ def wait_for_queue_to_fill(q):
     for i in range(900):
         time.sleep(1)
         print("Waiting for queue to fill, current size is {}     ".format(q.qsize()))
-        if q.qsize() > 10000:
+        if q.qsize() > 50000:
             break
         if old_qsize is not None and old_qsize == q.qsize():
             break
@@ -141,7 +141,7 @@ if __name__ == "__main__":
                 print(
                     "{}.{}: {} in {:.1f}s".format(
                         iteration, samples, stats(results, cnt), elapsed
-                    )
+                    ), end='\r'
                 )
 
                 start_time = time.perf_counter()
@@ -153,6 +153,9 @@ if __name__ == "__main__":
                     print("Checkpointing model to {}".format(checkpoint_name))
                     model.save(checkpoint_name)
                     checkpoint_next += CHECKPOINT
+
+
+        print()
 
         stats.write_to_file(model.name)
 
