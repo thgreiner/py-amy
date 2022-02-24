@@ -35,6 +35,15 @@ void format_root_node(std::ostream &game_text, std::shared_ptr<Node> root,
     game_text << "] } ";
 }
 
+std::string get_hostname() {
+    char buffer[100];
+    if (gethostname(buffer, 100) == 0) {
+        return buffer;
+    } else {
+        return "unknown";
+    }
+}
+
 void header(std::ostream &pgn_file, int round, const std::string &outcome) {
 
     std::time_t t = std::time(nullptr);
@@ -42,7 +51,7 @@ void header(std::ostream &pgn_file, int round, const std::string &outcome) {
                   std::localtime(&t));
 
     pgn_file << "[Event \"Test Game\"]" << std::endl;
-    pgn_file << "[Site \"?\"]" << std::endl;
+    pgn_file << "[Site \"" << get_hostname() << "\"]" << std::endl;
     pgn_file << "[Date \"" << game_date_buffer << "\"]" << std::endl;
     pgn_file << "[Round \"" << round << "\"]" << std::endl;
     pgn_file << "[White \"Amy Zero\"]" << std::endl;
