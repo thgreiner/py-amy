@@ -15,7 +15,6 @@
 
 void setup_server(void);
 
-static char file_name_buffer[128];
 static char game_date_buffer[128];
 
 void format_root_node(std::ostream &game_text, std::shared_ptr<Node> root,
@@ -85,6 +84,18 @@ void update_epd(Board &board) {
     current_epd = board.epd();
 }
 
+std::string get_file_name() {
+    static char date_buffer[128];
+
+    std::time_t t = std::time(nullptr);
+    std::strftime(date_buffer, sizeof(date_buffer),
+                  "%Y-%m-%d-%H-%M-%S", std::localtime(&t));
+
+    std::ostringstream file_name;
+    file_name << "LearnGames-" << date_buffer << "-" << get_hostname() << ".pgn";
+    return file_name.str();
+}
+
 void selfplay(std::string model_name, const int sims) {
 
     std::thread server_thread(setup_server);
@@ -93,16 +104,14 @@ void selfplay(std::string model_name, const int sims) {
         std::make_shared<EdgeTpuModel>(model_name);
 
     MCTS mcts(model);
-    mcts.set_kldgain_stop(1.8e-5);
+    // mcts.set_kldgain_stop(1.0e-5);
 
-    std::time_t t = std::time(nullptr);
-    std::strftime(file_name_buffer, sizeof(file_name_buffer),
-                  "LearnGames-%Y-%m-%d-%H-%M-%S.pgn", std::localtime(&t));
+    auto file_name = get_file_name();
 
-    std::cout << file_name_buffer << std::endl;
+    std::cout << file_name << std::endl;
     std::ofstream pgn_file;
 
-    pgn_file.open(file_name_buffer);
+    pgn_file.open(file_name);
 
     for (int round = 1;; round++) {
         Board b;
@@ -115,7 +124,7 @@ void selfplay(std::string model_name, const int sims) {
 
         const bool is_full_playout = true; // fully_playout_game();
 
-        while (!b.game_ended()) {
+        while (!b.game_ended() && b.move_number() <= 200) {
 
             const bool is_move_fully_playedout =
                 is_full_playout || fully_playout_move();
