@@ -43,7 +43,14 @@ std::string get_hostname() {
     }
 }
 
-void header(std::ostream &pgn_file, int round, const std::string &outcome) {
+std::string get_model_name(const std::string &path) {
+	auto base_filename = path.substr(path.find_last_of("/\\") + 1);
+	auto const p(base_filename.find_last_of('_'));
+	auto file_without_extension = base_filename.substr(0, p);
+	return file_without_extension;
+}
+
+void header(std::ostream &pgn_file, int round, const std::string &outcome, const std::string &model_name) {
 
     std::time_t t = std::time(nullptr);
     std::strftime(game_date_buffer, sizeof(game_date_buffer), "%Y.%m.%d",
@@ -53,8 +60,8 @@ void header(std::ostream &pgn_file, int round, const std::string &outcome) {
     pgn_file << "[Site \"" << get_hostname() << "\"]" << std::endl;
     pgn_file << "[Date \"" << game_date_buffer << "\"]" << std::endl;
     pgn_file << "[Round \"" << round << "\"]" << std::endl;
-    pgn_file << "[White \"Amy Zero\"]" << std::endl;
-    pgn_file << "[Black \"Amy Zero\"]" << std::endl;
+    pgn_file << "[White \"Amy Zero (" << get_model_name(model_name) << ")\"]" << std::endl;
+    pgn_file << "[Black \"Amy Zero (" << get_model_name(model_name) << ")\"]" << std::endl;
     pgn_file << "[Result \"" << outcome << "\"]" << std::endl;
 }
 
@@ -173,7 +180,7 @@ void selfplay(std::string model_name, const int sims) {
         const auto outcome = b.outcome();
         game_text << outcome;
 
-        header(pgn_file, round, outcome);
+        header(pgn_file, round, outcome, model_name);
         pgn_file << std::endl;
         pgn_file << game_text.str() << std::endl;
         pgn_file << std::endl;
