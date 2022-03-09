@@ -131,7 +131,7 @@ void selfplay(std::string model_name, const int sims) {
 
         const bool is_full_playout = true; // fully_playout_game();
 
-        while (!b.game_ended() && b.move_number() <= 200) {
+        while (!b.game_ended() && b.move_number() <= 512) {
 
             const bool is_move_fully_playedout =
                 is_full_playout || fully_playout_move();
@@ -161,7 +161,7 @@ void selfplay(std::string model_name, const int sims) {
                 format_root_node(game_text, root, b);
                 monitoring::monitoring::instance()->observe_position();
                 monitoring::monitoring::instance()->observe_evaluation(
-                    1.0 - root->value());
+                    b.turn() ? 1.0 - root->value() : root->value());
 
                 *pgn_short << b.move_number_if_white();
                 *pgn_short << "<span class=\"highlight\">";
