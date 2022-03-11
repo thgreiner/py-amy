@@ -275,6 +275,7 @@ int main(int argc, char *argv[]) {
     try {
 
         monitoring::monitoring::initialize("0.0.0.0:9100");
+        initEGTB("TB");
 
         if (result.count("epd")) {
             auto model_name = result["model"].as<std::string>();

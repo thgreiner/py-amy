@@ -1,4 +1,4 @@
 *.o
 *.o.d
-.ninja.log
+.ninja_log
 main

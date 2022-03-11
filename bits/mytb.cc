@@ -140,10 +140,31 @@ uint32_t tb_move(Board &board) {
             best_score = -score;
             best_move = m;
         }
-        // std::cout << board.san(m) << ": result = " << result << ", score = " << -score << std::endl;
     }
 
     return best_move;
+}
+
+uint32_t tb_winner(Board &board) {
+    uint32_t best_move = 0;
+    int best_score = -INF;
+    int result, score = 0;
+
+    std::vector<uint32_t> moves;
+    board.generate_legal_moves(moves);
+
+    for (auto m : moves) {
+        board.do_move(m);
+        result = probeEGTB(board.current_position(), &score);
+        board.undo_move();
+
+        if (result && (-score) > best_score) {
+            best_score = -score;
+            best_move = m;
+        }
+    }
+
+    return best_score > 0 ? best_move : 0;
 }
 
 void testEGTB() {

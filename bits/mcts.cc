@@ -7,6 +7,7 @@
 #include "mcts.h"
 #include "monitoring.h"
 #include "movegen.h"
+#include "mytb.h"
 
 float update_kldgain(std::shared_ptr<Node>, std::map<uint32_t, int> &);
 
@@ -19,7 +20,7 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
     root->is_root = true;
 
     float value = evaluate(root, board);
-    // std::cout << "Value: " << 100 * value << "%." << std::endl;
+    check_tb_winner(root, board);
 
     if (exploration_noise) {
         add_exploration_noise(root);
@@ -371,6 +372,18 @@ void MCTS::correct_forced_playouts(std::shared_ptr<Node> node) {
                 child->visit_count = playouts - i + 1;
                 break;
             }
+        }
+    }
+}
+
+
+void MCTS::check_tb_winner(std::shared_ptr<Node> node, Board &board) {
+    const uint32_t move = tb_winner(board);
+    if (move) {
+        std::cout << "Found TB winner: " << board.san(move) << std::endl;
+	for (auto n : node->children) {
+            auto child = n.second;
+            child->prior =  (n.first == move) ? 1.0f : 0.0f;
         }
     }
 }
