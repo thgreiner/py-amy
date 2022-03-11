@@ -385,5 +385,7 @@ void MCTS::check_tb_winner(std::shared_ptr<Node> node, Board &board) {
             auto child = n.second;
             child->prior =  (n.first == move) ? 1.0f : 0.0f;
         }
+
+        monitoring::monitoring::instance()->observe_tbwinner();
     }
 }

@@ -45,6 +45,16 @@ void monitoring::setup(void) {
         positions_counter.Increment();
     };
 
+    auto &tbwinner_counter = prometheus::BuildCounter()
+                                  .Name("tbwinner_total")
+                                  .Help("Winning moves found in the TBs")
+                                  .Register(*registry)
+                                  .Add({});
+
+    observe_tbwinner = [&tbwinner_counter]() {
+        tbwinner_counter.Increment();
+    };
+
     auto &evaluation_gauge = prometheus::BuildGauge()
                                  .Name("white_prob")
                                  .Help("Win probability white")
