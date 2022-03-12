@@ -385,7 +385,7 @@ void MCTS::check_winner(std::shared_ptr<Node> node, Board &board) {
         std::cout << "Found TB winner: " << board.san(move) << std::endl;
         monitoring::monitoring::instance()->observe_tbwinner();
     } else {
-        move = board.search_checkmate(8, 20000);
+        move = board.search_checkmate(20, 10000);
         if (move) {
             std::cout << "Found checkmate: " << board.san(move) << std::endl;
             monitoring::monitoring::instance()->observe_checkmate();
