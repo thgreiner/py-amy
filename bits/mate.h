@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 void test_mate_search();
-uint32_t mate_search(heap_t, const position_t, int, uint64_t);
+uint32_t mate_search(heap_t, const position_t, int, unsigned int);
 
 #ifdef __cplusplus
 }
