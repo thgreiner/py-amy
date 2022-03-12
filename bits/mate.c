@@ -107,12 +107,12 @@ uint32_t mate_search(restrict heap_t heap, const restrict position_t pos,
 
                 best_move = move;
             }
-
-            if (budget != 0 && nodes > budget)
-                break;
         }
 
         if (value > (INF - 400))
+            break;
+
+        if (budget != 0 && nodes > budget)
             break;
     }
     pop_section(heap);
