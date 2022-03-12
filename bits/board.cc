@@ -1,7 +1,7 @@
 #include <string>
 
 #include "board.h"
-
+#include "mate.h"
 #include "movegen.h"
 
 Board::Board() {
@@ -164,4 +164,8 @@ std::string Board::epd() const {
 
 bool Board::parse_san(std::string &san, uint32_t &move) {
     return ::parse_san(san.c_str(), heap, current_position(), &move);
+}
+
+uint32_t Board::search_checkmate(int depth, uint64_t budget) {
+    return ::mate_search(heap, current_position(), depth, budget);
 }

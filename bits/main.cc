@@ -8,10 +8,10 @@
 #include "mcts.h"
 #include "monitoring.h"
 #include "movegen.h"
+#include "mytb.h"
 #include "perft.h"
 #include "position.h"
 #include "selfplay.h"
-#include "mytb.h"
 
 #include <stdio.h>
 #include <stdlib.h>

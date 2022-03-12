@@ -20,7 +20,7 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
     root->is_root = true;
 
     float value = evaluate(root, board);
-    check_tb_winner(root, board);
+    check_winner(root, board);
 
     if (exploration_noise) {
         add_exploration_noise(root);
@@ -83,11 +83,14 @@ std::shared_ptr<Node> MCTS::mcts(Board &board, const int n) {
                 break;
         }
 
-	if (search_path.size() > 1) {
-	    if (!best_child || (search_path[1] != best_child && search_path[1]->visit_count > best_child->visit_count)) {
-		decision_simulation = simulation;
-                if (simulation > 0) print_search_status(root, board, simulation);
-		best_child = search_path[1];
+        if (search_path.size() > 1) {
+            if (!best_child ||
+                (search_path[1] != best_child &&
+                 search_path[1]->visit_count > best_child->visit_count)) {
+                decision_simulation = simulation;
+                if (simulation > 0)
+                    print_search_status(root, board, simulation);
+                best_child = search_path[1];
             }
         }
     }
@@ -376,16 +379,22 @@ void MCTS::correct_forced_playouts(std::shared_ptr<Node> node) {
     }
 }
 
-
-void MCTS::check_tb_winner(std::shared_ptr<Node> node, Board &board) {
-    const uint32_t move = tb_winner(board);
+void MCTS::check_winner(std::shared_ptr<Node> node, Board &board) {
+    uint32_t move = tb_winner(board);
     if (move) {
         std::cout << "Found TB winner: " << board.san(move) << std::endl;
-	for (auto n : node->children) {
-            auto child = n.second;
-            child->prior =  (n.first == move) ? 1.0f : 0.0f;
-        }
-
         monitoring::monitoring::instance()->observe_tbwinner();
+    } else {
+        move = board.search_checkmate(8, 20000);
+        if (move) {
+            std::cout << "Found checkmate: " << board.san(move) << std::endl;
+            monitoring::monitoring::instance()->observe_checkmate();
+        }
+    }
+    if (move) {
+        for (auto n : node->children) {
+            auto child = n.second;
+            child->prior = (n.first == move) ? 1.0f : 0.0f;
+        }
     }
 }

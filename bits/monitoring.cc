@@ -45,15 +45,23 @@ void monitoring::setup(void) {
         positions_counter.Increment();
     };
 
-    auto &tbwinner_counter = prometheus::BuildCounter()
-                                  .Name("tbwinner_total")
-                                  .Help("Winning moves found in the TBs")
+    auto &checkmate_counter = prometheus::BuildCounter()
+                                  .Name("checkmate_total")
+                                  .Help("Winning moves by forced checkmate")
                                   .Register(*registry)
                                   .Add({});
 
-    observe_tbwinner = [&tbwinner_counter]() {
-        tbwinner_counter.Increment();
+    observe_checkmate = [&checkmate_counter]() {
+        checkmate_counter.Increment();
     };
+
+    auto &tbwinner_counter = prometheus::BuildCounter()
+                                 .Name("tbwinner_total")
+                                 .Help("Winning moves found in the TBs")
+                                 .Register(*registry)
+                                 .Add({});
+
+    observe_tbwinner = [&tbwinner_counter]() { tbwinner_counter.Increment(); };
 
     auto &evaluation_gauge = prometheus::BuildGauge()
                                  .Name("white_prob")
@@ -79,17 +87,16 @@ void monitoring::setup(void) {
         depth_histogram.Observe(depth);
     };
 
-    std::vector<double> decision_buckets({10, 20, 40, 60, 80, 100, 140,
-		                          180, 220, 260, 300, 350, 400,
-					  450, 500, 600, 700, 800, 900,
-					  1000, 1500, 2000, 3000, 4000,
-					  5000, 8000, 10000, 20000 });
+    std::vector<double> decision_buckets(
+        {10,   20,   40,   60,   80,   100,  140,   180,  220, 260,
+         300,  350,  400,  450,  500,  600,  700,   800,  900, 1000,
+         1500, 2000, 3000, 4000, 5000, 8000, 10000, 20000});
 
     auto &decision_histogram = prometheus::BuildHistogram()
-                                .Name("decision")
-                                .Help("Decision iteration")
-                                .Register(*registry)
-                                .Add({}, decision_buckets);
+                                   .Name("decision")
+                                   .Help("Decision iteration")
+                                   .Register(*registry)
+                                   .Add({}, decision_buckets);
 
     observe_decision = [&decision_histogram](int decision) {
         decision_histogram.Observe(decision);

@@ -39,6 +39,8 @@ class Board {
 
     bool parse_san(std::string &, uint32_t &);
 
+    uint32_t search_checkmate(int depth, uint64_t budget);
+
   private:
     std::vector<std::shared_ptr<struct position>> positions;
     heap_t heap;

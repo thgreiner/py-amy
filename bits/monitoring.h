@@ -13,6 +13,7 @@ class monitoring {
     std::function<void()> observe_terminal_node;
     std::function<void()> observe_game;
     std::function<void()> observe_position;
+    std::function<void()> observe_checkmate;
     std::function<void()> observe_tbwinner;
     std::function<void(double)> observe_evaluation;
     std::function<void(int)> observe_depth;

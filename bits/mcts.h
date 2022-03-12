@@ -60,7 +60,7 @@ class MCTS {
     void add_exploration_noise(std::shared_ptr<Node>);
     void print_search_status(std::shared_ptr<Node>, Board &, int);
     void print_pv(std::shared_ptr<Node>, Board &board);
-    void check_tb_winner(std::shared_ptr<Node>, Board &board);
+    void check_winner(std::shared_ptr<Node>, Board &board);
 
     heap_t heap;
     bool exploration_noise = false;

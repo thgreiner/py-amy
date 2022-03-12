@@ -44,13 +44,14 @@ std::string get_hostname() {
 }
 
 std::string get_model_name(const std::string &path) {
-	auto base_filename = path.substr(path.find_last_of("/\\") + 1);
-	auto const p(base_filename.find_last_of('_'));
-	auto file_without_extension = base_filename.substr(0, p);
-	return file_without_extension;
+    auto base_filename = path.substr(path.find_last_of("/\\") + 1);
+    auto const p(base_filename.find_last_of('_'));
+    auto file_without_extension = base_filename.substr(0, p);
+    return file_without_extension;
 }
 
-void header(std::ostream &pgn_file, int round, const std::string &outcome, const std::string &model_name) {
+void header(std::ostream &pgn_file, int round, const std::string &outcome,
+            const std::string &model_name) {
 
     std::time_t t = std::time(nullptr);
     std::strftime(game_date_buffer, sizeof(game_date_buffer), "%Y.%m.%d",
@@ -60,8 +61,10 @@ void header(std::ostream &pgn_file, int round, const std::string &outcome, const
     pgn_file << "[Site \"" << get_hostname() << "\"]" << std::endl;
     pgn_file << "[Date \"" << game_date_buffer << "\"]" << std::endl;
     pgn_file << "[Round \"" << round << "\"]" << std::endl;
-    pgn_file << "[White \"Amy Zero (" << get_model_name(model_name) << ")\"]" << std::endl;
-    pgn_file << "[Black \"Amy Zero (" << get_model_name(model_name) << ")\"]" << std::endl;
+    pgn_file << "[White \"Amy Zero (" << get_model_name(model_name) << ")\"]"
+             << std::endl;
+    pgn_file << "[Black \"Amy Zero (" << get_model_name(model_name) << ")\"]"
+             << std::endl;
     pgn_file << "[Result \"" << outcome << "\"]" << std::endl;
 }
 
@@ -95,11 +98,12 @@ std::string get_file_name() {
     static char date_buffer[128];
 
     std::time_t t = std::time(nullptr);
-    std::strftime(date_buffer, sizeof(date_buffer),
-                  "%Y-%m-%d-%H-%M-%S", std::localtime(&t));
+    std::strftime(date_buffer, sizeof(date_buffer), "%Y-%m-%d-%H-%M-%S",
+                  std::localtime(&t));
 
     std::ostringstream file_name;
-    file_name << "LearnGames-" << date_buffer << "-" << get_hostname() << ".pgn";
+    file_name << "LearnGames-" << date_buffer << "-" << get_hostname()
+              << ".pgn";
     return file_name.str();
 }
 
@@ -188,10 +192,11 @@ void selfplay(std::string model_name, const int sims) {
 
         monitoring::monitoring::instance()->observe_game();
 
-	if (model->has_changed_on_disc()) {
-            std::cout << "Model has changed on disc. Exiting selfplay." << std::endl;
-	    return;
-	}
+        if (model->has_changed_on_disc()) {
+            std::cout << "Model has changed on disc. Exiting selfplay."
+                      << std::endl;
+            return;
+        }
     }
 }
 

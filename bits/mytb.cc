@@ -1,5 +1,5 @@
-#include <iostream>
 #include "bits.h"
+#include <iostream>
 
 #define NEW
 #define XX 128
@@ -15,8 +15,8 @@
 typedef int square;
 typedef unsigned int INDEX;
 
-#include "tbindex.cpp"
 #include "position.h"
+#include "tbindex.cpp"
 
 #define EGTB_CACHE_SIZE 32 * 1024 * 1024
 
@@ -27,12 +27,14 @@ void initEGTB(char *tbpath) {
     EGTBMenCount = IInitializeTb(tbpath);
     if (EGTBMenCount != 0) {
         void *egtb_cache = malloc(EGTB_CACHE_SIZE);
-        std::cout << "Found " << EGTBMenCount << "-men endgame table bases." << std::endl;
+        std::cout << "Found " << EGTBMenCount << "-men endgame table bases."
+                  << std::endl;
         FTbSetCacheSize(egtb_cache, EGTB_CACHE_SIZE);
     }
 }
 
-void initializeCounters(int *pieceCounter, int *squares, int type, uint64_t mask) {
+void initializeCounters(int *pieceCounter, int *squares, int type,
+                        uint64_t mask) {
     int count = 0;
     while (mask) {
         int index = poplsb(&mask);
@@ -58,15 +60,24 @@ int probeEGTB(position_t p, int *score) {
         return 0;
 
     initializeCounters(pcCount, wSquares, 0, p->by_color[1] & p->by_type[PAWN]);
-    initializeCounters(pcCount + 1, wSquares, 1, p->by_color[1] & p->by_type[KNIGHT]);
-    initializeCounters(pcCount + 2, wSquares, 2, p->by_color[1] & p->by_type[BISHOP]);
-    initializeCounters(pcCount + 3, wSquares, 3, p->by_color[1] & p->by_type[ROOK]);
-    initializeCounters(pcCount + 4, wSquares, 4, p->by_color[1] & p->by_type[QUEEN]);
-    initializeCounters(pcCount + 5, bSquares, 0, p->by_color[0] & p->by_type[PAWN]);
-    initializeCounters(pcCount + 6, bSquares, 1, p->by_color[0] & p->by_type[KNIGHT]);
-    initializeCounters(pcCount + 7, bSquares, 2, p->by_color[0] & p->by_type[BISHOP]);
-    initializeCounters(pcCount + 8, bSquares, 3, p->by_color[0] & p->by_type[ROOK]);
-    initializeCounters(pcCount + 9, bSquares, 4, p->by_color[0] & p->by_type[QUEEN]);
+    initializeCounters(pcCount + 1, wSquares, 1,
+                       p->by_color[1] & p->by_type[KNIGHT]);
+    initializeCounters(pcCount + 2, wSquares, 2,
+                       p->by_color[1] & p->by_type[BISHOP]);
+    initializeCounters(pcCount + 3, wSquares, 3,
+                       p->by_color[1] & p->by_type[ROOK]);
+    initializeCounters(pcCount + 4, wSquares, 4,
+                       p->by_color[1] & p->by_type[QUEEN]);
+    initializeCounters(pcCount + 5, bSquares, 0,
+                       p->by_color[0] & p->by_type[PAWN]);
+    initializeCounters(pcCount + 6, bSquares, 1,
+                       p->by_color[0] & p->by_type[KNIGHT]);
+    initializeCounters(pcCount + 7, bSquares, 2,
+                       p->by_color[0] & p->by_type[BISHOP]);
+    initializeCounters(pcCount + 8, bSquares, 3,
+                       p->by_color[0] & p->by_type[ROOK]);
+    initializeCounters(pcCount + 9, bSquares, 4,
+                       p->by_color[0] & p->by_type[QUEEN]);
 
     do {
         iTB = IDescFindFromCounters(pcCount);
@@ -116,7 +127,6 @@ int probeEGTB(position_t p, int *score) {
 
         result = 1;
     } while (0);
-
 
     return result;
 }
@@ -179,7 +189,8 @@ void testEGTB() {
     while (!board.game_ended()) {
         uint32_t move = tb_move(board);
 
-        if (move == 0) break;
+        if (move == 0)
+            break;
 
         board.print();
         std::cout << board.san(move) << std::endl;

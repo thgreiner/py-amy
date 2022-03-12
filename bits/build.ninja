@@ -14,7 +14,7 @@ rule cxx
 rule link
   command = $CXX -o $out $in -L/usr/local/lib -ledgetpu.1 -ltensorflowlite -lprometheus-cpp-pull -lprometheus-cpp-core -lz -lserved
 
-build main: link main.o movegen.o magic.o attacks.o heap.o position.o perft.o edgetpu.o mcts.o board.o selfplay.o monitoring.o cli.o mytb.o
+build main: link main.o movegen.o magic.o attacks.o heap.o position.o perft.o mate.o edgetpu.o mcts.o board.o selfplay.o monitoring.o cli.o mytb.o
 
 build main.o: cxx main.cc
 
@@ -29,6 +29,8 @@ build heap.o: cc heap.c
 build position.o: cc position.c
 
 build perft.o: cc perft.c
+
+build mate.o: cc mate.c
 
 build edgetpu.o: cxx edgetpu.cc
 

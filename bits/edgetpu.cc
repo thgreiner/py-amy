@@ -9,8 +9,8 @@
 #include <utility>
 #include <vector>
 
-#include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include "edgetpu_c.h"
 #include "tensorflow/lite/kernels/register.h"
@@ -94,7 +94,6 @@ time_t EdgeTpuModel::get_modification_time() {
     }
     return -1;
 }
-
 
 bool EdgeTpuModel::has_changed_on_disc() {
     return mtime != get_modification_time();
