@@ -7,7 +7,7 @@
 
 static const int INF = 10000;
 
-static uint64_t nodes;
+static unsigned int nodes;
 
 static int negascout(restrict heap_t heap, const restrict position_t pos,
                      int depth, int ply, int alpha, int beta) {
@@ -66,7 +66,7 @@ static int negascout(restrict heap_t heap, const restrict position_t pos,
 }
 
 uint32_t mate_search(restrict heap_t heap, const restrict position_t pos,
-                     int max_depth, uint64_t budget) {
+                     int max_depth, unsigned int budget) {
 
     struct timeval begin, end;
     gettimeofday(&begin, 0);
@@ -123,11 +123,12 @@ uint32_t mate_search(restrict heap_t heap, const restrict position_t pos,
     }
     pop_section(heap);
 
+    gettimeofday(&end, 0);
     long seconds = end.tv_sec - begin.tv_sec;
     long microseconds = end.tv_usec - begin.tv_usec;
     float elapsed = seconds + microseconds * 1e-6;
 
-    printf("Mate search visited %llu nodes in %.2fs.\n", nodes, elapsed);
+    printf("Mate search visited %u nodes in %.2fs.\n", nodes, elapsed);
 
     if (value < (INF - 400)) {
         best_move = 0;
