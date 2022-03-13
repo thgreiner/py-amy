@@ -2,7 +2,6 @@
 
 from chess_input import Repr2D
 
-import numpy as np
 import time
 import argparse
 
@@ -12,21 +11,15 @@ from functools import partial
 from threading import Thread
 from queue import PriorityQueue
 
-from prometheus_client import start_http_server, Counter, Gauge
+from prometheus_client import start_http_server
 
-from network import load_or_create_model, schedule_learn_rate
+from network import load_or_create_model
 
 from pgn_reader import end_of_input_item, randomize_item
 
-from train_stats import Stats
-
-import tensorflow_model_optimization as tfmot
+from train_loop import train_epoch
 
 import pickle
-
-# Checkpoint every "CHEKCPOINT" updates
-CHECKPOINT = 100_000
-
 
 def wait_for_queue_to_fill(q):
     old_qsize = None
@@ -90,92 +83,20 @@ if __name__ == "__main__":
 
     model_name = args.model
 
-    with tfmot.quantization.keras.quantize_scope():
-        model = load_or_create_model(model_name)
-        model.summary()
-
-    repr = Repr2D()
-
-    batch_size = args.batch_size
+    model = load_or_create_model(model_name)
+    model.summary()
 
     start_time = time.perf_counter()
-
-    pos_counter = Counter("training_position_total", "Positions seen by training")
-    batch_no_counter = Counter("training_batch_total", "Training batches")
-    learn_rate_gauge = Gauge("training_learn_rate", "Learn rate")
-    qsize_gauge = Gauge("training_qsize", "Queue size")
 
     queue = PriorityQueue(maxsize=200000)
 
     start_http_server(9099)
 
-    for iteration in range(20):
-
-        stats = Stats()
-
-        train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
-        train_labels1 = np.zeros((batch_size, 4672), np.float32)
-        train_labels2 = np.zeros((batch_size, 1), np.float32)
-        train_labels3 = np.zeros((batch_size, 3), np.float32)
-
-        cnt = 0
-        samples = 0
-        checkpoint_no = 0
-        checkpoint_next = CHECKPOINT
-        batch_no = 0
+    for epoch in range(20):
 
         start_pos_gen_thread(queue, args.test)
 
-        while True:
-
-            item = queue.get()
-
-            if item.data_board is None:
-                break
-
-            pos_counter.inc()
-            qsize_gauge.set(queue.qsize())
-
-            train_data_board[cnt] = item.data_board
-            train_labels1[cnt] = item.label_moves.todense().reshape(4672)
-            train_labels2[cnt, 0] = item.label_value
-            train_labels3[cnt] = item.label_wdl
-
-            cnt += 1
-
-            if cnt >= batch_size:
-                # print(train_labels2)
-                train_data = [train_data_board]
-                train_labels = [train_labels1, train_labels2, train_labels3]
-
-                if not args.test:
-                    lr = schedule_learn_rate(model, iteration, batch_no)
-                    learn_rate_gauge.set(lr)
-
-                batch_no += 1
-                batch_no_counter.inc()
-
-                if args.test:
-                    results = model.test_on_batch(train_data, train_labels)
-                else:
-                    results = model.train_on_batch(train_data, train_labels)
-
-                elapsed = time.perf_counter() - start_time
-
-                samples += cnt
-                print(f"{iteration}.{samples}: {stats(results, cnt)} in {elapsed:.1f}s", end='\r')
-
-                start_time = time.perf_counter()
-
-                cnt = 0
-                if samples >= checkpoint_next and not args.test:
-                    checkpoint_no += 1
-                    checkpoint_name = f"checkpoint-{checkpoint_no}.h5"
-                    print(f"Checkpointing model to {checkpoint_name}")
-                    model.save(checkpoint_name)
-                    checkpoint_next += CHECKPOINT
-
-        stats.write_to_file(model.name)
+        train_epoch(model, args.batch_size, epoch, queue, args.test)
 
         if args.test:
             break
@@ -184,7 +105,5 @@ if __name__ == "__main__":
             model.save("combined-model.h5")
         else:
             model.save(model_name)
-
-        # Every 2 iterations, double the batch size
-        # if iteration % 2 == 1:
-        #     batch_size *= 2
+            history_name = f"{model_name.removesuffix('.h5')}-{time.strftime('%Y-%m-%d-%H-%M-%S')}.h5"
+            model.save(f"model_history/{history_name}")

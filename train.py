@@ -1,32 +1,18 @@
 #!/usr/bin/env python3
 
-import chess
-from chess import Board
-import chess.pgn
-
-from chess_input import Repr2D
-
-import numpy as np
-import sys
-import time
 import argparse
+import time
 from functools import partial
 
 from threading import Thread
 from queue import PriorityQueue
 
-from prometheus_client import start_http_server, Counter, Gauge
+from prometheus_client import start_http_server
 
-from network import load_or_create_model, schedule_learn_rate
+from network import load_or_create_model
 
-from pgn_reader import pos_generator, randomize_item
-
-from train_stats import Stats
-
-import tensorflow_model_optimization as tfmot
-
-# Checkpoint every "CHEKCPOINT" updates
-CHECKPOINT = 100_000
+from pgn_reader import pos_generator
+from train_loop import train_epoch
 
 
 def wait_for_queue_to_fill(q):
@@ -57,107 +43,31 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     model_name = args.model
-
-    with tfmot.quantization.keras.quantize_scope():
-        model = load_or_create_model(model_name)
-
-    repr = Repr2D()
+    model = load_or_create_model(model_name)
 
     batch_size = args.batch_size
 
-    start_time = time.perf_counter()
-
-    pos_counter = Counter("training_position_total", "Positions seen by training")
-    batch_no_counter = Counter("training_batch_total", "Training batches")
-    learn_rate_gauge = Gauge("training_learn_rate", "Learn rate")
-    qsize_gauge = Gauge("training_qsize", "Queue size")
-
     queue = PriorityQueue()
-    queue2 = PriorityQueue()
 
-    pos_gen = partial(pos_generator, args.filename, args.test, queue)
+    for port in range(9099, 9104):
+        try:
+            start_http_server(port)
+            print(f"Started http server on port {port}")
+            break
+        except OSError:
+            pass
 
-    t = Thread(target=pos_gen)
-    t.start()
+    for epoch in range(10):
 
-    if not args.test:
-        wait_for_queue_to_fill(queue)
+        pos_gen = partial(pos_generator, args.filename, args.test, queue)
 
-    start_http_server(9099)
+        t = Thread(target=pos_gen)
+        t.start()
 
-    for iteration in range(1):
+        if not args.test:
+            wait_for_queue_to_fill(queue)
 
-        stats = Stats()
-
-        train_data_board = np.zeros(((batch_size, 8, 8, repr.num_planes)), np.int8)
-        train_labels1 = np.zeros((batch_size, 4672), np.float32)
-        train_labels2 = np.zeros((batch_size, 1), np.float32)
-        train_labels3 = np.zeros((batch_size, 3), np.float32)
-
-        cnt = 0
-        samples = 0
-        checkpoint_no = 0
-        checkpoint_next = CHECKPOINT
-        batch_no = 0
-
-        while True:
-
-            item = queue.get()
-
-            if item.data_board is None:
-                queue2.put(item)
-                break
-
-            queue2.put(randomize_item(item))
-
-            pos_counter.inc()
-            qsize_gauge.set(queue.qsize())
-
-            train_data_board[cnt] = item.data_board
-            train_labels1[cnt] = item.label_moves.todense().reshape(4672)
-            train_labels2[cnt, 0] = item.label_value
-            train_labels3[cnt] = item.label_wdl
-
-            cnt += 1
-
-            if cnt >= batch_size:
-                # print(train_labels2)
-                train_data = [train_data_board]
-                train_labels = [train_labels1, train_labels2, train_labels3]
-
-                lr = schedule_learn_rate(model, iteration, batch_no)
-                learn_rate_gauge.set(lr)
-                batch_no += 1
-                batch_no_counter.inc()
-
-                if args.test:
-                    results = model.test_on_batch(train_data, train_labels)
-                else:
-                    results = model.train_on_batch(train_data, train_labels)
-
-                elapsed = time.perf_counter() - start_time
-
-                samples += cnt
-                print(
-                    "{}.{}: {} in {:.1f}s".format(
-                        iteration, samples, stats(results, cnt), elapsed
-                    ), end='\r'
-                )
-
-                start_time = time.perf_counter()
-
-                cnt = 0
-                if samples >= checkpoint_next and not args.test:
-                    checkpoint_no += 1
-                    checkpoint_name = "checkpoint-{}.h5".format(checkpoint_no)
-                    print("Checkpointing model to {}".format(checkpoint_name))
-                    model.save(checkpoint_name)
-                    checkpoint_next += CHECKPOINT
-
-
-        print()
-
-        stats.write_to_file(model.name)
+        train_epoch(model, args.batch_size, epoch, queue, args.test)
 
         if args.test:
             break
@@ -166,9 +76,5 @@ if __name__ == "__main__":
             model.save("combined-model.h5")
         else:
             model.save(model_name)
-
-        queue, queue2 = queue2, queue
-
-        # Every 2 iterations, double the batch size
-        if iteration % 2 == 1:
-            batch_size *= 2
+            history_name = f"{model_name.removesuffix('.h5')}-{time.strftime('%Y-%m-%d-%H-%M-%S')}.h5"
+            model.save(f"model_history/{history_name}")

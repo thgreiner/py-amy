@@ -93,8 +93,6 @@ def create_policy_head(input):
 
 
 def create_value_head(input):
-    dim = input.shape.as_list()[-1]
-
     flow = keras.layers.Conv2D(
         32,
         (1, 1),
