@@ -44,6 +44,8 @@ repr = Repr2D()
 re1 = re.compile("q=(.*); p=\[(.*)\]")
 re2 = re.compile("(.*):(.*)")
 
+repetitions = 0
+
 
 def parse_mcts_result(input):
     m = re1.match(input)
@@ -70,14 +72,16 @@ def randomize_item(item):
 
 
 def traverse_game(game, board, queue, result, sample_rate):
+    global repetitions
 
     positions_created = 0
+    pos_map = dict()
 
     for node in game.mainline():
 
         move = node.move
 
-        if node.comment and random.randint(0, 100) < sample_rate:
+        if node.comment:
 
             q, policy = parse_mcts_result(node.comment)
             q = q * 2 - 1.0
@@ -91,12 +95,20 @@ def traverse_game(game, board, queue, result, sample_rate):
             item = PrioritizedItem(
                 random.randint(0, MAX_PRIO), train_data_board, train_labels1, q, z
             )
-            queue.put(item)
 
-            positions_created += 1
+            key = board._transposition_key()
+            if key in pos_map:
+                repetitions += 1
+
+            pos_map[key] = item
 
         if move is not None:
             board.push(move)
+
+    for item in pos_map.values():
+        if random.randint(0, 99) < sample_rate:
+            queue.put(item)
+            positions_created += 1
 
     return positions_created
 
@@ -149,6 +161,8 @@ def pos_generator(filename, test_mode, queue):
     print(
         f"Parsed {cnt} games, {positions_created} positions (avg {positions_created / cnt:.1f} pos/game)."
     )
+    print(f"Repetiton suppressed: {repetitions}")
+
     queue.put(end_of_input_item())
 
 
