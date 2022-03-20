@@ -161,7 +161,7 @@ def pos_generator(filename, test_mode, queue):
     print(
         f"Parsed {cnt} games, {positions_created} positions (avg {positions_created / cnt:.1f} pos/game)."
     )
-    print(f"Repetiton suppressed: {repetitions}")
+    print(f"Repetitions suppressed: {repetitions}")
 
     queue.put(end_of_input_item())
 
