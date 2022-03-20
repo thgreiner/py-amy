@@ -125,6 +125,35 @@ def create_value_head(input):
     return eval_head, wdl_head
 
 
+def create_moves_left_head(input):
+    flow = keras.layers.Conv2D(
+        8,
+        (1, 1),
+        padding="same",
+        name="pre-mlh-conv",
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        activation=RECTIFIER,
+    )(input)
+
+    flow = keras.layers.Flatten(name="flatten-mlh")(flow)
+    flow = keras.layers.BatchNormalization(name="mlh-dense-bn", renorm=RENORM)(flow)
+
+    flow = keras.layers.Dense(
+        64,
+        name="mlh-dense",
+        kernel_regularizer=WEIGHT_REGULARIZER,
+        activation=RECTIFIER,
+    )(flow)
+
+    flow = keras.layers.BatchNormalization(name="mlh-bn", renorm=RENORM)(flow)
+
+    mlh_head = keras.layers.Dense(
+        1, activation=RECTIFIER, kernel_regularizer=WEIGHT_REGULARIZER, name="mlh"
+    )(flow)
+
+    return mlh_head
+
+
 def create_model():
     repr = Repr2D()
 
@@ -158,42 +187,41 @@ def create_model():
 
     move_output = create_policy_head(flow)
     value_output, wdl_output = create_value_head(flow)
+    mlh_output = create_moves_left_head(flow)
 
     return keras.Model(
         name="TFlite_{}".format(
             "-".join(["{}x{}".format(width, count) for width, count in layers])
         ),
         inputs=[board_input],
-        outputs=[move_output, value_output, wdl_output],
+        outputs=[move_output, value_output, wdl_output, mlh_output],
     )
 
 
-def compile_model(model, prefix=""):
-    # optimizer = AdaBelief(lr=2e-3, weight_decay=1e-4)
-    # optimizer = keras.optimizers.SGD(
-    #     lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0
-    # )
+def compile_model(model):
     optimizer = keras.optimizers.SGD(
         lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0
     )
-    # optimizer = keras.optimizers.Adam(lr=0.001)
 
     model.compile(
         optimizer=optimizer,
         loss={
-            f"{prefix}moves": keras.losses.CategoricalCrossentropy(from_logits=True),
-            f"value": "mean_squared_error",
-            f"{prefix}wdl": keras.losses.CategoricalCrossentropy(),
+            "moves": keras.losses.CategoricalCrossentropy(from_logits=True),
+            "value": "mean_squared_error",
+            "wdl": keras.losses.CategoricalCrossentropy(),
+            "mlh": keras.losses.MeanSquaredLogarithmicError(),
         },
         metrics={
-            f"{prefix}moves": ["accuracy", "top_k_categorical_accuracy"],
-            f"value": ["mae"],
-            f"{prefix}wdl": ["accuracy"],
+            "moves": ["accuracy", "top_k_categorical_accuracy"],
+            "value": ["mae"],
+            "wdl": ["accuracy"],
+            "mlh": ["mae"],
         },
         loss_weights={
-            f"{prefix}moves": 1.0,
-            f"value": 1.0,
-            f"{prefix}wdl": 0.1,
+            "moves": 1.0,
+            "value": 1.0,
+            "wdl": 0.1,
+            "mlh": 0.1,
         },
     )
 
@@ -229,6 +257,6 @@ def schedule_learn_rate(model, iteration, batch_no):
     #     1 + math.cos(t / 6 * math.pi)
     # )
 
-    learn_rate = 2e-2
+    learn_rate = 2e-3
     K.set_value(model.optimizer.lr, learn_rate)
     return learn_rate

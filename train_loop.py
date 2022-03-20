@@ -24,6 +24,7 @@ def train_epoch(model, batch_size, epoch, queue, test_mode):
     train_labels1 = np.zeros((batch_size, 4672), np.float32)
     train_labels2 = np.zeros((batch_size, 1), np.float32)
     train_labels3 = np.zeros((batch_size, 3), np.float32)
+    train_labels4 = np.zeros((batch_size, 1), np.float32)
 
     cnt = 0
     samples = 0
@@ -43,13 +44,14 @@ def train_epoch(model, batch_size, epoch, queue, test_mode):
         train_labels1[cnt] = item.label_moves.todense().reshape(4672)
         train_labels2[cnt, 0] = item.label_value
         train_labels3[cnt] = item.label_wdl
+        train_labels4[cnt] = item.label_moves_remaining
 
         cnt += 1
 
         if cnt >= batch_size:
             # print(train_labels2)
             train_data = [train_data_board]
-            train_labels = [train_labels1, train_labels2, train_labels3]
+            train_labels = [train_labels1, train_labels2, train_labels3, train_labels4]
 
             if not test_mode:
                 lr = schedule_learn_rate(model, epoch, batch_no)

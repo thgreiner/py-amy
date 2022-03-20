@@ -22,6 +22,7 @@ class PrioritizedItem:
     label_moves: Any = field(compare=False)
     label_value: Any = field(compare=False)
     label_wdl: Any = field(compare=False)
+    label_moves_remaining: Any = field(compare=False)
 
 
 def label_for_result(result, turn):
@@ -77,6 +78,8 @@ def traverse_game(game, board, queue, result, sample_rate):
     positions_created = 0
     pos_map = dict()
 
+    moves_remaining = len([x for x in game.mainline()])
+
     for node in game.mainline():
 
         move = node.move
@@ -93,8 +96,10 @@ def traverse_game(game, board, queue, result, sample_rate):
             train_labels1 = repr.policy_to_array(board, policy)
 
             item = PrioritizedItem(
-                random.randint(0, MAX_PRIO), train_data_board, train_labels1, q, z
+                random.randint(0, MAX_PRIO), train_data_board, train_labels1, q, z, moves_remaining
             )
+
+            moves_remaining -= 1
 
             key = board._transposition_key()
             if key in pos_map:
@@ -119,7 +124,7 @@ game_counter = Counter("training_game_total", "Games seen by training", ["result
 
 def pos_generator(filename, test_mode, queue):
 
-    sample_rate = 100 if test_mode else 10
+    sample_rate = 100 if test_mode else 16
 
     cnt = 0
     with open(filename) as pgn:
@@ -161,10 +166,10 @@ def pos_generator(filename, test_mode, queue):
     print(
         f"Parsed {cnt} games, {positions_created} positions (avg {positions_created / cnt:.1f} pos/game)."
     )
-    print(f"Repetitions suppressed: {repetitions}")
+    print(f"Repetiton suppressed: {repetitions}")
 
     queue.put(end_of_input_item())
 
 
 def end_of_input_item():
-    return PrioritizedItem(MAX_PRIO, None, None, None, None)
+    return PrioritizedItem(MAX_PRIO, None, None, None, None, None)
