@@ -1,4 +1,5 @@
 from time import strftime
+from network import WDL_WEIGHT, MLH_WEIGHT
 
 from prometheus_client import Gauge
 
@@ -27,7 +28,7 @@ class Stats(object):
         score_loss = step_output[2]
         wdl_loss = step_output[3]
         mlh_loss = step_output[4]
-        reg_loss = abs(loss - moves_loss - score_loss - 0.1 * (wdl_loss + mlh_loss))
+        reg_loss = abs(loss - moves_loss - score_loss - WDL_WEIGHT * wdl_loss - MLH_WEIGHT * mlh_loss)
 
         moves_accuracy = step_output[5]
         moves_top5_accuracy = step_output[6]
@@ -49,16 +50,16 @@ class Stats(object):
         self.sum_mlh += mlh_mae * cnt
         self.sum_cnt += cnt
 
-        return "loss: {:.2f} = {:.2f} + {:.3f} + {:.3f} + {:.3f}, moves: {:4.1f}% top 5: {:4.1f}%, score: {:.2f}, wdl: {:4.1f}% || avg: {:.3f}, {:.2f}% top 5: {:.2f}%, {:.3f}, wdl: {:.2f}% mlh: {:.2f}".format(
+        return "loss: {:.2f} = {:.2f} + {:.3f} + {:.3f}, moves: {:4.1f}% top 5: {:4.1f}%, score: {:.2f}, wdl: {:4.1f}%, mlh: {:2.1f} || avg: {:.3f}, {:.2f}% top 5: {:.2f}%, {:.3f}, wdl: {:.2f}% mlh: {:.1f}".format(
             loss,
             moves_loss,
             score_loss,
             reg_loss,
-            mlh_loss,
             moves_accuracy * 100,
             moves_top5_accuracy * 100,
             score_mae,
             wdl_accuracy * 100,
+            mlh_mae,
             self.sum_loss / self.sum_cnt,
             self.sum_moves_accuracy * 100 / self.sum_cnt,
             self.sum_moves_top5_accuracy * 100 / self.sum_cnt,
