@@ -16,7 +16,7 @@ INITIAL_LEARN_RATE = 1e-2
 MIN_LEARN_RATE = 1e-4
 
 WDL_WEIGHT = 0.1
-MLH_WEIGHT = 1.0 / 4000
+MLH_WEIGHT = 0.025
 
 def residual_block(input, dim, index, residual=True):
 
@@ -211,7 +211,7 @@ def compile_model(model):
             "moves": keras.losses.CategoricalCrossentropy(from_logits=True),
             "value": "mean_squared_error",
             "wdl": keras.losses.CategoricalCrossentropy(),
-            "mlh": keras.losses.Huber(10),
+            "mlh": keras.losses.MeanSquaredLogarithmicError(),
         },
         metrics={
             "moves": ["accuracy", "top_k_categorical_accuracy"],
