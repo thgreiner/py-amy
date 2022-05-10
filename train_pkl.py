@@ -18,6 +18,7 @@ from network import load_or_create_model
 from pgn_reader import end_of_input_item, randomize_item
 
 from train_loop import train_epoch
+from glob_p import find_train_files
 
 import pickle
 
@@ -35,17 +36,12 @@ def wait_for_queue_to_fill(q):
 
 def read_pickle(queue, test_mode):
 
-    if test_mode:
-        files = ["validation.pkl"]
-        sample = 100
-    else:
-        files = [f"train-{i}.pkl" for i in range(10)]
-        shuffle(files)
-        sample = 5
+    sample = 10
+    files = find_train_files(600_000, 10, test_mode)
 
     for filename in files:
-        print(f"Reading {filename}")
-        with open(f"data/{filename}", "rb") as fin:
+        print(f"Reading {filename}", end='\r')
+        with open(filename, "rb") as fin:
             try:
                 while True:
                     item = pickle.load(fin)
@@ -88,11 +84,17 @@ if __name__ == "__main__":
 
     start_time = time.perf_counter()
 
-    queue = PriorityQueue(maxsize=200000)
+    queue = PriorityQueue()
 
-    start_http_server(9099)
+    for port in range(9099, 9104):
+        try:
+            start_http_server(port)
+            print(f"Started http server on port {port}")
+            break
+        except OSError:
+            pass
 
-    for epoch in range(20):
+    for epoch in range(1):
 
         start_pos_gen_thread(queue, args.test)
 
