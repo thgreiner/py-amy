@@ -7,26 +7,37 @@ import pickle
 from random import randint
 
 from network import load_or_create_model
-import tensorflow_model_optimization as tfmot
 
 import logging
 
+from chess import Board
+from chess_input import Repr2D
+
+import tensorflow_model_optimization as tfmot
+from glob_p import find_train_files
+
 SAMPLE = 5
 
+repr = Repr2D()
 
 def representative_dataset_gen():
-    with open("data/validation.pkl", "rb") as fin:
-        try:
-            cnt = 0
+    yield [repr.board_to_array(Board()).reshape(1, 8, 8, 19).astype("float32")]
+
+    files = find_train_files(600_000, 10, True)
+    cnt = 0
+
+    for filename in files:
+        with open(filename, "rb") as fin:
             while cnt < 200:
-                item = pickle.load(fin)
-                if randint(0, 99) < SAMPLE:
-                    features = item.data_board.reshape(1, 8, 8, 19).astype("float32")
-                    yield [features]
-                    cnt += 1
-                    print(cnt, end='\r')
-        except EOFError:
-            pass
+                try:
+                    item = pickle.load(fin)
+                    if randint(0, 99) < SAMPLE:
+                        features = item.data_board.reshape(1, 8, 8, 19).astype("float32")
+                        yield [features]
+                        cnt += 1
+                        print(cnt, end='\r')
+                except EOFError:
+                    pass
 
     print(f"Provided {cnt} samples.")
 
