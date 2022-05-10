@@ -200,7 +200,7 @@ def create_model():
     )
 
 
-def compile_model(model):
+def compile_model(model, prefix=""):
     optimizer = keras.optimizers.SGD(
         lr=INITIAL_LEARN_RATE, momentum=0.9, nesterov=True, clipnorm=1.0
     )
@@ -208,22 +208,22 @@ def compile_model(model):
     model.compile(
         optimizer=optimizer,
         loss={
-            "moves": keras.losses.CategoricalCrossentropy(from_logits=True),
+            f"{prefix}moves": keras.losses.CategoricalCrossentropy(from_logits=True),
             "value": "mean_squared_error",
-            "wdl": keras.losses.CategoricalCrossentropy(),
-            "mlh": keras.losses.MeanSquaredLogarithmicError(),
+            f"{prefix}wdl": keras.losses.CategoricalCrossentropy(),
+            f"{prefix}mlh": keras.losses.MeanSquaredLogarithmicError(),
         },
         metrics={
-            "moves": ["accuracy", "top_k_categorical_accuracy"],
+            f"{prefix}moves": ["accuracy", "top_k_categorical_accuracy"],
             "value": ["mae"],
-            "wdl": ["accuracy"],
-            "mlh": ["mae"],
+            f"{prefix}wdl": ["accuracy"],
+            f"{prefix}mlh": ["mae"],
         },
         loss_weights={
-            "moves": 1.0,
+            f"{prefix}moves": 1.0,
             "value": 1.0,
-            "wdl": WDL_WEIGHT,
-            "mlh": MLH_WEIGHT,
+            f"{prefix}wdl": WDL_WEIGHT,
+            f"{prefix}mlh": MLH_WEIGHT,
         },
     )
 
