@@ -18,6 +18,7 @@ MIN_LEARN_RATE = 1e-4
 WDL_WEIGHT = 0.1
 MLH_WEIGHT = 0.025
 
+
 def residual_block(input, dim, index, residual=True):
 
     flow = keras.layers.Conv2D(

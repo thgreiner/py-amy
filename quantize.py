@@ -20,6 +20,7 @@ SAMPLE = 5
 
 repr = Repr2D()
 
+
 def representative_dataset_gen():
     yield [repr.board_to_array(Board()).reshape(1, 8, 8, 19).astype("float32")]
 
@@ -32,10 +33,12 @@ def representative_dataset_gen():
                 try:
                     item = pickle.load(fin)
                     if randint(0, 99) < SAMPLE:
-                        features = item.data_board.reshape(1, 8, 8, 19).astype("float32")
+                        features = item.data_board.reshape(1, 8, 8, 19).astype(
+                            "float32"
+                        )
                         yield [features]
                         cnt += 1
-                        print(cnt, end='\r')
+                        print(cnt, end="\r")
                 except EOFError:
                     pass
 

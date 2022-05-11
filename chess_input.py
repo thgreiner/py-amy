@@ -9,9 +9,8 @@ from numpy import zeros, int8, float32, sum
 def _is_knight_move(from_square, to_square):
     file_dist = abs((from_square & 7) - (to_square & 7))
     rank_dist = abs((from_square >> 3) - (to_square >> 3))
-    return (file_dist == 1 and rank_dist == 2) or (
-        file_dist == 2 and rank_dist == 1
-    )
+    return (file_dist == 1 and rank_dist == 2) or (file_dist == 2 and rank_dist == 1)
+
 
 def _coords(sq):
     return (sq >> 3, sq & 7)

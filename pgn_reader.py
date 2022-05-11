@@ -96,7 +96,12 @@ def traverse_game(game, board, queue, result, sample_rate):
             train_labels1 = repr.policy_to_array(board, policy)
 
             item = PrioritizedItem(
-                random.randint(0, MAX_PRIO), train_data_board, train_labels1, q, z, moves_remaining
+                random.randint(0, MAX_PRIO),
+                train_data_board,
+                train_labels1,
+                q,
+                z,
+                moves_remaining,
             )
 
             moves_remaining -= 1

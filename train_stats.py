@@ -28,7 +28,13 @@ class Stats(object):
         score_loss = step_output[2]
         wdl_loss = step_output[3]
         mlh_loss = step_output[4]
-        reg_loss = abs(loss - moves_loss - score_loss - WDL_WEIGHT * wdl_loss - MLH_WEIGHT * mlh_loss)
+        reg_loss = abs(
+            loss
+            - moves_loss
+            - score_loss
+            - WDL_WEIGHT * wdl_loss
+            - MLH_WEIGHT * mlh_loss
+        )
 
         moves_accuracy = step_output[5]
         moves_top5_accuracy = step_output[6]

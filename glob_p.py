@@ -2,11 +2,12 @@ import glob
 import os
 import random
 
-SAMPLE_RATE=10
-POSITION_COUNT=600_000
+SAMPLE_RATE = 10
+POSITION_COUNT = 600_000
+
 
 def find_train_files(position_count: int, sample_rate: int, test_mode: bool):
-    pfiles = glob.glob('data/*/position_count')
+    pfiles = glob.glob("data/*/position_count")
 
     total_count = 0
 
@@ -21,9 +22,9 @@ def find_train_files(position_count: int, sample_rate: int, test_mode: bool):
         print(dir)
 
         if test_mode:
-           data_files.extend(glob.glob(os.path.join(dir, "validation.pkl")))
+            data_files.extend(glob.glob(os.path.join(dir, "validation.pkl")))
         else:
-           data_files.extend(glob.glob(os.path.join(dir, "train-*.pkl")))
+            data_files.extend(glob.glob(os.path.join(dir, "train-*.pkl")))
 
         if total_count * sample_rate / 100 > position_count:
             break

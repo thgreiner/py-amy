@@ -14,6 +14,8 @@ from network import load_or_create_model
 from pgn_reader import pos_generator
 from train_loop import train_epoch
 
+import tensorflow_model_optimization as tfmot
+
 
 def wait_for_queue_to_fill(q):
     old_qsize = None
@@ -43,7 +45,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     model_name = args.model
-    model = load_or_create_model(model_name)
+    with tfmot.quantization.keras.quantize_scope():
+        model = load_or_create_model(model_name)
 
     batch_size = args.batch_size
 

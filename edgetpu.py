@@ -15,7 +15,7 @@ class EdgeTpuModel:
         print(f"Loading EdgeTPU model from {model_file}")
         self.make_interpreter(model_file)
         self.interpreter.allocate_tensors()
-        m = re.match('(.*/)?(.*)_edgetpu.tflite', model_file)
+        m = re.match("(.*/)?(.*)_edgetpu.tflite", model_file)
         if m:
             self.name = f"EdgeTPU ({m.group(2)})"
         else:
@@ -50,7 +50,9 @@ class EdgeTpuModel:
         scale, zero_point = self.input_quantization
         input_board = input_board / scale + zero_point
 
-        self.interpreter.tensor(self.input_index)()[0][:,:] = input_board.astype("int8")
+        self.interpreter.tensor(self.input_index)()[0][:, :] = input_board.astype(
+            "int8"
+        )
         self.interpreter.invoke()
 
         output_data = np.squeeze(self.interpreter.tensor(self.logits_index)())

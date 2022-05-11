@@ -8,8 +8,8 @@ import time
 import numpy as np
 import click
 
-class MCTS_Stats:
 
+class MCTS_Stats:
     def __init__(self, model_name, verbose, prefix=None):
         self.max_depth = 0
         self.sum_depth = 0
@@ -49,9 +49,7 @@ class MCTS_Stats:
 
             click.clear()
 
-            print(
-                f"{board}   {'White' if board.turn else 'Black'}: {self.model_name}"
-            )
+            print(f"{board}   {'White' if board.turn else 'Black'}: {self.model_name}")
             print()
             print(board.fen())
             # print()
@@ -68,7 +66,7 @@ class MCTS_Stats:
                     self.max_depth,
                     avg_depth,
                     100 * self.terminal_nodes / self.num_simulations,
-                    100 * self.root_value
+                    100 * self.root_value,
                 )
             )
             print()
@@ -154,6 +152,7 @@ class MCTS_Stats:
                     get_color(root.children[best_move].value()),
                 )
             )
+
 
 nodes_counter = Counter("nodes", "Nodes visited")
 terminal_nodes_counter = Counter("terminal_nodes", "Terminal nodes visited")

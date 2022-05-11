@@ -15,7 +15,7 @@ qsize_gauge = Gauge("training_qsize", "Queue size")
 
 
 def train_epoch(model, batch_size, epoch, queue, test_mode):
-    
+
     start_time = time.perf_counter()
     stats = Stats()
 
@@ -68,7 +68,9 @@ def train_epoch(model, batch_size, epoch, queue, test_mode):
             elapsed = time.perf_counter() - start_time
 
             samples += cnt
-            print(f"{epoch}.{samples}: {stats(results, cnt)} in {elapsed:.1f}s", end='\r')
+            print(
+                f"{epoch}.{samples}: {stats(results, cnt)} in {elapsed:.1f}s", end="\r"
+            )
 
             start_time = time.perf_counter()
 

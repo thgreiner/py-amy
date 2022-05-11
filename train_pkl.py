@@ -20,7 +20,10 @@ from pgn_reader import end_of_input_item, randomize_item
 from train_loop import train_epoch
 from glob_p import find_train_files
 
+import tensorflow_model_optimization as tfmot
+
 import pickle
+
 
 def wait_for_queue_to_fill(q):
     old_qsize = None
@@ -34,13 +37,16 @@ def wait_for_queue_to_fill(q):
         old_qsize = q.qsize()
 
 
+NFILES = 100
+
+
 def read_pickle(queue, test_mode):
 
     sample = 10
     files = find_train_files(600_000, 10, test_mode)
 
     for filename in files:
-        print(f"Reading {filename}", end='\r')
+        print(f"Reading {filename}", end="\r")
         with open(filename, "rb") as fin:
             try:
                 while True:
@@ -79,7 +85,8 @@ if __name__ == "__main__":
 
     model_name = args.model
 
-    model = load_or_create_model(model_name)
+    with tfmot.quantization.keras.quantize_scope():
+        model = load_or_create_model(model_name)
     model.summary()
 
     start_time = time.perf_counter()
