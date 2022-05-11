@@ -1,9 +1,8 @@
-import numpy as np
 import chess
+import numpy as np
 from chess import Board, Piece
+from numpy import float32, int8, sum, zeros
 from scipy.sparse import csr_matrix
-
-from numpy import zeros, int8, float32, sum
 
 
 def _is_knight_move(from_square, to_square):

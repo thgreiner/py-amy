@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
 import math
-import numpy as np
 
-from kld import KLD
-from move_selection import add_exploration_noise
-from tablebase import get_optimal_move
-from non_blocking_console import NonBlockingConsole
-from chess_input import Repr2D
+import numpy as np
 from prometheus_client import Gauge
-from mcts_stats import MCTS_Stats
+
+from chess_input import Repr2D
 from deferred_evaluator import DeferredEvaluator
+from kld import KLD
+from mcts_stats import MCTS_Stats
+from move_selection import add_exploration_noise
+from non_blocking_console import NonBlockingConsole
+from tablebase import get_optimal_move
 
 BATCH_SIZE = 32
 

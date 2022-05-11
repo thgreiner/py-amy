@@ -1,31 +1,26 @@
 #!/usr/bin/env python3
 
-from chess import Board
-import chess.pgn
-import random
+import argparse
 import math
-import numpy as np
+import random
+import sys
 import time
 import uuid
-import sys
-import argparse
-
 from datetime import date
 
-from chess_input import Repr2D
-
+import chess.pgn
 import click
-
-from searcher import Searcher, AmySearcher
-import piece_square_eval
-from pos_generator import generate_kxk
-
-from network import load_or_create_model
-from move_selection import select_root_move
-
+import numpy as np
 import tensorflow_model_optimization as tfmot
+from chess import Board
+from prometheus_client import Counter, start_http_server
 
-from prometheus_client import start_http_server, Counter
+import piece_square_eval
+from chess_input import Repr2D
+from move_selection import select_root_move
+from network import load_or_create_model
+from pos_generator import generate_kxk
+from searcher import AmySearcher, Searcher
 
 if __name__ == "__main__":
 
@@ -44,13 +39,13 @@ if __name__ == "__main__":
     start_http_server(9100)
 
     if args.model == "tflite":
-        from mcts import MCTS
         from edgetpu import EdgeTpuModel
+        from mcts import MCTS
 
         model = EdgeTpuModel("models/tflite-104x15_edgetpu.tflite")
     elif args.model.endswith("_edgetpu.tflite"):
-        from mcts import MCTS
         from edgetpu import EdgeTpuModel
+        from mcts import MCTS
 
         model = EdgeTpuModel(args.model)
     elif args.model == "tensorrt":

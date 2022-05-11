@@ -1,7 +1,7 @@
 import time
 
-from prometheus_client import Counter
 from chess.pgn import FileExporter
+from prometheus_client import Counter
 
 
 class DefaultGameSaver:

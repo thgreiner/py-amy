@@ -1,12 +1,12 @@
 # TensorFlow and tf.keras
+import math
+
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
+from tensorflow.keras.models import load_model
 
 from chess_input import Repr2D
-
-import math
 
 WEIGHT_REGULARIZER = keras.regularizers.l2(1e-4)
 RECTIFIER = "relu"

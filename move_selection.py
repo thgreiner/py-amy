@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from math import log
 from random import uniform
+
 import numpy as np
 
 
@@ -20,7 +21,7 @@ def select_root_move(tree, move_count, sample=True):
     for key, val in tree.children.items():
         if val.visit_count > 0:
             moves.append(key)
-            visits.append(val.visit_count ** k)
+            visits.append(val.visit_count**k)
 
     if sample and move_count < 15:
         idx = sample_gumbel(visits)
@@ -46,7 +47,7 @@ def select_root_move_delta(tree, move_count, sample=True, delta=0.02):
     for key, val in tree.children.items():
         if val.visit_count > 0 and val.value() > (best_value - delta):
             moves.append(key)
-            visits.append(val.visit_count ** k)
+            visits.append(val.visit_count**k)
             # print("{} {:4.1f}% {:4d}".format(key, 100*val.value(), val.visit_count))
 
     if sample and move_count < 15:
@@ -67,6 +68,7 @@ def add_exploration_noise(node):
     frac = root_exploration_fraction
     for a, n in zip(actions, noise):
         node.children[a].prior = node.children[a].prior * (1 - frac) + n * frac
+
 
 def add_bias_move(node, move):
     node.children[move].prior += 0.9

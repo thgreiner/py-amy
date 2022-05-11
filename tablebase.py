@@ -1,7 +1,8 @@
-from chess.gaviota import open_tablebase
-from chess import popcount
-from prometheus_client import Counter
 from threading import Lock
+
+from chess import popcount
+from chess.gaviota import open_tablebase
+from prometheus_client import Counter
 
 tb = open_tablebase("gtb")
 tb_probe_counter = Counter("tb_probes", "Successful tablebase probes")

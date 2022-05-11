@@ -1,12 +1,13 @@
-from prometheus_client import Counter, Histogram
-from colors import color
-from pv import variations
-from move_selection import select_root_move
-
 import textwrap
 import time
-import numpy as np
+
 import click
+import numpy as np
+from colors import color
+from prometheus_client import Counter, Histogram
+
+from move_selection import select_root_move
+from pv import variations
 
 
 class MCTS_Stats:

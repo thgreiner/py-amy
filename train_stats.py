@@ -1,7 +1,8 @@
 from time import strftime
-from network import WDL_WEIGHT, MLH_WEIGHT
 
 from prometheus_client import Gauge
+
+from network import MLH_WEIGHT, WDL_WEIGHT
 
 loss_gauge = Gauge("training_loss", "Training loss")
 moves_accuracy_gauge = Gauge("training_move_accuracy", "Move accuracy")

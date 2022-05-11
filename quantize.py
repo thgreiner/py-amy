@@ -1,20 +1,17 @@
 import argparse
-
-import tensorflow as tf
-import network
-import numpy as np
+import logging
 import pickle
 from random import randint
 
-from network import load_or_create_model
-
-import logging
-
-from chess import Board
-from chess_input import Repr2D
-
+import numpy as np
+import tensorflow as tf
 import tensorflow_model_optimization as tfmot
+from chess import Board
+
+import network
+from chess_input import Repr2D
 from glob_p import find_train_files
+from network import load_or_create_model
 
 SAMPLE = 5
 

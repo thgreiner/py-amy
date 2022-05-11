@@ -1,28 +1,21 @@
 #!/usr/bin/env python3
 
-from chess_input import Repr2D
-
-import time
 import argparse
-
-from random import shuffle, randint
+import pickle
+import time
 from functools import partial
-
-from threading import Thread
 from queue import PriorityQueue
-
-from prometheus_client import start_http_server
-
-from network import load_or_create_model
-
-from pgn_reader import end_of_input_item, randomize_item
-
-from train_loop import train_epoch
-from glob_p import find_train_files
+from random import randint, shuffle
+from threading import Thread
 
 import tensorflow_model_optimization as tfmot
+from prometheus_client import start_http_server
 
-import pickle
+from chess_input import Repr2D
+from glob_p import find_train_files
+from network import load_or_create_model
+from pgn_reader import end_of_input_item, randomize_item
+from train_loop import train_epoch
 
 
 def wait_for_queue_to_fill(q):

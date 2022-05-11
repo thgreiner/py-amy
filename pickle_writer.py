@@ -1,12 +1,12 @@
-from pgn_reader import pos_generator
-
-from threading import Thread
-from queue import PriorityQueue
-import random
-
 import argparse
 import pickle
+import random
 from functools import partial
+from queue import PriorityQueue
+from sys import exit
+from threading import Thread
+
+from pgn_reader import pos_generator
 
 NFILES = 10
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     val_cnt = 0
     train_cnt = 0
 
-    while train_cnt < 1_000_000:
+    while train_cnt < 4_000_000:
 
         item = queue.get()
         if item.data_board is None:
@@ -59,3 +59,5 @@ if __name__ == "__main__":
         f.close()
 
     print(f"Positions: {train_cnt}/{val_cnt} (training/validation)")
+
+    exit(0)

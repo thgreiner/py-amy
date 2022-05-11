@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
-import chess.pgn
-from chess_input import Repr2D
-
 import random
 import re
-
-from prometheus_client import Counter
-
 from dataclasses import dataclass, field
 from typing import Any
+
+import chess.pgn
+from prometheus_client import Counter
+
+from chess_input import Repr2D
 
 # Maximum priority to assign an item in the position queue
 MAX_PRIO = 1_000_000

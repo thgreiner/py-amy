@@ -1,7 +1,8 @@
-import tflite_runtime.interpreter as tflite
 import platform
-import numpy as np
 import re
+
+import numpy as np
+import tflite_runtime.interpreter as tflite
 
 EDGETPU_SHARED_LIB = {
     "Linux": "libedgetpu.so.1",

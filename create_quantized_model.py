@@ -1,6 +1,7 @@
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 import tensorflow_model_optimization as tfmot
+
 from network import compile_model, load_or_create_model
 
 

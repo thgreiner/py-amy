@@ -3,18 +3,15 @@
 import argparse
 import time
 from functools import partial
-
-from threading import Thread
 from queue import PriorityQueue
+from threading import Thread
 
+import tensorflow_model_optimization as tfmot
 from prometheus_client import start_http_server
 
 from network import load_or_create_model
-
 from pgn_reader import pos_generator
 from train_loop import train_epoch
-
-import tensorflow_model_optimization as tfmot
 
 
 def wait_for_queue_to_fill(q):

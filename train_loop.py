@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import numpy as np
 import time
 
-from chess_input import Repr2D
+import numpy as np
 from prometheus_client import Counter, Gauge
+
+from chess_input import Repr2D
 from network import schedule_learn_rate
 from train_stats import Stats
 
